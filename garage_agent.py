@@ -23,8 +23,9 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
 
 
-def _safe_json_loads(value: str) -> dict:
+def _safe_json_loads(value: str):
     try:
+        value = (value or "").replace("\\", "\\\\")
         return json.loads(value or "{}")
     except Exception:
         return {}
