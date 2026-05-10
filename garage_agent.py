@@ -536,7 +536,7 @@ Recent conversation:
         tool_outputs = []
 
         for call in tool_calls:
-            args = _safe_json_loads(call.arguments)
+            args = _safe_json_loads(...)
             result = _execute_tool(
                 call.name,
                 args,
