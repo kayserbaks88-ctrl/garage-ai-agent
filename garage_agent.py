@@ -81,19 +81,17 @@ def _tool_defs() -> list[dict[str, Any]]:
     return [
     {
         "type": "function",
-        "function": {
-            "name": "show_services",
-            "description": "Show available services",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "additionalProperties": False,
-            },
+        "name": "show_services",
+        "description": "Show available services",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "additionalProperties": False,
         },
-    },
+    },  
     {
         "type": "function",
-        "function": {
+        "name": {
             "name": "check_availability",
             "description": "Check if a MECHANIC is free",
             "parameters": {
@@ -110,7 +108,7 @@ def _tool_defs() -> list[dict[str, Any]]:
     },
     {
         "type": "function",
-        "function": {
+        "name": {
             "name": "book_appointment",
             "description": "Create a booking",
             "parameters": {
@@ -128,7 +126,7 @@ def _tool_defs() -> list[dict[str, Any]]:
     },
     {
         "type": "function",
-        "function": {
+        "name": {
             "name": "list_customer_bookings",
             "description": "List bookings",
             "parameters": {
@@ -140,7 +138,7 @@ def _tool_defs() -> list[dict[str, Any]]:
     },
     {
         "type": "function",
-        "function": {
+        "name": {
             "name": "cancel_customer_booking",
             "description": "Cancel booking",
             "parameters": {
@@ -155,7 +153,7 @@ def _tool_defs() -> list[dict[str, Any]]:
     },
     {
         "type": "function",
-        "function": {
+        "name": {
             "name": "reschedule_customer_booking",
             "description": "Reschedule booking",
             "parameters": {
