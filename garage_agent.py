@@ -79,96 +79,119 @@ def _format_booking(b: dict, i: int | None = None) -> str:
 
 def _tool_defs() -> list[dict[str, Any]]:
     return [
-    {
-        "type": "function",
-        "name": "show_services",
-        "description": "Show available services",
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "additionalProperties": False,
-        },
-    },  
-    {
-        "type": "function",
-        "name": {
-            "name": "check_availability",
-            "description": "Check if a MECHANIC is free",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "MECHANIC": {"type": "string", "enum": list(MECHANICS.keys())},
-                    "service": {"type": "string", "enum": list(SERVICES.keys())},
-                    "when": {"type": "string"},
-                },
-                "required": ["MECHANIC", "service", "when"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    {
-        "type": "function",
-        "name": {
-            "name": "book_appointment",
-            "description": "Create a booking",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "MECHANIC": {"type": "string", "enum": list(MECHANICS.keys())},
-                    "service": {"type": "string", "enum": list(SERVICES.keys())},
-                    "when": {"type": "string"},
-                    "customer_name": {"type": "string"},
-                },
-                "required": ["MECHANIC", "service", "when"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    {
-        "type": "function",
-        "name": {
-            "name": "list_customer_bookings",
-            "description": "List bookings",
+        {
+            "type": "function",
+            "name": "show_services",
+            "description": "Show available services",
             "parameters": {
                 "type": "object",
                 "properties": {},
                 "additionalProperties": False,
             },
         },
-    },
-    {
-        "type": "function",
-        "name": {
+
+        {
+            "type": "function",
+            "name": "check_availability",
+            "description": "Check if a mechanic is free",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "MECHANIC": {
+                        "type": "string",
+                        "enum": list(MECHANICS.keys())
+                    },
+                    "service": {
+                        "type": "string",
+                        "enum": list(SERVICES.keys())
+                    },
+                    "when": {
+                        "type": "string"
+                    },
+                },
+                "required": ["MECHANIC", "service", "when"],
+                "additionalProperties": False,
+            },
+        },
+
+        {
+            "type": "function",
+            "name": "book_appointment",
+            "description": "Create a booking",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "MECHANIC": {
+                        "type": "string",
+                        "enum": list(MECHANICS.keys())
+                    },
+                    "service": {
+                        "type": "string",
+                        "enum": list(SERVICES.keys())
+                    },
+                    "when": {
+                        "type": "string"
+                    },
+                    "customer_name": {
+                        "type": "string"
+                    },
+                },
+                "required": ["MECHANIC", "service", "when"],
+                "additionalProperties": False,
+            },
+        },
+
+        {
+            "type": "function",
+            "name": "list_customer_bookings",
+            "description": "List customer bookings",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+        },
+
+        {
+            "type": "function",
             "name": "cancel_customer_booking",
             "description": "Cancel booking",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "event_id": {"type": "string"},
-                    "selection": {"type": "string"},
+                    "event_id": {
+                        "type": "string"
+                    },
+                    "selection": {
+                        "type": "string"
+                    },
                 },
                 "additionalProperties": False,
             },
         },
-    },
-    {
-        "type": "function",
-        "name": {
+
+        {
+            "type": "function",
             "name": "reschedule_customer_booking",
             "description": "Reschedule booking",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "event_id": {"type": "string"},
-                    "selection": {"type": "string"},
-                    "when": {"type": "string"},
+                    "event_id": {
+                        "type": "string"
+                    },
+                    "selection": {
+                        "type": "string"
+                    },
+                    "when": {
+                        "type": "string"
+                    },
                 },
                 "required": ["when"],
                 "additionalProperties": False,
             },
         },
-    },
-]
+    ]
 
 def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | None, session: dict) -> dict:
     print("🔥 TOOL NAME CALLED:", tool_name)
