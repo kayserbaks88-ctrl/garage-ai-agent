@@ -80,45 +80,32 @@ def _format_booking(b: dict, i: int | None = None) -> str:
 def _tool_defs() -> list[dict[str, Any]]:
     return [
     {
-        "type": "function",
-        "function": {
-            "name": "show_services",
-            "description": "Show available services",
-            "parameters": {
-                "type": "object",
-                "properties": {},
-                "additionalProperties": False
-            }
-        }
-    },
-
-    {
-        "type": "function",
-        "function": {
-            "name": "check_availability",
-            "description": "Check if a MECHANIC is free",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "MECHANIC": {
-                        "type": "string",
-                        "enum": list(MECHANICS.keys())
-                    },
-                    "service": {
-                        "type": "string",
-                        "enum": list(SERVICES.keys())
-                    },
-                    "when": {
-                        "type": "string"
-                    }
+    "type": "function",
+    "function": {
+        "name": "check_availability",
+        "description": "Check if a MECHANIC is free",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "MECHANIC": {
+                    "type": "string",
+                    "enum": list(MECHANICS.keys())
                 },
-                "required": ["MECHANIC", "service", "when"],
-                "additionalProperties": False
-            }
+                "service": {
+                    "type": "string",
+                    "enum": list(SERVICES.keys())
+                },
+                "when": {
+                    "type": "string"
+                }
+            },
+            "required": ["MECHANIC", "service", "when"],
+            "additionalProperties": False
         }
-    },
-]
+    }
+},
 
+]
 
 def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | None, session: dict) -> dict:
     print("🔥 TOOL NAME CALLED:", tool_name)
