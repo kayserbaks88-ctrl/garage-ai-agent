@@ -88,15 +88,15 @@ def _tool_defs() -> list[dict[str, Any]]:
         {
             "type": "function",
             "name": "check_availability",
-            "description": "Check if a MECHANIC is free",
+            "description": "Check if a mechanic is free",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "MECHANIC": {"type": "string", "enum": list(MECHANICS.keys())},
+                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
                     "service": {"type": "string", "enum": list(SERVICES.keys())},
                     "when": {"type": "string"},
                 },
-                "required": ["MECHANIC", "service", "when"],
+                "required": ["mechanic", "service", "when"],
                 "additionalProperties": False,
             },
         },
@@ -107,12 +107,12 @@ def _tool_defs() -> list[dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "MECHANIC": {"type": "string", "enum": list(MECHANICS.keys())},
+                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
                     "service": {"type": "string", "enum": list(SERVICES.keys())},
                     "when": {"type": "string"},
                     "customer_name": {"type": "string"},
                 },
-                "required": ["MECHANIC", "service", "when"],
+                "required": ["mechanic", "service", "when"],
                 "additionalProperties": False,
             },
         },
