@@ -179,11 +179,11 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
 
             minutes = SERVICES[service]["minutes"]
             end_dt = start_dt + timedelta(minutes=minutes)
-            free = is_free(start_dt, end_dt, MECHANIC)
+            free = is_free(start_dt, end_dt, mechanic)
 
             if free:
                 session["pending_booking"] = {
-                    "MECHANIC": MECHANIC,
+                    "mechanic": mechanic,
                     "service": service,
                     "when": when_text,
                     "start_iso": start_dt.isoformat(),
@@ -192,14 +192,14 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             return {
                 "ok": True,
                 "free": free,
-                "MECHANIC": MECHANIC,
+                "mechanic": mechanic,
                 "service": service,
                 "start_iso": start_dt.isoformat(),
                 "minutes": minutes,
             }
 
         if tool_name == "book_appointment":
-            MECHANIC = args["MECHANIC"]
+            mechanic = args["mechsnic"]
             service = args["service"]
             when_text = args["when"]
 
@@ -208,7 +208,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
                 return {"ok": False, "error": "invalid_time"}
 
             print("🕒 FINAL DATETIME:", start_dt)
-            print("💈 MECHANIC:", MECHANIC)
+            print("💈 MECHANIC:", mechanic)
 
             minutes = SERVICES[service]["minutes"]
 
@@ -218,7 +218,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
                 start_dt=start_dt,
                 minutes=minutes,
                 name=customer_name,
-                MECHANIC=MECHANIC,
+                mechanic=mechanic,
             )
 
             if not result or not result.get("id"):
@@ -226,12 +226,12 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
 
             session["last_booking"] = {
                "id": result["id"],
-               "MECHANIC": MECHANIC,
+               "mechanic": mechanic,
                "service": service,
             }
 
             session.pop("pending_booking", None)
-            customer["last_booking"] = {"MECHANIC": MECHANIC, "service": service}
+            customer["last_booking"] = {"mechanic": mechanic, "service": service}
             
             return {
                 "ok": True,
@@ -353,7 +353,7 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
         customer["name"] = profile_name
 
     name = customer.get("name") or profile_name or "Customer"
-    MECHANIC = pending["MECHANIC"]
+    mechanic = pending["mechanic"]
     service = pending["service"]
     start_dt = datetime.fromisoformat(pending["start_iso"])
     minutes = SERVICES[service]["minutes"]
@@ -365,21 +365,21 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
             start_dt=start_dt,
             minutes=minutes,
             name=name,
-            MECHANIC=MECHANIC,
+            mechanic=mechanic,
         )
 
         if not result or not result.get("id"):
             return "Sorry, I couldn’t complete that booking. Try another time?"
 
         session.pop("pending_booking", None)
-        customer["last_booking"] = {"MECHANIC": MECHANIC, "service": service}
+        customer["last_booking"] = {"mechanic": mechanic, "service": service}
 
         service_label = SERVICES[service]["label"]
-        MECHANIC_name = MECHANICS[MECHANIC]["name"]
+        mechanic_name = MECHANICS[mechanic]["name"]
         nice_time = start_dt.astimezone(TIMEZONE).strftime("%A %d %b at %-I:%M %p")
         link = result.get("link")
 
-        msg = f"Nice one {name} 👌 you’re booked in!\n\n{service_label} with {MECHANIC_name}\n{nice_time}"
+        msg = f"Nice one {name} 👌 you’re booked in!\n\n{service_label} with {mechanic_name}\n{nice_time}"
         if link:
             msg += f"\n\nCalendar link: {link}"
         return msg
