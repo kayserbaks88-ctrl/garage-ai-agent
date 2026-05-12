@@ -9,7 +9,7 @@ import dateparser
 from openai import OpenAI
 
 from garage_calendar import (
-    MECHANICS,
+    mechanic,
     SERVICES,
     cancel_booking,
     create_booking,
@@ -72,9 +72,9 @@ def _format_booking(b: dict, i: int | None = None) -> str:
     start = datetime.fromisoformat(b["start"]).astimezone(TIMEZONE)
     end = datetime.fromisoformat(b["end"]).astimezone(TIMEZONE)
     label = f"{i}. " if i else ""
-    MECHANIC = MECHANICS.get(b.get("MECHANIC"), {}).get("name", b.get("MECHANIC", ""))
+    mechanic = mechanic.get(b.get("mechanic"), {}).get("name", b.get("mechanic", ""))
     service = SERVICES.get(b.get("service"), {}).get("label", b.get("service", "Booking"))
-    return f"{label}{start.strftime('%A %d %b')} at {start.strftime('%-I:%M %p')} - {service} with {MECHANIC}"
+    return f"{label}{start.strftime('%A %d %b')} at {start.strftime('%-I:%M %p')} - {service} with {mechanic}"
 
 
 def _tool_defs() -> list[dict[str, Any]]:
@@ -92,7 +92,7 @@ def _tool_defs() -> list[dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
+                    "mechanic": {"type": "string", "enum": list(mechanic.keys())},
                     "service": {"type": "string", "enum": list(SERVICES.keys())},
                     "when": {"type": "string"},
                 },
@@ -107,7 +107,7 @@ def _tool_defs() -> list[dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
+                    "mechanic": {"type": "string", "enum": list(mechanic.keys())},
                     "service": {"type": "string", "enum": list(SERVICES.keys())},
                     "when": {"type": "string"},
                     "customer_name": {"type": "string"},
@@ -208,7 +208,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
                 return {"ok": False, "error": "invalid_time"}
 
             print("🕒 FINAL DATETIME:", start_dt)
-            print("💈 MECHANIC:", mechanic)
+            print("💈 mechanic:", mechanic)
 
             minutes = SERVICES[service]["minutes"]
 
@@ -326,7 +326,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             if result:
                 session["last_booking"] = {
                     "id": booking["id"],
-                    "MECHANIC": booking.get("MECHANIC"),
+                    "mechanic": booking.get("mechanic"),
                     "service": booking.get("service"),
                 }
 
@@ -375,7 +375,7 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
         customer["last_booking"] = {"mechanic": mechanic, "service": service}
 
         service_label = SERVICES[service]["label"]
-        mechanic_name = MECHANICS[mechanic]["name"]
+        mechanic_name = mechanic[mechanic]["name"]
         nice_time = start_dt.astimezone(TIMEZONE).strftime("%A %d %b at %-I:%M %p")
         link = result.get("link")
 
@@ -484,7 +484,7 @@ Style:
 
 IMPORTANT:
 When using check_availability or book_appointment you MUST always include:
-- MECHANIC
+- mechanic
 - service
 - when
 
@@ -500,15 +500,15 @@ Business context:
 - Customer phone: {phone}
 - Customer profile name: {customer_name or "unknown"}
 
-MECHANICs:
-{json.dumps(MECHANICS, indent=2)}
+mechanic:
+{json.dumps(mechanic, indent=2)}
 
 Services:
 {json.dumps(SERVICES, indent=2)}
 
 STRICT TOOL RULES:
-- If user provides MECHANIC, service, and time, you MUST call book_appointment.
-- If user gives service/MECHANIC then later gives time, call check_availability first.
+- If user provides mechanic, service, and time, you MUST call book_appointment.
+- If user gives service/mechanic then later gives time, call check_availability first.
 - If user confirms with yes/ok, do not ask for details again.
 - Never confirm a booking unless a tool result says it succeeded.
 - If user asks to cancel, call cancel_customer_booking.
@@ -522,7 +522,7 @@ Rules:
 - Prefer natural conversation over rigid menus.
 - Only show services menu if asked or if user is too vague.
 - If booking info is incomplete, ask only for the missing detail.
-- For successful bookings, confirm MECHANIC, service, date, time, and include calendar link if present.
+- For successful bookings, confirm mechanic, service, date, time, and include calendar link if present.
 - Keep replies short and natural.
 
 Recent conversation:
