@@ -169,7 +169,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             return {"ok": True, "text": _friendly_services_text()}
 
         if tool_name == "check_availability":
-            MECHANIC = args["MECHANIC"]
+            mechanic = args["mechanic"]
             service = args["service"]
             when_text = args["when"]
 
