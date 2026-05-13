@@ -9,8 +9,8 @@ import dateparser
 from openai import OpenAI
 
 from garage_calendar import (
-    mechanic,
-    service,
+    MECHANICS,
+    SERVICES,
     cancel_booking,
     create_booking,
     is_free,
@@ -34,7 +34,7 @@ def _safe_json_loads(value: str):
 def _friendly_service_text() -> str:
     return "\n".join(
         f"- {svc['label']} ({svc['minutes']} mins)"
-        for svc in service.values()
+        for svc in SERVICES.values()
     )
 
 
@@ -92,8 +92,8 @@ def _tool_defs() -> list[dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "mechanic": {"type": "string", "enum": list(mechanic.keys())},
-                    "service": {"type": "string", "enum": list(service.keys())},
+                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
+                    "service": {"type": "string", "enum": list(SERVICES.keys())},
                     "when": {"type": "string"},
                 },
                 "required": ["mechanic", "service", "when"],
@@ -107,8 +107,8 @@ def _tool_defs() -> list[dict[str, Any]]:
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "mechanic": {"type": "string", "enum": list(mechanic.keys())},
-                    "service": {"type": "string", "enum": list(service.keys())},
+                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
+                    "service": {"type": "string", "enum": list(SERVICES.keys())},
                     "when": {"type": "string"},
                     "customer_name": {"type": "string"},
                 },
@@ -514,10 +514,10 @@ Business context:
 - Customer profile name: {customer_name or "unknown"}
 
 mechanic:
-{json.dumps(mechanic, indent=2)}
+{json.dumps(MECHANICS, indent=2)}
 
 service:
-{json.dumps(service, indent=2)}
+{json.dumps(SERVICES, indent=2)}
 
 STRICT TOOL RULES:
 - If user provides mechanic, service, and time, you MUST call book_appointment.
