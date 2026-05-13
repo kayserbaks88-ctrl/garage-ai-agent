@@ -10,7 +10,7 @@ from openai import OpenAI
 
 from garage_calendar import (
     mechanic,
-    SERVICES,
+    service,
     cancel_booking,
     create_booking,
     is_free,
@@ -31,10 +31,10 @@ def _safe_json_loads(value: str):
         return {}
 
 
-def _friendly_services_text() -> str:
+def _friendly_service_text() -> str:
     return "\n".join(
         f"- {svc['label']} ({svc['minutes']} mins)"
-        for svc in SERVICES.values()
+        for svc in service.values()
     )
 
 
@@ -73,7 +73,7 @@ def _format_booking(b: dict, i: int | None = None) -> str:
     end = datetime.fromisoformat(b["end"]).astimezone(TIMEZONE)
     label = f"{i}. " if i else ""
     mechanic = mechanic.get(b.get("mechanic"), {}).get("name", b.get("mechanic", ""))
-    service = SERVICES.get(b.get("service"), {}).get("label", b.get("service", "Booking"))
+    service = service.get(b.get("service"), {}).get("label", b.get("service", "Booking"))
     return f"{label}{start.strftime('%A %d %b')} at {start.strftime('%-I:%M %p')} - {service} with {mechanic}"
 
 
@@ -81,8 +81,8 @@ def _tool_defs() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
-            "name": "show_services",
-            "description": "Show available services",
+            "name": "show_service",
+            "description": "Show available service",
             "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -93,7 +93,7 @@ def _tool_defs() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "mechanic": {"type": "string", "enum": list(mechanic.keys())},
-                    "service": {"type": "string", "enum": list(SERVICES.keys())},
+                    "service": {"type": "string", "enum": list(service.keys())},
                     "when": {"type": "string"},
                 },
                 "required": ["mechanic", "service", "when"],
@@ -108,7 +108,7 @@ def _tool_defs() -> list[dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "mechanic": {"type": "string", "enum": list(mechanic.keys())},
-                    "service": {"type": "string", "enum": list(SERVICES.keys())},
+                    "service": {"type": "string", "enum": list(service.keys())},
                     "when": {"type": "string"},
                     "customer_name": {"type": "string"},
                 },
@@ -165,8 +165,8 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
     customer_name = (args.get("customer_name") or customer.get("name") or profile_name or "Customer").strip()
 
     try:
-        if tool_name == "show_services":
-            return {"ok": True, "text": _friendly_services_text()}
+        if tool_name == "show_service":
+            return {"ok": True, "text": _friendly_service_text()}
 
         if tool_name == "check_availability":
             mechanic = args["mechanic"]
@@ -177,7 +177,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             if not start_dt:
                 return {"ok": False, "error": "invalid_time"}
 
-            minutes = SERVICES[service]["minutes"]
+            minutes = service[service]["minutes"]
             end_dt = start_dt + timedelta(minutes=minutes)
             free = is_free(start_dt, end_dt, mechanic)
 
@@ -210,7 +210,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             print("🕒 FINAL DATETIME:", start_dt)
             print("💈 mechanic:", mechanic)
 
-            minutes = SERVICES[service]["minutes"]
+            minutes = service[service]["minutes"]
 
             result = create_booking(
                 phone=phone,
@@ -356,7 +356,7 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
     mechanic = pending["mechanic"]
     service = pending["service"]
     start_dt = datetime.fromisoformat(pending["start_iso"])
-    minutes = SERVICES[service]["minutes"]
+    minutes = service[service]["minutes"]
 
     try:
         result = create_booking(
@@ -374,7 +374,7 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
         session.pop("pending_booking", None)
         customer["last_booking"] = {"mechanic": mechanic, "service": service}
 
-        service_label = SERVICES[service]["label"]
+        service_label = service[service]["label"]
         mechanic_name = mechanic[mechanic]["name"]
         nice_time = start_dt.astimezone(TIMEZONE).strftime("%A %d %b at %-I:%M %p")
         link = result.get("link")
@@ -469,7 +469,7 @@ def run_receptionist_agent(
 You are the WhatsApp receptionist for {business_name}.
 
 You help customers:
-- book vehicle services
+- book vehicle service
 - ask questions about repairs
 - check availability
 - reschedule appointments
@@ -516,8 +516,8 @@ Business context:
 mechanic:
 {json.dumps(mechanic, indent=2)}
 
-Services:
-{json.dumps(SERVICES, indent=2)}
+service:
+{json.dumps(service, indent=2)}
 
 STRICT TOOL RULES:
 - If user provides mechanic, service, and time, you MUST call book_appointment.
@@ -533,7 +533,7 @@ STRICT TOOL RULES:
 
 Rules:
 - Prefer natural conversation over rigid menus.
-- Only show services menu if asked or if user is too vague.
+- Only show service menu if asked or if user is too vague.
 - If booking info is incomplete, ask only for the missing detail.
 - For successful bookings, confirm mechanic, service, date, time, and include calendar link if present.
 - Keep replies short and natural.
