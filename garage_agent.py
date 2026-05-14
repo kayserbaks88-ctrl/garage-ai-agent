@@ -169,11 +169,20 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             return {"ok": True, "text": _friendly_service_text()}
 
         if tool_name == "check_availability":
-            mechanic = args["mechanic"]
-            service = args["service"]
-            when_text = args["when"]
+            mechanic = args.get("mechanic", "garage")
+            service = args.get("service")
+            when = args.get("when")
+
+            if not service or not when:
+                return {
+                    "ok": False,
+                    "error": "missing_required_fields"
+                }
+
+            when_text = when
 
             start_dt = _parse_when(when_text)
+
             if not start_dt:
                 return {"ok": False, "error": "invalid_time"}
 
