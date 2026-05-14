@@ -505,7 +505,7 @@ Never call tools with empty arguments.
 
 If the customer says MOT, use service="mot"
 
-If the customer does not specify a mechanic, choose the default mechanic "garage".
+If the customer does not specify a mechanic, ALWAYS use mechanic="garage".
 
 Business context:
 - Current date/time: {current_time}
