@@ -57,7 +57,7 @@ def _event_end(start_dt: datetime, minutes: int) -> datetime:
 
 def is_free(start_dt: datetime, end_dt: datetime, mechanic: str, ignore_event_id: str | None = None) -> bool:
     service = _get_service()
-    calendar_id = calendar_id = _calendar_id_for_mechanic(mechanic)
+    calendar_id = _calendar_id_for_mechanic(mechanic)
 
     events_result = service.events().list(
         calendarId=calendar_id,
@@ -215,7 +215,7 @@ def reschedule_booking(event_id: str, new_start: datetime) -> dict | None:
 
             private = (event.get("extendedProperties", {}) or {}).get("private", {})
 
-            service_name = private.get("service", "haircut")
+            service_name = private.get("service", "mot")
             mechanic = private.get("mechanic", mechanic_key)
 
             minutes = SERVICES.get(service_name, {}).get("minutes", 30)

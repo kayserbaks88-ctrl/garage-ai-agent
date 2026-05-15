@@ -72,8 +72,8 @@ def _format_booking(b: dict, i: int | None = None) -> str:
     start = datetime.fromisoformat(b["start"]).astimezone(TIMEZONE)
     end = datetime.fromisoformat(b["end"]).astimezone(TIMEZONE)
     label = f"{i}. " if i else ""
-    mechanic = mechanic.get(b.get("mechanic"), {}).get("name", b.get("mechanic", ""))
-    service = service.get(b.get("service"), {}).get("label", b.get("service", "Booking"))
+    mechanic = MECHANICS.get(b.get("mechanic"), {}).get("name", b.get("mechanic", ""))
+    service = SERVICES.get(b.get("service"), {}).get("label", b.get("service", "Booking"))
     return f"{label}{start.strftime('%A %d %b')} at {start.strftime('%-I:%M %p')} - {service} with {mechanic}"
 
 
@@ -201,7 +201,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
 
 
         if tool_name == "book_appointment":
-            mechanic = args["mechsnic"]
+            mechanic = args["mechanic"]
             service = args["service"]
             when_text = args["when"]
 
@@ -212,7 +212,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             print("🕒 FINAL DATETIME:", start_dt)
             print("💈 mechanic:", mechanic)
 
-            minutes = service[service]["minutes"]
+            minutes = SERVICES[service]["minutes"]
 
             result = create_booking(
                 phone=phone,
@@ -358,7 +358,7 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
     mechanic = pending["mechanic"]
     service = pending["service"]
     start_dt = datetime.fromisoformat(pending["start_iso"])
-    minutes = service[service]["minutes"]
+    minutes = SERVICES[service]["minutes"]
 
     try:
         result = create_booking(
@@ -376,8 +376,8 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
         session.pop("pending_booking", None)
         customer["last_booking"] = {"mechanic": mechanic, "service": service}
 
-        service_label = service[service]["label"]
-        mechanic_name = mechanic[mechanic]["name"]
+        service_label = SERVICES[service]["label"]
+        mechanic_name = MECHANICS[mechanic]["name"]
         nice_time = start_dt.astimezone(TIMEZONE).strftime("%A %d %b at %-I:%M %p")
         link = result.get("link")
 
@@ -563,7 +563,7 @@ Recent conversation:
         tool_outputs = []
 
         for call in tool_calls:
-            args = _safe_json_loads(...)
+            args = _safe_json_loads(getattr(call, "arguments", None) or "{}")
             result = _execute_tool(
                 call.name,
                 args,
