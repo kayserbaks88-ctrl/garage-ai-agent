@@ -168,25 +168,17 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
         if tool_name == "show_service":
             return {"ok": True, "text": _friendly_service_text()}
 
+        
         if tool_name == "check_availability":
-            mechanic = args.get("mechanic", "garage")
-            service = args.get("service")
-            when = args.get("when")
-
-            if not service or not when:
-                return {
-                    "ok": False,
-                    "error": "missing_required_fields"
-                }
-
-            when_text = when
+            mechanic = args["mechanic"]
+            service = args["service"]
+            when_text = args["when"]
 
             start_dt = _parse_when(when_text)
-
             if not start_dt:
                 return {"ok": False, "error": "invalid_time"}
 
-            minutes = service[service]["minutes"]
+            minutes = SERVICES[service]["minutes"]
             end_dt = start_dt + timedelta(minutes=minutes)
             free = is_free(start_dt, end_dt, mechanic)
 
@@ -206,6 +198,7 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
                 "start_iso": start_dt.isoformat(),
                 "minutes": minutes,
             }
+
 
         if tool_name == "book_appointment":
             mechanic = args["mechsnic"]
