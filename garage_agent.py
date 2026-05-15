@@ -24,9 +24,10 @@ TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
 
 
 def _safe_json_loads(value: str):
-    try:        
+    try:
         return json.loads(value or "{}")
-    except Exception:
+    except Exception as e:
+        print("JSON LOAD ERROR:", e)
         return {}
 
 
@@ -562,7 +563,8 @@ Recent conversation:
         tool_outputs = []
 
         for call in tool_calls:
-            args = json.loads(call.arguments or "{}")
+            args = _safe_json_loads(call.arguments)
+
             result = _execute_tool(
                 call.name,
                 args,
