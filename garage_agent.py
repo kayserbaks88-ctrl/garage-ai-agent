@@ -23,18 +23,14 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
 
 
-def _safe_json_loads(value: str):
+def _safe_json_loads(value: str) -> dict:
     try:
-        value = (value or "").replace("\\", "\\\\")
-        print("RAW JSON:", value)
-        return json.loads(value)
-
-    except Exception as e:
-        print("JSON LOAD ERROR:", e)
-        print("BROKEN JSON:", value)
+        return json.loads(value or "{}")
+    except Exception:
         return {}
 
-def _friendly_service_text() -> str:
+
+def _friendly_services_text() -> str:
     return "\n".join(
         f"- {svc['label']} ({svc['minutes']} mins)"
         for svc in SERVICES.values()
@@ -84,8 +80,8 @@ def _tool_defs() -> list[dict[str, Any]]:
     return [
         {
             "type": "function",
-            "name": "show_service",
-            "description": "Show available service",
+            "name": "show_services",
+            "description": "Show available services",
             "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
         },
         {
@@ -168,10 +164,9 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
     customer_name = (args.get("customer_name") or customer.get("name") or profile_name or "Customer").strip()
 
     try:
-        if tool_name == "show_service":
-            return {"ok": True, "text": _friendly_service_text()}
+        if tool_name == "show_services":
+            return {"ok": True, "text": _friendly_services_text()}
 
-        
         if tool_name == "check_availability":
             mechanic = args["mechanic"]
             service = args["service"]
@@ -201,7 +196,6 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
                 "start_iso": start_dt.isoformat(),
                 "minutes": minutes,
             }
-
 
         if tool_name == "book_appointment":
             mechanic = args["mechanic"]
@@ -473,13 +467,6 @@ def run_receptionist_agent(
     instructions = f"""
 You are the WhatsApp receptionist for {business_name}.
 
-You help customers:
-- book vehicle service
-- ask questions about repairs
-- check availability
-- reschedule appointments
-- get pricing information
-
 Style:
 - Sound like a friendly human receptionist.
 - Use natural WhatsApp language.
@@ -487,41 +474,16 @@ Style:
 - Be warm, clear, and business-like.
 - Never mention tools, JSON, schemas, function calls, or internal logic.
 
-IMPORTANT:
-
-When calling check_availability or book_appointment you MUST include:
-- mechanic
-- service
-- when
-
-Never call tools with empty arguments.
-
-If the customer does not specify a mechanic, use mechanic="garage".
-
-If the customer says MOT, use service="mot".
-
-IMPORTANT:
-When using check_availability or book_appointment you MUST always include:
-- mechanic
-- service
-- when
-
-Never call tools with empty arguments.
-
-If the customer says MOT, use service="mot"
-
-If the customer does not specify a mechanic, ALWAYS use mechanic="garage".
-
 Business context:
 - Current date/time: {current_time}
 - Timezone: {timezone_name}
 - Customer phone: {phone}
 - Customer profile name: {customer_name or "unknown"}
 
-mechanic:
+MECHANICS:
 {json.dumps(MECHANICS, indent=2)}
 
-service:
+Services:
 {json.dumps(SERVICES, indent=2)}
 
 STRICT TOOL RULES:
@@ -538,7 +500,7 @@ STRICT TOOL RULES:
 
 Rules:
 - Prefer natural conversation over rigid menus.
-- Only show service menu if asked or if user is too vague.
+- Only show services menu if asked or if user is too vague.
 - If booking info is incomplete, ask only for the missing detail.
 - For successful bookings, confirm mechanic, service, date, time, and include calendar link if present.
 - Keep replies short and natural.
@@ -567,7 +529,6 @@ Recent conversation:
 
         for call in tool_calls:
             args = _safe_json_loads(call.arguments)
-
             result = _execute_tool(
                 call.name,
                 args,
