@@ -25,11 +25,12 @@ TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
 
 def _safe_json_loads(value: str):
     try:
-        return json.loads(value or "{}")
+        value = (value or "").replace("\\", "\\\\")
+        return json.loads(value)
     except Exception as e:
         print("JSON LOAD ERROR:", e)
+        print("RAW JSON:", value)
         return {}
-
 
 def _friendly_service_text() -> str:
     return "\n".join(
