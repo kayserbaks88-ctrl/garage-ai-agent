@@ -1,4 +1,5 @@
 import json
+import traceback
 import os
 import re
 from datetime import datetime, timedelta
@@ -355,8 +356,15 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
         return {"ok": False, "error": f"Unknown tool: {tool_name}"}
 
     except Exception as e:
-        print("❌ TOOL ERROR:", tool_name, e)
-        return {"ok": False, "error": str(e), "tool_name": tool_name, "args": args}
+        print("❌ TOOL ERROR:", tool_name)
+        traceback.print_exc()
+
+        return {
+            "ok": False,
+            "error": str(e),
+            "tool_name": tool_name,
+            "args": args
+        }
 
 
 def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | None:
