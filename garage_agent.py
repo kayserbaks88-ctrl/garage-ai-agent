@@ -24,14 +24,20 @@ TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
 
 
 def _safe_json_loads(value: str):
-    print("RAW TOOL ARGUMENTS:")
-    print(repr(value))   # VERY IMPORTANT
-
     try:
-        return json.loads(value or "{}")
+        print("RAW ARGUMENTS:", repr(value))
+
+        cleaned = (value or "{}")
+
+        cleaned = cleaned.replace("\\_", "_")
+        cleaned = cleaned.replace("\\'", "'")
+        cleaned = cleaned.replace('\\"', '"')
+
+        return json.loads(cleaned)
 
     except Exception as e:
-        print("JSON ERROR:", e)
+        print("JSON LOAD ERROR:", e)
+        print("FAILED JSON:", value)
         return {}
 
 
