@@ -176,7 +176,13 @@ def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | No
             service = args["service"]
             when_text = args["when"]
 
-            start_dt = _parse_when(when_text)
+            from datetime import datetime
+
+            try:
+                start_dt = datetime.fromisoformat(when_text)
+            except:
+                start_dt = _parse_when(when_text)
+
             if not start_dt:
                 return {"ok": False, "error": "invalid_time"}
 
