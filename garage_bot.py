@@ -1,67 +1,63 @@
 import os
 from zoneinfo import ZoneInfo
 
+from dotenv import load_dotenv
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
+
 from garage_agent import run_receptionist_agent
+
+load_dotenv()
 
 app = Flask(__name__)
 
+BUSINESS_NAME = os.getenv("BUSINESS_NAME", "RapidFix Garage")
 TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
-BUSINESS_NAME = os.getenv("BUSINESS_NAME", "TrimTech AI")
 
-# Simple memory per WhatsApp number
 SESSIONS: dict[str, dict] = {}
 
 
-def get_session(phone: str) -> dict:
-    if phone not in SESSIONS:
-        SESSIONS[phone] = {
-            "history": [],
-            "profile_name": None,
-        }
-    return SESSIONS[phone]
+@app.route("/", methods=["GET"])
+def home():
+    return {"ok": True, "service": BUSINESS_NAME}
 
 
 @app.route("/health", methods=["GET"])
 def health():
-    return {"ok": True, "service": BUSINESS_NAME}, 200
+    return {"ok": True, "service": BUSINESS_NAME}
 
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
-    from_number = request.values.get("From")
-    text = request.values.get("Body", "").strip()
-    profile_name = request.values.get("ProfileName")
+    from_number = request.values.get("From", "")
+    body = request.values.get("Body", "").strip()
+    profile_name = request.values.get("ProfileName", "")
 
-    print("📩 MESSAGE:", text)
+    session = SESSIONS.setdefault(from_number, {})
+
+    print("📩 MESSAGE:", body)
     print("👤 USER:", from_number)
 
-    reply = run_receptionist_agent(
-        user_message=text,
-        phone=from_number,
-        profile_name=profile_name,
-        session=SESSIONS.setdefault(from_number, {}),
-        business_name=BUSINESS_NAME,
-        timezone_name=str(TIMEZONE),
-    )
+    try:
+        reply = run_receptionist_agent(
+            user_message=body,
+            phone=from_number,
+            profile_name=profile_name,
+            session=session,
+            business_name=BUSINESS_NAME,
+            timezone_name=str(TIMEZONE),
+        )
+    except Exception as e:
+        print("❌ BOT ERROR:", e)
+        reply = "Sorry, something went wrong on my side. Try that again 👍"
 
     print("🤖 REPLY:", reply)
 
     resp = MessagingResponse()
     resp.message(reply)
-
     return str(resp)
-
-    # Keep a small rolling history
-    session["history"].append({"role": "user", "content": incoming_msg})
-    session["history"].append({"role": "assistant", "content": reply})
-    session["history"] = session["history"][-20:]
-
-    twiml = MessagingResponse()
-    twiml.message(reply)
-    return str(twiml)
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "10000")))
+    port = int(os.getenv("PORT", "10000"))
+    app.run(host="0.0.0.0", port=port)

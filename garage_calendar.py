@@ -10,18 +10,13 @@ TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
 
 SERVICES = {
     "mot": {"label": "MOT", "minutes": 60},
-    "full service": {"label": "Full Service", "minutes": 120},
-    "diagnostic": {"label": "Diagnostic Check", "minutes": 45},
-    "oil change": {"label": "Oil Change", "minutes": 30},
+    "full service": {"label": "Full Service", "minutes": 180},
+    "diagnostic": {"label": "Diagnostic Check", "minutes": 60},
+    "oil change": {"label": "Oil Change", "minutes": 45},
+    "brake check": {"label": "Brake Check", "minutes": 60},
 }
 
-MECHANICS = {
-    "garage": {
-        "key": "garage",
-        "name": "Garage Team",
-        "calendar_id": os.getenv("GARAGE_CALENDAR_ID", ""),
-    },
-}
+GARAGE_CALENDAR_ID = os.getenv("GARAGE_CALENDAR_ID", "")
 
 
 def _get_service():
@@ -37,29 +32,17 @@ def _get_service():
     return build("calendar", "v3", credentials=creds)
 
 
-def _calendar_id_for_mechanic(mechanic: str) -> str:
-    mechanic = (mechanic or "").strip().lower()
-
-    if mechanic not in MECHANICS:
-        raise ValueError(f"Unknown mechanic: {mechanic}")
-
-    calendar_id = MECHANICS[mechanic]["calendar_id"]
-
-    if not calendar_id:
-        raise ValueError(f"Missing calendar id for mechanic: {mechanic}")
-
-    return calendar_id
+def _calendar_id() -> str:
+    if not GARAGE_CALENDAR_ID:
+        raise ValueError("Missing GARAGE_CALENDAR_ID")
+    return GARAGE_CALENDAR_ID
 
 
-def _event_end(start_dt: datetime, minutes: int) -> datetime:
-    return start_dt + timedelta(minutes=minutes)
-
-
-def is_free(start_dt: datetime, end_dt: datetime, mechanic: str, ignore_event_id: str | None = None) -> bool:
+def is_free(start_dt: datetime, end_dt: datetime, ignore_event_id: str | None = None) -> bool:
     service = _get_service()
-    calendar_id = _calendar_id_for_mechanic(mechanic)
+    calendar_id = _calendar_id()
 
-    events_result = service.events().list(
+    result = service.events().list(
         calendarId=calendar_id,
         timeMin=start_dt.astimezone(TIMEZONE).isoformat(),
         timeMax=end_dt.astimezone(TIMEZONE).isoformat(),
@@ -67,8 +50,7 @@ def is_free(start_dt: datetime, end_dt: datetime, mechanic: str, ignore_event_id
         orderBy="startTime",
     ).execute()
 
-    items = events_result.get("items", [])
-    for event in items:
+    for event in result.get("items", []):
         if ignore_event_id and event.get("id") == ignore_event_id:
             continue
         if event.get("status") == "cancelled":
@@ -78,24 +60,34 @@ def is_free(start_dt: datetime, end_dt: datetime, mechanic: str, ignore_event_id
     return True
 
 
-def create_booking(phone: str, service_name: str, start_dt: datetime, minutes: int, name: str, mechanic: str) -> dict:
+def create_booking(
+    phone: str,
+    service_name: str,
+    start_dt: datetime,
+    minutes: int,
+    name: str,
+    vehicle: dict,
+) -> dict:
     service = _get_service()
-    calendar_id = _calendar_id_for_mechanic(mechanic)
-    end_dt = _event_end(start_dt, minutes)
+    calendar_id = _calendar_id()
 
-    if not is_free(start_dt, end_dt, mechanic):
+    end_dt = start_dt + timedelta(minutes=minutes)
+
+    if not is_free(start_dt, end_dt):
         raise ValueError("That slot is not available")
 
     service_label = SERVICES.get(service_name, {}).get("label", service_name.title())
-    mechanic_name = MECHANICS[mechanic]["name"]
+    reg = vehicle.get("reg", "Unknown reg")
+    make_model = vehicle.get("make_model", "Vehicle details not provided")
 
     event = {
-        "summary": f"{service_label} - {name}",
+        "summary": f"{service_label} - {reg} - {name}",
         "description": (
             f"Customer: {name}\n"
             f"Phone: {phone}\n"
             f"Service: {service_label}\n"
-            f"mechanic: {mechanic_name}"
+            f"Registration: {reg}\n"
+            f"Vehicle: {make_model}"
         ),
         "start": {
             "dateTime": start_dt.astimezone(TIMEZONE).isoformat(),
@@ -108,26 +100,23 @@ def create_booking(phone: str, service_name: str, start_dt: datetime, minutes: i
         "extendedProperties": {
             "private": {
                 "phone": phone,
-                "mechanic": mechanic,
                 "service": service_name,
                 "customer_name": name,
+                "reg": reg,
+                "make_model": make_model,
             }
         },
     }
-    print("RAW INPUT:", start_dt)
-    
-    print("FINAL BOOKING TIME:", start_dt)
-    print("TIMEZONE:", start_dt.tzinfo)
-    
+
     created = service.events().insert(calendarId=calendar_id, body=event).execute()
 
     return {
         "id": created.get("id"),
         "link": created.get("htmlLink"),
         "calendar_id": calendar_id,
-        "mechanic": mechanic,
         "service": service_name,
         "customer_name": name,
+        "vehicle": vehicle,
         "start": start_dt.isoformat(),
         "end": end_dt.isoformat(),
     }
@@ -135,47 +124,44 @@ def create_booking(phone: str, service_name: str, start_dt: datetime, minutes: i
 
 def list_bookings(phone: str) -> list[dict]:
     service = _get_service()
+    calendar_id = _calendar_id()
     now = datetime.now(TIMEZONE).isoformat()
+
+    result = service.events().list(
+        calendarId=calendar_id,
+        timeMin=now,
+        singleEvents=True,
+        orderBy="startTime",
+        maxResults=30,
+    ).execute()
+
     found = []
 
-    for mechanic_key, mechanic_data in MECHANICS.items():
-        calendar_id = mechanic_data["calendar_id"]
-        if not calendar_id:
+    for event in result.get("items", []):
+        if event.get("status") == "cancelled":
             continue
 
-        events_result = service.events().list(
-            calendarId=calendar_id,
-            timeMin=now,
-            singleEvents=True,
-            orderBy="startTime",
-            maxResults=20,
-        ).execute()
+        private = ((event.get("extendedProperties") or {}).get("private") or {})
+        description = event.get("description") or ""
+        event_phone = private.get("phone") or ""
 
-        items = events_result.get("items", [])
-        for event in items:
-            if event.get("status") == "cancelled":
-                continue
+        if phone != event_phone and phone not in description:
+            continue
 
-            private = ((event.get("extendedProperties") or {}).get("private") or {})
-            description = event.get("description") or ""
-            event_phone = private.get("phone") or ""
-
-            if phone != event_phone and phone not in description:
-                continue
-
-            found.append(
-                {
-                    "id": event.get("id"),
-                    "summary": event.get("summary"),
-                    "start": ((event.get("start") or {}).get("dateTime") or ""),
-                    "end": ((event.get("end") or {}).get("dateTime") or ""),
-                    "link": event.get("htmlLink"),
-                    "mechanic": private.get("mechanic", mechanic_key),
-                    "service": private.get("service"),
-                    "customer_name": private.get("customer_name"),
-                    "calendar_id": calendar_id,
-                }
-            )
+        found.append(
+            {
+                "id": event.get("id"),
+                "summary": event.get("summary"),
+                "start": (event.get("start") or {}).get("dateTime", ""),
+                "end": (event.get("end") or {}).get("dateTime", ""),
+                "link": event.get("htmlLink"),
+                "service": private.get("service"),
+                "customer_name": private.get("customer_name"),
+                "reg": private.get("reg"),
+                "make_model": private.get("make_model"),
+                "calendar_id": calendar_id,
+            }
+        )
 
     found.sort(key=lambda x: x.get("start", ""))
     return found
@@ -183,84 +169,48 @@ def list_bookings(phone: str) -> list[dict]:
 
 def cancel_booking(event_id: str) -> bool:
     service = _get_service()
+    calendar_id = _calendar_id()
 
-    for mechanic_key, mechanic_data in MECHANICS.items():
-        calendar_id = mechanic_data["calendar_id"]
-        if not calendar_id:
-            continue
-
-        try:
-            service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
-            return True
-        except Exception:
-            continue
-
-    return False
+    try:
+        service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
+        return True
+    except Exception:
+        return False
 
 
 def reschedule_booking(event_id: str, new_start: datetime) -> dict | None:
     service = _get_service()
+    calendar_id = _calendar_id()
 
-    for mechanic_key, mechanic_data in MECHANICS.items():
-        calendar_id = mechanic_data["calendar_id"]
-        if not calendar_id:
-            continue
+    event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+    private = ((event.get("extendedProperties") or {}).get("private") or {})
 
-        try:
-            # 🔥 GET the existing event FIRST
-            event = service.events().get(
-                calendarId=calendar_id,
-                eventId=event_id
-            ).execute()
+    service_name = private.get("service", "mot")
+    minutes = SERVICES.get(service_name, {"minutes": 60})["minutes"]
+    new_end = new_start + timedelta(minutes=minutes)
 
-            private = (event.get("extendedProperties", {}) or {}).get("private", {})
+    if not is_free(new_start, new_end, ignore_event_id=event_id):
+        raise ValueError("That new slot is not available")
 
-            service_name = private.get("service", "mot")
-            mechanic = private.get("mechanic", mechanic_key)
+    event["start"] = {
+        "dateTime": new_start.astimezone(TIMEZONE).isoformat(),
+        "timeZone": str(TIMEZONE),
+    }
+    event["end"] = {
+        "dateTime": new_end.astimezone(TIMEZONE).isoformat(),
+        "timeZone": str(TIMEZONE),
+    }
 
-            minutes = SERVICES.get(service_name, {}).get("minutes", 30)
+    updated = service.events().update(
+        calendarId=calendar_id,
+        eventId=event_id,
+        body=event,
+    ).execute()
 
-            # 🔥 NEW TIMES
-            start_dt = new_start.astimezone(TIMEZONE)
-            end_dt = start_dt + timedelta(minutes=minutes)
-
-            # 🔥 CHECK availability (VERY IMPORTANT)
-            if not is_free(start_dt, end_dt, mechanic, ignore_event_id=event_id):
-                return None
-
-            # 🔥 UPDATE event times
-            event["start"]["dateTime"] = start_dt.isoformat()
-            event["end"]["dateTime"] = end_dt.isoformat()
-
-            # 🔥 KEEP CLEAN summary + description
-            service_label = SERVICES.get(service_name, {}).get("label", service_name.title())
-            mechanic_name = MECHANICS.get(mechanic, {}).get("name", mechanic.title())
-
-            event["summary"] = f"{service_label} - {private.get('customer_name', '')}"
-            event["description"] = (
-                f"Customer: {private.get('customer_name')}\n"
-                f"Phone: {private.get('phone')}\n"
-                f"Service: {service_label}\n"
-                f"mechanic: {mechanic_name}"
-            )
-
-            updated = service.events().update(
-                calendarId=calendar_id,
-                eventId=event_id,
-                body=event
-            ).execute()
-
-            return {
-                "id": updated.get("id"),
-                "link": updated.get("htmlLink"),
-                "calendar_id": calendar_id,
-                "mechanic": mechanic,
-                "service": service_name,
-                "start": start_dt.isoformat(),
-                "end": end_dt.isoformat(),
-            }
-
-        except Exception as e:
-            continue
-
-    return None
+    return {
+        "id": updated.get("id"),
+        "link": updated.get("htmlLink"),
+        "service": service_name,
+        "start": new_start.isoformat(),
+        "end": new_end.isoformat(),
+    }

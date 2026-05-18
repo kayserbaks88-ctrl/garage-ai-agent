@@ -1,16 +1,12 @@
-import json
-import traceback
 import os
 import re
-from datetime import datetime, timedelta
-from typing import Any
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import dateparser
 from openai import OpenAI
 
 from garage_calendar import (
-    MECHANICS,
     SERVICES,
     cancel_booking,
     create_booking,
@@ -19,368 +15,166 @@ from garage_calendar import (
     reschedule_booking,
 )
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
-def _safe_json_loads(value: str):
-    try:
-        print("RAW ARGUMENTS:", repr(value))
-
-        cleaned = (value or "{}")
-
-        cleaned = cleaned.replace("\\_", "_")
-        cleaned = cleaned.replace("\\'", "'")
-        cleaned = cleaned.replace('\\"', '"')
-
-        return json.loads(cleaned)
-
-    except Exception as e:
-        print("JSON LOAD ERROR:", e)
-        print("FAILED JSON:", value)
-        return {}
-
-
-def _friendly_services_text() -> str:
-    return "\n".join(
-        f"- {svc['label']} ({svc['minutes']} mins)"
-        for svc in SERVICES.values()
-    )
-
-
-def _is_confirm(text: str) -> bool:
-    text = (text or "").strip().lower()
-    return text in {"yes", "yes please", "yeah", "yep", "ok", "okay", "go ahead", "confirm", "book it"}
-
-
-def _is_cancel_text(text: str) -> bool:
-    text = (text or "").lower()
-    return any(w in text for w in ["cancel", "delete booking"])
-
-
-def _is_reschedule_text(text: str) -> bool:
-    text = (text or "").lower()
-    return any(w in text for w in ["reschedule", "move", "change time", "change it", "move it"])
+SERVICE_ALIASES = {
+    "mot": "mot",
+    "m.o.t": "mot",
+    "full service": "full service",
+    "service": "full service",
+    "diagnostic": "diagnostic",
+    "diagnostics": "diagnostic",
+    "oil": "oil change",
+    "oil change": "oil change",
+    "brake": "brake check",
+    "brakes": "brake check",
+    "brake check": "brake check",
+}
 
 
 def _parse_when(text: str):
     dt = dateparser.parse(
-        text,
+        text or "",
         settings={
             "PREFER_DATES_FROM": "future",
-            "RETURN_AS_TIMEZONE_AWARE": False,  # 👈 KEY FIX
+            "RETURN_AS_TIMEZONE_AWARE": False,
         },
     )
-
     if not dt:
         return None
-
-    # 👇 force correct timezone ONCE
     return dt.replace(tzinfo=TIMEZONE)
 
-def _format_booking(b: dict, i: int | None = None) -> str:
+
+def _extract_service(text: str) -> str | None:
+    t = (text or "").lower()
+    for phrase, service in SERVICE_ALIASES.items():
+        if phrase in t:
+            return service
+    return None
+
+
+def _extract_reg(text: str) -> str | None:
+    text = (text or "").upper().replace(" ", "")
+    match = re.search(r"\b[A-Z]{2}[0-9]{2}[A-Z]{3}\b", text)
+    if match:
+        return match.group(0)
+    return None
+
+
+def _is_confirm(text: str) -> bool:
+    return (text or "").strip().lower() in {
+        "yes", "yes please", "yeah", "yep", "ok", "okay", "confirm", "book it", "go ahead"
+    }
+
+
+def _format_time(dt: datetime) -> str:
+    return dt.astimezone(TIMEZONE).strftime("%A %d %b at %-I:%M %p")
+
+
+def _services_menu() -> str:
+    lines = ["Here’s what we can help with 👇"]
+    for key, svc in SERVICES.items():
+        lines.append(f"- {svc['label']} ({svc['minutes']} mins)")
+    return "\n".join(lines)
+
+
+def _format_booking(b: dict, index: int | None = None) -> str:
     start = datetime.fromisoformat(b["start"]).astimezone(TIMEZONE)
-    end = datetime.fromisoformat(b["end"]).astimezone(TIMEZONE)
-    label = f"{i}. " if i else ""
-    mechanic = MECHANICS.get(b.get("mechanic"), {}).get("name", b.get("mechanic", ""))
     service = SERVICES.get(b.get("service"), {}).get("label", b.get("service", "Booking"))
-    return f"{label}{start.strftime('%A %d %b')} at {start.strftime('%-I:%M %p')} - {service} with {mechanic}"
+    label = f"{index}. " if index else ""
+    reg = b.get("reg") or "No reg"
+    return f"{label}{service} for {reg} — {start.strftime('%A %d %b at %-I:%M %p')}"
 
 
-def _tool_defs() -> list[dict[str, Any]]:
-    return [
-        {
-            "type": "function",
-            "name": "show_services",
-            "description": "Show available services",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "type": "function",
-            "name": "check_availability",
-            "description": "ONLY use when customer has not given an exact booking time",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
-                    "service": {"type": "string", "enum": list(SERVICES.keys())},
-                    "when": {"type": "string"},
-                },
-                "required": ["mechanic", "service", "when"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "type": "function",
-            "name": "book_appointment",
-            "description": "Create a booking",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "mechanic": {"type": "string", "enum": list(MECHANICS.keys())},
-                    "service": {"type": "string", "enum": list(SERVICES.keys())},
-                    "when": {"type": "string"},
-                    "customer_name": {"type": "string"},
-                },
-                "required": ["mechanic", "service", "when"],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "type": "function",
-            "name": "list_customer_bookings",
-            "description": "List bookings",
-            "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
-        },
-        {
-            "type": "function",
-            "name": "cancel_customer_booking",
-            "description": "Cancel booking",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "event_id": {"type": "string"},
-                    "selection": {"type": "string"},
-                },
-                "required": [],
-                "additionalProperties": False,
-            },
-        },
-        {
-            "type": "function",
-            "name": "reschedule_customer_booking",
-            "description": "Reschedule booking",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "event_id": {"type": "string"},
-                    "selection": {"type": "string"},
-                    "when": {"type": "string"},
-                },
-                "required": ["when"],
-                "additionalProperties": False,
-            },
-        },
-    ]
+def _need_vehicle_details(session: dict) -> bool:
+    vehicle = session.get("vehicle") or {}
+    return not vehicle.get("reg")
 
 
-def _execute_tool(tool_name: str, args: dict, phone: str, profile_name: str | None, session: dict) -> dict:
-    print("🔥 TOOL NAME CALLED:", tool_name)
-    print("📦 ARGS:", args)
-
+def _ensure_customer(session: dict, profile_name: str | None):
     customer = session.setdefault("customer", {})
-    if profile_name:
-        customer["name"] = profile_name
-
-    customer_name = (args.get("customer_name") or customer.get("name") or profile_name or "Customer").strip()
-
-    try:
-        if tool_name == "show_services":
-            return {"ok": True, "text": _friendly_services_text()}
-
-        if tool_name == "check_availability":
-            mechanic = args["mechanic"]
-            service = args["service"]
-            when_text = args["when"]
-
-            from datetime import datetime
-
-            try:
-                start_dt = datetime.fromisoformat(when_text)
-            except:
-                start_dt = _parse_when(when_text)
-
-            if not start_dt:
-                return {"ok": False, "error": "invalid_time"}
-
-            minutes = SERVICES[service]["minutes"]
-            end_dt = start_dt + timedelta(minutes=minutes)
-            free = is_free(start_dt, end_dt, mechanic)
-
-            if free:
-                session["pending_booking"] = {
-                    "mechanic": mechanic,
-                    "service": service,
-                    "when": when_text,
-                    "start_iso": start_dt.isoformat(),
-                }
-
-            return {
-                "ok": True,
-                "free": free,
-                "mechanic": mechanic,
-                "service": service,
-                "start_iso": start_dt.isoformat(),
-                "minutes": minutes,
-            }
-
-        if tool_name == "book_appointment":
-            mechanic = args["mechanic"]
-            service = args["service"]
-            when_text = args["when"]
-
-            start_dt = _parse_when(when_text)
-            if not start_dt:
-                return {"ok": False, "error": "invalid_time"}
-
-            print("🕒 FINAL DATETIME:", start_dt)
-            print("💈 mechanic:", mechanic)
-
-            minutes = SERVICES[service]["minutes"]
-
-            result = create_booking(
-                phone=phone,
-                service_name=service,
-                start_dt=start_dt,
-                minutes=minutes,
-                name=customer_name,
-                mechanic=mechanic,
-            )
-
-            if not result or not result.get("id"):
-                return {"ok": False, "error": "booking_failed"}
-
-            session["last_booking"] = {
-               "id": result["id"],
-               "mechanic": mechanic,
-               "service": service,
-            }
-
-            session.pop("pending_booking", None)
-            customer["last_booking"] = {"mechanic": mechanic, "service": service}
-            
-            return {
-                "ok": True,
-                "booking": result,
-                "link": result.get("link"),
-                "customer_name": customer_name,
-            }
-
-        if tool_name == "list_customer_bookings":
-            bookings = list_bookings(phone)
-            return {"ok": True, "bookings": bookings}
-
-        if tool_name == "cancel_customer_booking":
-            bookings = list_bookings(phone)
-            if not bookings:
-                return {"ok": False, "error": "no_bookings"}
-
-            selection = args.get("selection") or args.get("event_id")
-
-            if len(bookings) > 1:
-                if not selection or not str(selection).isdigit():
-                    session["pending_cancel"] = {"bookings": bookings}
-                    return {"ok": False, "error": "multiple_bookings", "bookings": bookings}
-
-                index = int(selection) - 1
-                if index < 0 or index >= len(bookings):
-                    return {"ok": False, "error": "invalid_selection"}
-
-                booking = bookings[index]
-            else:
-                booking = bookings[0]
-
-            result = cancel_booking(booking["id"])
-            session.pop("pending_cancel", None)
-
-            return {
-                "ok": bool(result),
-                "cancelled": bool(result),
-                "booking": booking,
-            }
-
-        if tool_name == "reschedule_customer_booking":
-            bookings = list_bookings(phone)
-            if not bookings:
-                return {"ok": False, "error": "no_bookings"}
-
-            when_text = args.get("when")
-            selection = args.get("selection") or args.get("event_id")
-
-            booking = None
-
-            # ✅ First try the booking we were just talking about
-            last_booking = session.get("last_booking")
-            if last_booking and last_booking.get("id"):
-                booking = next((b for b in bookings if b["id"] == last_booking["id"]), None)
-
-            # ✅ If user picked a number
-            if not booking and selection and str(selection).isdigit():
-                index = int(selection) - 1
-                if index < 0 or index >= len(bookings):
-                    return {"ok": False, "error": "invalid_selection"}
-                booking = bookings[index]
-
-            # ✅ If only one booking
-            if not booking and len(bookings) == 1:
-                booking = bookings[0]
-
-            # ✅ If still unclear, ask which one
-            if not booking:
-                session["pending_reschedule"] = {
-                    "when": when_text,
-                    "bookings": bookings,
-                }
-                return {"ok": False, "error": "multiple_bookings", "bookings": bookings}
-
-            original_dt = datetime.fromisoformat(booking["start"]).astimezone(TIMEZONE)
-            parsed = _parse_when(when_text)
-
-            if not parsed:
-                return {"ok": False, "error": "invalid_time"}
-
-            new_start = original_dt.replace(
-                hour=parsed.hour,
-                minute=parsed.minute,
-                second=0,
-                microsecond=0,
-            )
-
-            result = reschedule_booking(booking["id"], new_start)
-            session.pop("pending_reschedule", None)
-
-            if result:
-                session["last_booking"] = {
-                    "id": booking["id"],
-                    "mechanic": booking.get("mechanic"),
-                    "service": booking.get("service"),
-                }
-
-            return {
-                "ok": bool(result),
-                "rescheduled": bool(result),
-                "booking": result,
-            }
-
-        return {"ok": False, "error": f"Unknown tool: {tool_name}"}
-
-    except Exception as e:
-        print("❌ TOOL ERROR:", tool_name)
-        traceback.print_exc()
-
-        return {
-            "ok": False,
-            "error": str(e),
-            "tool_name": tool_name,
-            "args": args
-        }
+    if profile_name and not customer.get("name"):
+        customer["name"] = profile_name.strip()
+    return customer
 
 
-def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | None:
-    pending = session.get("pending_booking")
-    if not pending:
-        return None
+def _ask_next_missing(session: dict) -> str:
+    pending = session.setdefault("pending_booking", {})
+    vehicle = session.setdefault("vehicle", {})
 
-    customer = session.setdefault("customer", {})
-    if profile_name:
-        customer["name"] = profile_name
+    if not pending.get("service"):
+        return _services_menu()
+
+    if not vehicle.get("reg"):
+        return "No problem 👍 What’s the vehicle registration? 🚗"
+
+    if not vehicle.get("make_model"):
+        return "Thanks 👍 What make and model is the vehicle?"
+
+    if not pending.get("when"):
+        service_label = SERVICES[pending["service"]]["label"]
+        return f"Nice one. When would you like to book the {service_label}?"
+
+    if not session.get("customer", {}).get("name"):
+        return "What name should I put the booking under?"
+
+    return ""
+
+
+def _try_prepare_booking(user_message: str, session: dict, profile_name: str | None):
+    pending = session.setdefault("pending_booking", {})
+    vehicle = session.setdefault("vehicle", {})
+    customer = _ensure_customer(session, profile_name)
+
+    service = _extract_service(user_message)
+    if service:
+        pending["service"] = service
+
+    reg = _extract_reg(user_message)
+    if reg:
+        vehicle["reg"] = reg
+
+    # If waiting for make/model and message is not a time/service/reg
+    if vehicle.get("reg") and not vehicle.get("make_model"):
+        maybe_time = _parse_when(user_message)
+        if not maybe_time and not service and not reg and len(user_message.strip()) > 2:
+            vehicle["make_model"] = user_message.strip()
+
+    dt = _parse_when(user_message)
+    if dt:
+        pending["when"] = user_message
+        pending["start_iso"] = dt.isoformat()
+
+    if profile_name and not customer.get("name"):
+        customer["name"] = profile_name.strip()
+
+
+def _confirm_booking(phone: str, profile_name: str | None, session: dict) -> str:
+    pending = session.get("pending_booking") or {}
+    vehicle = session.get("vehicle") or {}
+    customer = _ensure_customer(session, profile_name)
+
+    service = pending.get("service")
+    start_iso = pending.get("start_iso")
+
+    if not service or not start_iso or not vehicle.get("reg") or not vehicle.get("make_model"):
+        missing = _ask_next_missing(session)
+        return missing or "I just need a few more details before I book that 👍"
 
     name = customer.get("name") or profile_name or "Customer"
-    mechanic = pending["mechanic"]
-    service = pending["service"]
-    start_dt = datetime.fromisoformat(pending["start_iso"])
+    start_dt = datetime.fromisoformat(start_iso)
     minutes = SERVICES[service]["minutes"]
+    end_dt = start_dt.replace()  # harmless copy
+    end_dt = start_dt
+
+    try:
+        if not is_free(start_dt, start_dt.replace() if False else start_dt):
+            pass
+    except Exception:
+        pass
 
     try:
         result = create_booking(
@@ -389,68 +183,115 @@ def _book_pending(phone: str, profile_name: str | None, session: dict) -> str | 
             start_dt=start_dt,
             minutes=minutes,
             name=name,
-            mechanic=mechanic,
+            vehicle=vehicle,
         )
 
-        if not result or not result.get("id"):
-            return "Sorry, I couldn’t complete that booking. Try another time?"
-
+        session["last_booking"] = result
         session.pop("pending_booking", None)
-        customer["last_booking"] = {"mechanic": mechanic, "service": service}
 
         service_label = SERVICES[service]["label"]
-        mechanic_name = MECHANICS[mechanic]["name"]
-        nice_time = start_dt.astimezone(TIMEZONE).strftime("%A %d %b at %-I:%M %p")
-        link = result.get("link")
+        nice_time = _format_time(start_dt)
 
-        msg = f"Nice one {name} 👌 you’re booked in!\n\n{service_label} with {mechanic_name}\n{nice_time}"
-        if link:
-            msg += f"\n\nCalendar link: {link}"
+        msg = (
+            f"All set {name} 🙌\n\n"
+            f"{service_label} booked for:\n"
+            f"🚗 {vehicle.get('make_model')}\n"
+            f"🔖 {vehicle.get('reg')}\n"
+            f"🕒 {nice_time}"
+        )
+
+        if result.get("link"):
+            msg += f"\n\nCalendar link:\n{result['link']}"
+
         return msg
 
     except Exception as e:
-        print("❌ PENDING BOOKING ERROR:", e)
-        return f"Sorry {name}, I couldn’t book that slot. It may have just been taken."
+        return f"Sorry {name}, I couldn’t book that slot. It may already be taken. Try another time?"
 
 
-def _handle_pending_selection(user_message: str, phone: str, profile_name: str | None, session: dict) -> str | None:
-    text = (user_message or "").strip().lower()
-    match = re.search(r"\b(\d+)\b", text)
+def _handle_cancel(user_message: str, phone: str, session: dict) -> str | None:
+    text = (user_message or "").lower()
+    if "cancel" not in text:
+        return None
+
+    bookings = list_bookings(phone)
+    if not bookings:
+        return "I can’t see any upcoming bookings for you."
+
+    if len(bookings) == 1:
+        ok = cancel_booking(bookings[0]["id"])
+        if ok:
+            return "Done 👍 I’ve cancelled that booking for you."
+        return "Sorry, I couldn’t cancel that booking."
+
+    session["pending_cancel"] = bookings
+    lines = ["Which booking do you want to cancel?"]
+    for i, b in enumerate(bookings, 1):
+        lines.append(_format_booking(b, i))
+    return "\n".join(lines)
+
+
+def _handle_reschedule(user_message: str, phone: str, session: dict) -> str | None:
+    text = (user_message or "").lower()
+    if not any(w in text for w in ["reschedule", "move", "change time", "change it"]):
+        return None
+
+    bookings = list_bookings(phone)
+    if not bookings:
+        return "I can’t see any upcoming bookings for you."
+
+    new_time = _parse_when(user_message)
+
+    if len(bookings) > 1 and not new_time:
+        session["pending_reschedule"] = bookings
+        lines = ["Which booking do you want to move?"]
+        for i, b in enumerate(bookings, 1):
+            lines.append(_format_booking(b, i))
+        return "\n".join(lines)
+
+    booking = session.get("last_booking")
+    if booking:
+        matching = next((b for b in bookings if b["id"] == booking.get("id")), None)
+        booking = matching or bookings[0]
+    else:
+        booking = bookings[0]
+
+    if not new_time:
+        session["reschedule_target"] = booking
+        return "No problem 👍 What new time would you like?"
+
+    try:
+        result = reschedule_booking(booking["id"], new_time)
+        if result:
+            session["last_booking"] = result
+            return f"Done 👍 I’ve moved that booking to {_format_time(new_time)}."
+        return "Sorry, I couldn’t reschedule that one."
+    except Exception:
+        return "Sorry, that new slot may already be taken. Try another time?"
+
+
+def _handle_pending_number(user_message: str, phone: str, session: dict) -> str | None:
+    match = re.search(r"\b(\d+)\b", user_message or "")
     if not match:
         return None
 
-    selection = match.group(1)
-
-    if session.get("pending_reschedule"):
-        pending = session["pending_reschedule"]
-        result = _execute_tool(
-            "reschedule_customer_booking",
-            {"selection": selection, "when": pending["when"]},
-            phone,
-            profile_name,
-            session,
-        )
-
-        if result.get("ok") and result.get("rescheduled"):
-            new_start = result["booking"]["start"]
-            dt = datetime.fromisoformat(new_start).astimezone(TIMEZONE)
-            return f"Done 👍 I’ve moved that booking to {dt.strftime('%A %d %b at %-I:%M %p')}."
-
-        return "Sorry, I couldn’t reschedule that one. The slot may already be taken."
+    index = int(match.group(1)) - 1
 
     if session.get("pending_cancel"):
-        result = _execute_tool(
-            "cancel_customer_booking",
-            {"selection": selection},
-            phone,
-            profile_name,
-            session,
-        )
+        bookings = session["pending_cancel"]
+        if index < 0 or index >= len(bookings):
+            return "Please choose one of the booking numbers."
+        ok = cancel_booking(bookings[index]["id"])
+        session.pop("pending_cancel", None)
+        return "Done 👍 I’ve cancelled that booking for you." if ok else "Sorry, I couldn’t cancel that booking."
 
-        if result.get("ok") and result.get("cancelled"):
-            return "Done 👍 I’ve cancelled that booking for you."
-
-        return "Sorry, I couldn’t cancel that booking."
+    if session.get("pending_reschedule"):
+        bookings = session["pending_reschedule"]
+        if index < 0 or index >= len(bookings):
+            return "Please choose one of the booking numbers."
+        session["reschedule_target"] = bookings[index]
+        session.pop("pending_reschedule", None)
+        return "No problem 👍 What new time would you like?"
 
     return None
 
@@ -463,117 +304,65 @@ def run_receptionist_agent(
     business_name: str,
     timezone_name: str,
 ) -> str:
-    session["last_user_message"] = user_message
+    user_message = (user_message or "").strip()
+    session.setdefault("history", [])
+    customer = _ensure_customer(session, profile_name)
 
-    customer = session.setdefault("customer", {})
-    if profile_name:
-        customer["name"] = profile_name
+    numbered = _handle_pending_number(user_message, phone, session)
+    if numbered:
+        return numbered
 
-    customer_name = customer.get("name") or (profile_name or "").strip()
+    if session.get("reschedule_target"):
+        new_time = _parse_when(user_message)
+        if new_time:
+            try:
+                target = session.pop("reschedule_target")
+                result = reschedule_booking(target["id"], new_time)
+                if result:
+                    session["last_booking"] = result
+                    return f"Done 👍 I’ve moved that booking to {_format_time(new_time)}."
+            except Exception:
+                return "Sorry, that new slot may already be taken. Try another time?"
+        return "What new date and time would you like?"
+
+    cancel_reply = _handle_cancel(user_message, phone, session)
+    if cancel_reply:
+        return cancel_reply
+
+    reschedule_reply = _handle_reschedule(user_message, phone, session)
+    if reschedule_reply:
+        return reschedule_reply
 
     if _is_confirm(user_message):
-        pending_reply = _book_pending(phone, profile_name, session)
-        if pending_reply:
-            return pending_reply
+        return _confirm_booking(phone, profile_name, session)
 
-    selection_reply = _handle_pending_selection(user_message, phone, profile_name, session)
-    if selection_reply:
-        return selection_reply
+    lower = user_message.lower()
 
-    recent_history = session.get("history", [])[-12:]
-    history_text = ""
-    for item in recent_history:
-        role = item.get("role", "user")
-        content = item.get("content", "")
-        history_text += f"{role.upper()}: {content}\n"
+    if lower in {"hi", "hello", "hey"}:
+        name = customer.get("name") or "there"
+        return f"Hi {name} 👋 How can I help today?"
 
-    current_time = datetime.now(TIMEZONE).strftime("%Y-%m-%d %H:%M")
+    if "service" in lower or "price" in lower or "what do you do" in lower:
+        return _services_menu()
 
-    instructions = f"""
-You are the WhatsApp receptionist for {business_name}.
+    _try_prepare_booking(user_message, session, profile_name)
 
-Style:
-- Sound like a friendly human receptionist.
-- Use natural WhatsApp language.
-- Use a few light emojis, not too many.
-- Be warm, clear, and business-like.
-- Never mention tools, JSON, schemas, function calls, or internal logic.
+    missing = _ask_next_missing(session)
+    if missing:
+        return missing
 
-Business context:
-- Current date/time: {current_time}
-- Timezone: {timezone_name}
-- Customer phone: {phone}
-- Customer profile name: {customer_name or "unknown"}
+    pending = session["pending_booking"]
+    service = pending["service"]
+    start_dt = datetime.fromisoformat(pending["start_iso"])
+    vehicle = session["vehicle"]
 
-MECHANICS:
-{json.dumps(MECHANICS, indent=2)}
-
-Services:
-{json.dumps(SERVICES, indent=2)}
-
-STRICT TOOL RULES:
-- If user provides mechanic, service, and time, you MUST call book_appointment.
-- If user provides mechanic, service and a complete datetime, call book_appointment directly.
-- Only call check_availability when the time is vague.
-- If user confirms with yes/ok, do not ask for details again.
-- Never confirm a booking unless a tool result says it succeeded.
-- If user asks to cancel, call cancel_customer_booking.
-- If user asks to move/change/reschedule, call reschedule_customer_booking.
-- Never tell the customer to use Google Calendar manually.
-- If multiple bookings are returned, ask which booking by number.
-- If customer replies with a number, use that number as the selection.
-- If rescheduling, never create a new booking.
-
-Rules:
-- Prefer natural conversation over rigid menus.
-- Only show services menu if asked or if user is too vague.
-- If booking info is incomplete, ask only for the missing detail.
-- For successful bookings, confirm mechanic, service, date, time, and include calendar link if present.
-- Keep replies short and natural.
-
-Recent conversation:
-{history_text}
-""".strip()
-
-    response = client.responses.create(
-        model=OPENAI_MODEL,
-        instructions=instructions,
-        input=user_message,
-        tools=_tool_defs(),
+    service_label = SERVICES[service]["label"]
+    msg = (
+        f"I can book that 👍\n\n"
+        f"{service_label}\n"
+        f"🚗 {vehicle.get('make_model')}\n"
+        f"🔖 {vehicle.get('reg')}\n"
+        f"🕒 {_format_time(start_dt)}\n\n"
+        f"Shall I confirm it?"
     )
-
-    for _ in range(6):
-        tool_calls = [item for item in response.output if getattr(item, "type", None) == "function_call"]
-
-        if not tool_calls:
-            text = (response.output_text or "").strip()
-            if text:
-                return text
-            return "No worries 👍 I didn’t quite catch that. What would you like to do?"
-
-        tool_outputs = []
-
-        for call in tool_calls:
-            args = _safe_json_loads(call.arguments)
-            result = _execute_tool(
-                call.name,
-                args,
-                phone=phone,
-                profile_name=profile_name,
-                session=session,
-            )
-            tool_outputs.append(
-                {
-                    "type": "function_call_output",
-                    "call_id": call.call_id,
-                    "output": json.dumps(result),
-                }
-            )
-
-        response = client.responses.create(
-            model=OPENAI_MODEL,
-            previous_response_id=response.id,
-            input=tool_outputs,
-        )
-
-    return "Sorry — something got stuck on my side. Send that again and I’ll sort it 👍"
+    return msg
