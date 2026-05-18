@@ -30,27 +30,28 @@ def health():
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
-    incoming_msg = (request.form.get("Body") or "").strip()
-    from_number = (request.form.get("From") or "").strip()
-    profile_name = (request.form.get("ProfileName") or "").strip()
+    from_number = request.values.get("From")
+    text = request.values.get("Body", "").strip()
+    profile_name = request.values.get("ProfileName")
 
-    session = get_session(from_number)
-    if profile_name:
-        session["profile_name"] = profile_name
-
-    if not incoming_msg:
-        twiml = MessagingResponse()
-        twiml.message("Hey 👋 send me a message and I’ll help with your booking.")
-        return str(twiml)
+    print("📩 MESSAGE:", text)
+    print("👤 USER:", from_number)
 
     reply = run_receptionist_agent(
-        user_message=incoming_msg,
+        user_message=text,
         phone=from_number,
-        profile_name=session.get("profile_name"),
-        session=session,
+        profile_name=profile_name,
+        session=SESSIONS.setdefault(from_number, {}),
         business_name=BUSINESS_NAME,
         timezone_name=str(TIMEZONE),
     )
+
+    print("🤖 REPLY:", reply)
+
+    resp = MessagingResponse()
+    resp.message(reply)
+
+    return str(resp)
 
     # Keep a small rolling history
     session["history"].append({"role": "user", "content": incoming_msg})
