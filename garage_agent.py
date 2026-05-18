@@ -99,7 +99,7 @@ def _tool_defs() -> list[dict[str, Any]]:
         {
             "type": "function",
             "name": "check_availability",
-            "description": "Check if a mechanic is free",
+            "description": "ONLY use when customer has not given an exact booking time",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -513,7 +513,8 @@ Services:
 
 STRICT TOOL RULES:
 - If user provides mechanic, service, and time, you MUST call book_appointment.
-- If user gives service/mechanic then later gives time, call check_availability first.
+- If user provides mechanic, service and a complete datetime, call book_appointment directly.
+- Only call check_availability when the time is vague.
 - If user confirms with yes/ok, do not ask for details again.
 - Never confirm a booking unless a tool result says it succeeded.
 - If user asks to cancel, call cancel_customer_booking.
