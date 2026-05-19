@@ -1,25 +1,14 @@
 import json
 import os
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
-
-SERVICES = {
-    "mot": {"label": "MOT", "minutes": 60},
-    "full service": {"label": "Full Service", "minutes": 180},
-    "diagnostic": {"label": "Diagnostic Check", "minutes": 60},
-    "oil change": {"label": "Oil Change", "minutes": 45},
-    "brake check": {"label": "Brake Check", "minutes": 60},
-}
-
-GARAGE_CALENDAR_ID = os.getenv("GARAGE_CALENDAR_ID", "")
+from garage_config import GARAGE_CALENDAR_ID, SERVICES, TIMEZONE
 
 
-def _get_service():
+def _get_calendar_service():
     raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
     if not raw:
         raise ValueError("Missing GOOGLE_SERVICE_ACCOUNT_JSON")
@@ -32,18 +21,17 @@ def _get_service():
     return build("calendar", "v3", credentials=creds)
 
 
-def _calendar_id() -> str:
+def _calendar_id():
     if not GARAGE_CALENDAR_ID:
         raise ValueError("Missing GARAGE_CALENDAR_ID")
     return GARAGE_CALENDAR_ID
 
 
 def is_free(start_dt: datetime, end_dt: datetime, ignore_event_id: str | None = None) -> bool:
-    service = _get_service()
-    calendar_id = _calendar_id()
+    service = _get_calendar_service()
 
     result = service.events().list(
-        calendarId=calendar_id,
+        calendarId=_calendar_id(),
         timeMin=start_dt.astimezone(TIMEZONE).isoformat(),
         timeMax=end_dt.astimezone(TIMEZONE).isoformat(),
         singleEvents=True,
@@ -62,32 +50,32 @@ def is_free(start_dt: datetime, end_dt: datetime, ignore_event_id: str | None = 
 
 def create_booking(
     phone: str,
-    service_name: str,
+    service_key: str,
     start_dt: datetime,
-    minutes: int,
-    name: str,
+    customer_name: str,
     vehicle: dict,
+    notes: str = "",
 ) -> dict:
-    service = _get_service()
-    calendar_id = _calendar_id()
-
-    end_dt = start_dt + timedelta(minutes=minutes)
+    service = _get_calendar_service()
+    svc = SERVICES[service_key]
+    end_dt = start_dt + timedelta(minutes=svc["minutes"])
 
     if not is_free(start_dt, end_dt):
-        raise ValueError("That slot is not available")
+        raise ValueError("slot_taken")
 
-    service_label = SERVICES.get(service_name, {}).get("label", service_name.title())
     reg = vehicle.get("reg", "Unknown reg")
-    make_model = vehicle.get("make_model", "Vehicle details not provided")
+    make_model = vehicle.get("make_model", "Unknown vehicle")
 
     event = {
-        "summary": f"{service_label} - {reg} - {name}",
+        "summary": f"{svc['label']} - {reg} - {customer_name}",
         "description": (
-            f"Customer: {name}\n"
+            f"Customer: {customer_name}\n"
             f"Phone: {phone}\n"
-            f"Service: {service_label}\n"
+            f"Service: {svc['label']}\n"
             f"Registration: {reg}\n"
-            f"Vehicle: {make_model}"
+            f"Vehicle: {make_model}\n"
+            f"Notes: {notes or 'None'}\n\n"
+            f"Booked via WhatsApp AI"
         ),
         "start": {
             "dateTime": start_dt.astimezone(TIMEZONE).isoformat(),
@@ -100,97 +88,94 @@ def create_booking(
         "extendedProperties": {
             "private": {
                 "phone": phone,
-                "service": service_name,
-                "customer_name": name,
+                "customer_name": customer_name,
+                "service": service_key,
                 "reg": reg,
                 "make_model": make_model,
+                "notes": notes or "",
             }
         },
     }
 
-    created = service.events().insert(calendarId=calendar_id, body=event).execute()
+    created = service.events().insert(
+        calendarId=_calendar_id(),
+        body=event,
+    ).execute()
 
     return {
         "id": created.get("id"),
         "link": created.get("htmlLink"),
-        "calendar_id": calendar_id,
-        "service": service_name,
-        "customer_name": name,
-        "vehicle": vehicle,
+        "service": service_key,
         "start": start_dt.isoformat(),
         "end": end_dt.isoformat(),
+        "customer_name": customer_name,
+        "vehicle": vehicle,
+        "notes": notes,
     }
 
 
 def list_bookings(phone: str) -> list[dict]:
-    service = _get_service()
-    calendar_id = _calendar_id()
+    service = _get_calendar_service()
     now = datetime.now(TIMEZONE).isoformat()
 
     result = service.events().list(
-        calendarId=calendar_id,
+        calendarId=_calendar_id(),
         timeMin=now,
         singleEvents=True,
         orderBy="startTime",
-        maxResults=30,
+        maxResults=20,
     ).execute()
 
-    found = []
+    bookings = []
 
     for event in result.get("items", []):
         if event.get("status") == "cancelled":
             continue
 
         private = ((event.get("extendedProperties") or {}).get("private") or {})
-        description = event.get("description") or ""
-        event_phone = private.get("phone") or ""
-
-        if phone != event_phone and phone not in description:
+        if private.get("phone") != phone:
             continue
 
-        found.append(
-            {
-                "id": event.get("id"),
-                "summary": event.get("summary"),
-                "start": (event.get("start") or {}).get("dateTime", ""),
-                "end": (event.get("end") or {}).get("dateTime", ""),
-                "link": event.get("htmlLink"),
-                "service": private.get("service"),
-                "customer_name": private.get("customer_name"),
-                "reg": private.get("reg"),
-                "make_model": private.get("make_model"),
-                "calendar_id": calendar_id,
-            }
-        )
+        bookings.append({
+            "id": event.get("id"),
+            "summary": event.get("summary"),
+            "start": (event.get("start") or {}).get("dateTime"),
+            "end": (event.get("end") or {}).get("dateTime"),
+            "link": event.get("htmlLink"),
+            "service": private.get("service"),
+            "customer_name": private.get("customer_name"),
+            "reg": private.get("reg"),
+            "make_model": private.get("make_model"),
+            "notes": private.get("notes"),
+        })
 
-    found.sort(key=lambda x: x.get("start", ""))
-    return found
+    return bookings
 
 
 def cancel_booking(event_id: str) -> bool:
-    service = _get_service()
-    calendar_id = _calendar_id()
-
-    try:
-        service.events().delete(calendarId=calendar_id, eventId=event_id).execute()
-        return True
-    except Exception:
-        return False
+    service = _get_calendar_service()
+    service.events().delete(
+        calendarId=_calendar_id(),
+        eventId=event_id,
+    ).execute()
+    return True
 
 
-def reschedule_booking(event_id: str, new_start: datetime) -> dict | None:
-    service = _get_service()
-    calendar_id = _calendar_id()
+def reschedule_booking(event_id: str, new_start: datetime) -> dict:
+    service = _get_calendar_service()
 
-    event = service.events().get(calendarId=calendar_id, eventId=event_id).execute()
+    event = service.events().get(
+        calendarId=_calendar_id(),
+        eventId=event_id,
+    ).execute()
+
     private = ((event.get("extendedProperties") or {}).get("private") or {})
-
-    service_name = private.get("service", "mot")
-    minutes = SERVICES.get(service_name, {"minutes": 60})["minutes"]
+    service_key = private.get("service", "mot")
+    minutes = SERVICES.get(service_key, SERVICES["mot"])["minutes"]
     new_end = new_start + timedelta(minutes=minutes)
 
     if not is_free(new_start, new_end, ignore_event_id=event_id):
-        raise ValueError("That new slot is not available")
+        raise ValueError("slot_taken")
 
     event["start"] = {
         "dateTime": new_start.astimezone(TIMEZONE).isoformat(),
@@ -202,7 +187,7 @@ def reschedule_booking(event_id: str, new_start: datetime) -> dict | None:
     }
 
     updated = service.events().update(
-        calendarId=calendar_id,
+        calendarId=_calendar_id(),
         eventId=event_id,
         body=event,
     ).execute()
@@ -210,7 +195,7 @@ def reschedule_booking(event_id: str, new_start: datetime) -> dict | None:
     return {
         "id": updated.get("id"),
         "link": updated.get("htmlLink"),
-        "service": service_name,
+        "service": service_key,
         "start": new_start.isoformat(),
         "end": new_end.isoformat(),
     }
