@@ -1,18 +1,14 @@
 import os
-from zoneinfo import ZoneInfo
-
 from dotenv import load_dotenv
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 
 from garage_agent import run_receptionist_agent
+from garage_config import BUSINESS_NAME, TIMEZONE_NAME
 
 load_dotenv()
 
 app = Flask(__name__)
-
-BUSINESS_NAME = os.getenv("BUSINESS_NAME", "RapidFix Garage")
-TIMEZONE = ZoneInfo(os.getenv("TIMEZONE", "Europe/London"))
 
 SESSIONS: dict[str, dict] = {}
 
@@ -38,18 +34,14 @@ def whatsapp():
     print("📩 MESSAGE:", body)
     print("👤 USER:", from_number)
 
-    try:
-        reply = run_receptionist_agent(
-            user_message=body,
-            phone=from_number,
-            profile_name=profile_name,
-            session=session,
-            business_name=BUSINESS_NAME,
-            timezone_name=str(TIMEZONE),
-        )
-    except Exception as e:
-        print("❌ BOT ERROR:", e)
-        reply = "Sorry, something went wrong on my side. Try that again 👍"
+    reply = run_receptionist_agent(
+        user_message=body,
+        phone=from_number,
+        profile_name=profile_name,
+        session=session,
+        business_name=BUSINESS_NAME,
+        timezone_name=TIMEZONE_NAME,
+    )
 
     print("🤖 REPLY:", reply)
 

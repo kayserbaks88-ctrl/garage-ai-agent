@@ -8,12 +8,21 @@ from googleapiclient.discovery import build
 from garage_config import GARAGE_CALENDAR_ID, SERVICES, TIMEZONE
 
 
-def _get_calendar_service():
+def _load_service_account_json() -> dict:
     raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
     if not raw:
         raise ValueError("Missing GOOGLE_SERVICE_ACCOUNT_JSON")
 
-    info = json.loads(raw)
+    # Render sometimes receives escaped JSON. This handles both normal JSON and quoted JSON.
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        fixed = raw.replace("\\n", "\n")
+        return json.loads(fixed)
+
+
+def _get_calendar_service():
+    info = _load_service_account_json()
     creds = service_account.Credentials.from_service_account_info(
         info,
         scopes=["https://www.googleapis.com/auth/calendar"],
@@ -21,7 +30,7 @@ def _get_calendar_service():
     return build("calendar", "v3", credentials=creds)
 
 
-def _calendar_id():
+def _calendar_id() -> str:
     if not GARAGE_CALENDAR_ID:
         raise ValueError("Missing GARAGE_CALENDAR_ID")
     return GARAGE_CALENDAR_ID
@@ -59,6 +68,8 @@ def create_booking(
     service = _get_calendar_service()
     svc = SERVICES[service_key]
     end_dt = start_dt + timedelta(minutes=svc["minutes"])
+
+    print("BOOKING ATTEMPT:", service_key, start_dt, end_dt, phone, customer_name, vehicle)
 
     if not is_free(start_dt, end_dt):
         raise ValueError("slot_taken")
@@ -149,6 +160,7 @@ def list_bookings(phone: str) -> list[dict]:
             "notes": private.get("notes"),
         })
 
+    bookings.sort(key=lambda b: b.get("start") or "")
     return bookings
 
 

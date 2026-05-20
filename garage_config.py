@@ -5,6 +5,7 @@ BUSINESS_NAME = os.getenv("BUSINESS_NAME", "TrimTech Garage")
 TIMEZONE_NAME = os.getenv("TIMEZONE", "Europe/London")
 TIMEZONE = ZoneInfo(TIMEZONE_NAME)
 
+# Single calendar for now
 GARAGE_CALENDAR_ID = os.getenv("GARAGE_CALENDAR_ID", "")
 
 SERVICES = {
@@ -49,11 +50,12 @@ SERVICE_ALIASES = {
     "mot": "mot",
     "m.o.t": "mot",
     "full service": "full_service",
+    "major service": "full_service",
     "service": "full_service",
     "diagnostic": "diagnostic",
     "diagnostics": "diagnostic",
-    "check engine": "diagnostic",
     "engine light": "diagnostic",
+    "warning light": "diagnostic",
     "oil": "oil_change",
     "oil change": "oil_change",
     "brake": "brake_check",
