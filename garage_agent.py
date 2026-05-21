@@ -1,5 +1,6 @@
 import os
 import re
+import requests
 from datetime import datetime
 
 import dateparser
@@ -12,6 +13,37 @@ from garage_calendar import (
 )
 from garage_config import SERVICES, SERVICE_ALIASES, TIMEZONE
 
+DVLA_API_KEY = os.getenv("DVLA_API_KEY")
+
+
+def lookup_vehicle(reg):
+    try:
+        response = requests.post(
+            "https://driver-vehicle-licensing.api.gov.uk/vehicle-enquiry/v1/vehicles",
+            headers={
+                "x-api-key": DVLA_API_KEY,
+                "Content-Type": "application/json",
+            },
+            json={"registrationNumber": reg},
+            timeout=10,
+        )
+
+        if response.status_code != 200:
+            print("DVLA ERROR:", response.text)
+            return None
+
+        data = response.json()
+
+        return {
+            "make_model": data.get("make"),
+            "fuel": data.get("fuelType"),
+            "colour": data.get("colour"),
+            "mot": data.get("motStatus"),
+        }
+
+    except Exception as e:
+        print("DVLA FAIL:", e)
+        return None
 
 def _parse_when(text: str):
     dt = dateparser.parse(
@@ -102,6 +134,17 @@ def _capture_message(user_message: str, session: dict):
     reg = _extract_reg(user_message)
     if reg:
         vehicle["reg"] = reg
+
+        dvla = lookup_vehicle(reg)
+
+        if dvla:
+            vehicle["make_model"] = dvla.get("make_model")
+
+            session.setdefault("vehicle", {})["fuel"] = dvla.get("fuel")
+            session.setdefault("vehicle", {})["mot"] = dvla.get("mot")
+
+            print("DVLA FOUND:", dvla)
+
         return
 
     service = _extract_service(user_message)
