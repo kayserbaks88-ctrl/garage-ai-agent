@@ -1,0 +1,20 @@
+# Environment
+.env
+
+# Virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Google credentials
+*.json
+credentials.json
+
+# VS Code
+.vscode/
+
+# OS files
+.DS_Store
