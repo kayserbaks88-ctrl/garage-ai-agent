@@ -1,6 +1,6 @@
 import os
 
-BUSINESS = os.getenv("BUSINESS", "garage")
+BUSINESS = os.getenv("BUSINESS", "barber")
 
 if BUSINESS == "garage":
     from business_configs import garage as CONFIG
