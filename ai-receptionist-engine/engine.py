@@ -6,6 +6,9 @@ if BUSINESS == "garage":
     from business_configs import garage as CONFIG
     from integrations import garage_agent
 
+elif BUSINESS == "barber":
+    from business_configs import barber as CONFIG
+
 elif BUSINESS == "cake":
     from business_configs import cake as CONFIG
 
