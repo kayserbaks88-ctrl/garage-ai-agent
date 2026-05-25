@@ -9,23 +9,16 @@ from garage_config import GARAGE_CALENDAR_ID, SERVICES, TIMEZONE
 
 
 def _load_service_account_json() -> dict:
-    raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "")
-
+    raw = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
     if not raw:
         raise ValueError("Missing GOOGLE_SERVICE_ACCOUNT_JSON")
 
+    # Render sometimes receives escaped JSON. This handles both normal JSON and quoted JSON.
     try:
-        info = json.loads(raw)
-
-    except Exception:
-        # fix escaped newlines in private_key
+        return json.loads(raw)
+    except json.JSONDecodeError:
         fixed = raw.replace("\\n", "\n")
-        info = json.loads(fixed)
-
-    if "private_key" in info:
-        info["private_key"] = info["private_key"].replace("\\n", "\n")
-
-    return info
+        return json.loads(fixed)
 
 
 def _get_calendar_service():
