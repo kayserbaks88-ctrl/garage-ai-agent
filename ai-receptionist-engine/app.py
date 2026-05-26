@@ -14,12 +14,23 @@ def home():
 def whatsapp():
 
     incoming = request.values.get("Body", "").strip()
+    phone = request.values.get("From", "")
 
     resp = MessagingResponse()
 
-    # temporary test
-    resp.message(
-        f"{get_business_name()} received: {incoming}"
-    )
+    from engine import BUSINESS
+
+    if BUSINESS == "garage":
+        from integrations.garage_agent import handle_message
+        reply = handle_message(incoming, phone)
+
+    elif BUSINESS == "barber":
+        from integrations.barber_agent import handle_message
+        reply = handle_message(incoming, phone)
+
+    else:
+        reply = f"{get_business_name()} received: {incoming}"
+
+    resp.message(reply)
 
     return str(resp)
