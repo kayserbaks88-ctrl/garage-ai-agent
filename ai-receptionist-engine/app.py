@@ -9,11 +9,6 @@ def home():
     return f"{get_business_name()} running"
 
 
-if __name__ == "__main__":
-    print("Loaded:", get_business_name())
-
-    app.run(
-        host="0.0.0.0",
-        port=int(os.environ.get("PORT",10000)),
-        debug=True
-    )
+@app.route("/health")
+def health():
+    return {"ok": True}
