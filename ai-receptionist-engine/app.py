@@ -7,11 +7,13 @@ app = Flask(__name__)
 def home():
     return f"{get_business_name()} running"
 
+import os
+
 if __name__ == "__main__":
     print("Loaded:", get_business_name())
 
     app.run(
         host="0.0.0.0",
-        port=5000,
+        port=int(os.environ.get("PORT", 10000)),
         debug=True
     )
