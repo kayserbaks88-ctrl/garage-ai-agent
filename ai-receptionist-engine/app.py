@@ -7,7 +7,6 @@ app = Flask(__name__)
 def home():
     return f"{get_business_name()} running"
 
-import os
 
 if __name__ == "__main__":
     print("Loaded:", get_business_name())
