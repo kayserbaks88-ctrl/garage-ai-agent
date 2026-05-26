@@ -1,14 +1,25 @@
-from flask import Flask
+from flask import Flask, request
+from twilio.twiml.messaging_response import MessagingResponse
 from engine import get_business_name
-import os
 
 app = Flask(__name__)
+
 
 @app.route("/")
 def home():
     return f"{get_business_name()} running"
 
 
-@app.route("/health")
-def health():
-    return {"ok": True}
+@app.route("/whatsapp", methods=["POST"])
+def whatsapp():
+
+    incoming = request.values.get("Body", "").strip()
+
+    resp = MessagingResponse()
+
+    # temporary test
+    resp.message(
+        f"{get_business_name()} received: {incoming}"
+    )
+
+    return str(resp)
