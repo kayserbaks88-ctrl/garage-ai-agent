@@ -1,16 +1,18 @@
-from engine import get_business_name
+from agent_helper import run_receptionist_agent
+
+SESSIONS = {}
 
 def handle_message(text, phone):
 
-    text = text.lower().strip()
+    session = SESSIONS.setdefault(phone, {})
 
-    if text in ["hi", "hello", "hey"]:
-        return (
-            f"Hey 👋 welcome to {get_business_name()}\n\n"
-            "• Book appointment ✂️\n"
-            "• View bookings 📅\n"
-            "• Reschedule 🔁\n"
-            "• Cancel booking ❌"
-        )
+    reply = run_receptionist_agent(
+        user_message=text,
+        phone=phone,
+        profile_name=None,
+        session=session,
+        business_name="TrimTech Barbers",
+        timezone_name="Europe/London"
+    )
 
-    return f"{get_business_name()} received: {text}"
+    return reply

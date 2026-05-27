@@ -5,17 +5,14 @@ from datetime import datetime
 
 import dateparser
 
-from integrations.garage_calendar import (
+from garage_calendar import (
     create_booking,
     cancel_booking,
     list_bookings,
     reschedule_booking,
 )
-from garage_config import (
-    SERVICES,
-    SERVICE_ALIASES,
-    TIMEZONE,
-)
+from garage_config import SERVICES, SERVICE_ALIASES, TIMEZONE
+
 
 DVLA_API_KEY = os.getenv("DVLA_API_KEY")
 

@@ -1,24 +1,14 @@
 from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
-from engine import get_business_name
+from engine import BUSINESS
 
 app = Flask(__name__)
-
-
-@app.route("/")
-def home():
-    return f"{get_business_name()} running"
-
 
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
 
-    incoming = request.values.get("Body", "").strip()
-    phone = request.values.get("From", "")
-
-    resp = MessagingResponse()
-
-    from engine import BUSINESS
+    incoming = request.values.get("Body","")
+    phone = request.values.get("From","")
 
     if BUSINESS == "garage":
         from integrations.garage_agent import handle_message
@@ -28,9 +18,7 @@ def whatsapp():
         from integrations.barber_agent import handle_message
         reply = handle_message(incoming, phone)
 
-    else:
-        reply = f"{get_business_name()} received: {incoming}"
-
+    resp = MessagingResponse()
     resp.message(reply)
 
     return str(resp)
