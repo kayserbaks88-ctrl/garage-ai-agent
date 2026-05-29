@@ -17,7 +17,14 @@ def whatsapp():
 
     elif BUSINESS == "barber":
         from integrations.barber_agent import handle_message
-        reply = handle_message(incoming, phone)
+
+        profile_name = request.values.get("ProfileName", "")
+
+        reply = handle_message(
+            incoming,
+            phone,
+            profile_name
+        )
 
     resp = MessagingResponse()
     resp.message(reply)
