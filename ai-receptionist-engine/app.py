@@ -25,8 +25,21 @@ def whatsapp():
             phone,
             profile_name
         )
+ 
+    elif BUSINESS == "lead_gen":
+        from integrations.lead_gen_agent import handle_message
 
+        profile_name = request.values.get("ProfileName", "")
+
+        reply = handle_message(
+            incoming,
+            phone,
+            profile_name
+        )
+    
     resp = MessagingResponse()
     resp.message(reply)
 
     return str(resp)
+
+    
