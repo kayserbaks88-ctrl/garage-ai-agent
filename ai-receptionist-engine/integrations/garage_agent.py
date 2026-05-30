@@ -606,3 +606,21 @@ def run_receptionist_agent(
     except Exception as e:
         print("❌ BOT ERROR:", e)
         return "Sorry, something went wrong on my side. Try that again 👍"
+
+SESSIONS = {}
+
+def handle_message(text, phone, profile_name=None):
+    session = SESSIONS.setdefault(
+        phone,
+        {}
+    )
+
+    return run_receptionist_agent(
+        user_message=text,
+        phone=phone,
+        profile_name=profile_name,
+        session=session,
+        business_name="TrimTech Garage",
+        timezone_name="Europe/London",
+    )        
+    
