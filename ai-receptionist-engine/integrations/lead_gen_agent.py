@@ -128,15 +128,7 @@ def handle_message(text, phone, profile_name=None):
 
         session["notes"] = text
 
-        create_lead(
-            name=session.get("name"),
-            phone=phone,
-            email=session.get("email"),
-            postcode=session.get("postcode"),
-            budget=session.get("budget"),
-            enquiry=session.get("enquiry"),
-            notes=session.get("notes")
-        )
+        create_lead(session, phone)
 
         notify_owner(
             name=session.get("name"),
