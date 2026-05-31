@@ -1,6 +1,8 @@
 import json
 import os
 
+from datetime import datetime, timedelta
+
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -36,6 +38,17 @@ def create_lead(session, phone):
             f"Budget: {session.get('budget')}\n"
             f"Notes: {session.get('notes')}"
         )
+    }
+    
+    body = {
+        "summary": f"NEW LEAD - {session.get('name', 'Unknown')}",
+        "description": "...",
+        "start": {
+        "date": datetime.now().date().isoformat()
+        },
+        "end": {
+        "date": (datetime.now().date() + timedelta(days=1)).isoformat()
+        }
     }
 
     service.events().insert(
