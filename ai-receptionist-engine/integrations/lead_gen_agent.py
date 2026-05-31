@@ -38,6 +38,8 @@ Postcode:
 Notes:
 {notes}
 """
+    print("OWNER:", os.getenv("OWNER_WHATSAPP"))
+    print("FROM:", os.getenv("TWILIO_WHATSAPP_NUMBER"))
 
     client.messages.create(
         body=message,
