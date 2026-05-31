@@ -2,7 +2,76 @@ SESSIONS = {}
 
 from integrations.lead_calendar import create_lead
 
+from twilio.rest import Client
+import os
+
+def notify_owner(
+    name,
+    phone,
+    email,
+    postcode,
+    budget,
+    enquiry,
+    notes
+):
+    client = Client(
+        os.getenv("TWILIO_ACCOUNT_SID"),
+        os.getenv("TWILIO_AUTH_TOKEN")
+    )
+
+    message = f"""
+🔥 NEW LEAD
+
+Name: {name}
+Phone: {phone}
+Email: {email}
+
+Enquiry:
+{enquiry}
+
+Budget:
+{budget}
+
+Postcode:
+{postcode}
+
+Notes:
+{notes}
+"""
+
+    client.messages.create(
+        body=message,
+        from_=os.getenv("TWILIO_WHATSAPP_NUMBER"),
+        to=os.getenv("OWNER_WHATSAPP")
+    )
+
 def handle_message(text, phone, profile_name=None):
+
+    text_lower = text.lower().strip()
+
+    if text_lower in ["thanks", "thank you", "cheers", "perfect", "great"]:
+        return (
+            f"You're welcome {profile_name or ''} 👍\n\n"
+            "If there's anything else you need, just let me know."
+        )
+
+    if text_lower in ["ok", "okay", "ok thanks"]:
+        return (
+            "Perfect 👍\n\n"
+            "I'm here if you need anything else."
+        )
+
+    if text_lower in ["bye", "goodbye", "see you", "speak soon"]:
+        return (
+            "Thanks for getting in touch 👋\n\n"
+            "Have a great day."
+        )
+
+    if text_lower in ["ready", "yes", "yep", "yeah"]:
+        return (
+            "Perfect 👍\n\n"
+            "How can I help today?"
+        )
 
     session = SESSIONS.setdefault(phone, {})
 
@@ -18,12 +87,7 @@ def handle_message(text, phone, profile_name=None):
             return (
                 f"Hi {profile_name or ''} 👋\n\n"
                 "Thanks for getting in touch.\n\n"
-                "How can I help today?\n\n"
-                "• Property valuation\n"
-                "• Selling a house\n"
-                "• Car finance\n"
-                "• Trade quote\n"
-                "• Mortgage enquiry"
+                "How can I help today?"
             )
 
         session["enquiry"] = text
@@ -64,7 +128,25 @@ def handle_message(text, phone, profile_name=None):
 
         session["notes"] = text
 
-        create_lead(session, phone)
+        create_lead(
+            name=session.get("name"),
+            phone=phone,
+            email=session.get("email"),
+            postcode=session.get("postcode"),
+            budget=session.get("budget"),
+            enquiry=session.get("enquiry"),
+            notes=session.get("notes")
+        )
+
+        notify_owner(
+            name=session.get("name"),
+            phone=phone,
+            email=session.get("email"),
+            postcode=session.get("postcode"),
+            budget=session.get("budget"),
+            enquiry=session.get("enquiry"),
+            notes=session.get("notes")
+        )
 
         return (
             f"Perfect {session.get('name', profile_name or '')} 👍\n\n"
