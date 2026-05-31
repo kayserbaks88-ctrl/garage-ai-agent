@@ -1,5 +1,6 @@
 SESSIONS = {}
 
+from integrations.lead_calendar import create_lead
 
 def handle_message(text, phone, profile_name=None):
 
@@ -62,6 +63,8 @@ def handle_message(text, phone, profile_name=None):
     if not session.get("notes"):
 
         session["notes"] = text
+
+        create_lead(session, phone)
 
         return (
             f"Perfect {session.get('name', profile_name or '')} 👍\n\n"
