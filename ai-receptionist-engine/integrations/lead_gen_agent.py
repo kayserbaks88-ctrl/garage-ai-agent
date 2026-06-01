@@ -1,6 +1,7 @@
 SESSIONS = {}
 
 from integrations.lead_calendar import create_lead
+from integrations.google_sheets import add_lead
 
 from twilio.rest import Client
 import os
@@ -131,6 +132,16 @@ def handle_message(text, phone, profile_name=None):
         session["notes"] = text
 
         create_lead(session, phone)
+
+        add_lead(
+            name=session.get("name"),
+            phone=phone,
+            email=session.get("email"),
+            enquiry=session.get("enquiry"),
+            budget=session.get("budget"),
+            postcode=session.get("postcode"),
+            notes=session.get("notes"),
+        )
 
         notify_owner(
             name=session.get("name"),
