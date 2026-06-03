@@ -7,7 +7,8 @@ from googleapiclient.discovery import build
 
 SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 
-
+print("SHEET_ID:", SHEET_ID)
+print("SERVICE ACCOUNT FOUND:", bool(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")))
 def get_service():
     creds_info = json.loads(
         os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
