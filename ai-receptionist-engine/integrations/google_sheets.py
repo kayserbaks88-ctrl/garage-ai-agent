@@ -13,7 +13,8 @@ def get_service():
     creds_info = json.loads(
         os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
     )
-
+    print("SERVICE ACCOUNT:", creds_info["client_email"])
+    
     creds = Credentials.from_service_account_info(
         creds_info,
         scopes=[
