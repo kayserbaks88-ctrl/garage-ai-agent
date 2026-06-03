@@ -22,7 +22,15 @@ def get_service():
         ]
     )
 
-    return build("sheets", "v4", credentials=creds)
+    service = build("sheets", "v4", credentials=creds)
+
+    sheet = service.spreadsheets().get(
+        spreadsheetId=SHEET_ID
+    ).execute()
+
+    print("SPREADSHEET TITLE:", sheet.get("properties", {}).get("title"))
+
+    return service
 
 
 def add_lead(
