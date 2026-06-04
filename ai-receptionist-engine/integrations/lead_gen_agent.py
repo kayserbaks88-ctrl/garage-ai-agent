@@ -155,11 +155,9 @@ def handle_message(text, phone, profile_name=None):
 
         return (
             f"Perfect {session.get('name', profile_name or '')} 👍\n\n"
-            f"I've captured:\n\n"
-            f"📧 {session['email']}\n"
-            f"📍 {session['postcode']}\n"
-            f"💷 {session['budget']}\n\n"
-            f"A member of the team will contact you shortly."
+            f"Thanks for your enquiry.\n\n"
+            f"A member of the team will review the details and contact you shortly."
+            f"Have a great day 😊"
         )
 
     return (
