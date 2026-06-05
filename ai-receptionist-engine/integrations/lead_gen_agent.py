@@ -153,6 +153,8 @@ def handle_message(text, phone, profile_name=None):
             notes=session.get("notes")
         )
 
+        SESSIONS.pop(phone, None)
+       
         return (
             f"Perfect {session.get('name', profile_name or '')} 👍\n\n"
             f"Thanks for your enquiry.\n\n"
