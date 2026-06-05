@@ -42,11 +42,18 @@ Notes:
     print("OWNER:", os.getenv("OWNER_WHATSAPP"))
     print("FROM:", os.getenv("TWILIO_WHATSAPP_NUMBER"))
 
-    client.messages.create(
-        body=message,
-        from_=os.getenv("TWILIO_WHATSAPP_NUMBER"),
-        to=os.getenv("OWNER_WHATSAPP")
-    )
+    try:
+        msg = client.messages.create(
+            body=message,
+            from_=os.getenv("TWILIO_WHATSAPP_NUMBER"),
+            to=os.getenv("OWNER_WHATSAPP")
+        )
+
+        print("OWNER MESSAGE SENT:", msg.sid)
+        print("OWNER MESSAGE STATUS:", msg.status)
+
+    except Exception as e:
+        print("OWNER MESSAGE ERROR:", str(e))
 
 def handle_message(text, phone, profile_name=None):
 
@@ -152,7 +159,8 @@ def handle_message(text, phone, profile_name=None):
             enquiry=session.get("enquiry"),
             notes=session.get("notes")
         )
-
+        
+        
         SESSIONS.pop(phone, None)
        
         return (
