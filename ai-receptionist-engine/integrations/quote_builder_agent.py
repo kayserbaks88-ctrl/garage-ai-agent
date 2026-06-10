@@ -10,7 +10,8 @@ def handle_message(phone, text, profile_name=None):
     text = (text or "").strip()
     lower = text.lower()
 
-    session = SESSIONS.setdefault(phone, {})
+    session["service"] = text
+    session["step"] = "name"
 
     if lower in ["reset", "start again", "new quote"]:
         SESSIONS.pop(phone, None)
