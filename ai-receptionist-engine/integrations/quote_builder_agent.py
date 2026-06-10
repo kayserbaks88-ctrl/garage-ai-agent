@@ -10,19 +10,19 @@ def handle_message(phone, text, profile_name=None):
     text = (text or "").strip()
     lower = text.lower()
 
-    session["service"] = text
-    session["step"] = "name"
+    session = SESSIONS.setdefault(phone, {})
 
     if lower in ["reset", "start again", "new quote"]:
         SESSIONS.pop(phone, None)
         session = SESSIONS.setdefault(phone, {})
 
-    if "name" not in session:
-        session["name"] = profile_name or ""
+    if profile_name and not session.get("name"):
+        session["name"] = profile_name
+
         return (
             f"Hi, welcome to {BUSINESS_NAME} 👋\n\n"
             "I can help build a quote request for you.\n\n"
-            "What job or service do you need a quote for?"
+             "What job or service do you need a quote for?"
         )
 
     if "job_type" not in session:
