@@ -36,7 +36,18 @@ def whatsapp():
             phone,
             profile_name
         )
-    
+   
+    elif BUSINESS == "quote_builder":
+        from integrations.quote_builder_agent import handle_message
+
+        profile_name = request.values.get("ProfileName", "")
+
+        reply = handle_message(
+            incoming,
+            phone,
+            profile_name
+        )
+   
     resp = MessagingResponse()
     resp.message(reply)
 
