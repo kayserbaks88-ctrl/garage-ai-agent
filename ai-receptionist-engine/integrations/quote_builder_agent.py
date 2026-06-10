@@ -16,8 +16,8 @@ def handle_message(phone, text, profile_name=None):
         SESSIONS.pop(phone, None)
         session = SESSIONS.setdefault(phone, {})
 
-    if profile_name and not session.get("name"):
-        session["name"] = profile_name
+    if not session:
+        session["name"] = profile_name or ""
 
         return (
             f"Hi, welcome to {BUSINESS_NAME} 👋\n\n"
