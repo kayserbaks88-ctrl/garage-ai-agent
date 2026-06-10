@@ -43,8 +43,8 @@ def whatsapp():
         profile_name = request.values.get("ProfileName", "")
 
         reply = handle_message(
+            phone, 
             incoming,
-            phone,
             profile_name
         )
    
