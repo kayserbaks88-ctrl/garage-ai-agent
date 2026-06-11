@@ -8,7 +8,7 @@ from googleapiclient.discovery import build
 
 TIMEZONE = ZoneInfo("Europe/London")
 SHEET_ID = os.getenv("SHEET_ID", "").strip()
-print("SHEET_ID =", SHEET_ID)
+
 
 def get_service():
     creds_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
