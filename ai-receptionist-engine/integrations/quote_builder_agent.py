@@ -24,9 +24,9 @@ def handle_message(phone, text, profile_name=None):
         session["name"] = profile_name or ""
 
         return (
-            f"Hi, welcome to {BUSINESS_NAME} 👋\n\n"
-            "I can help build a quote request for you.\n\n"
-             "What job or service do you need a quote for?"
+            "Hi 👋 Thanks for contacting TrimTech Quotes.\n\n"
+            "I'll gather a few details about your project and pass them to our team for a quote.\n\n"
+            "What work are you looking to have done?"
         )
 
     if "job_type" not in session:
@@ -53,23 +53,32 @@ def handle_message(phone, text, profile_name=None):
         session["notes"] = text
 
         add_quote_request(
-            name=session.get("name") or profile_name or "Unknown",
-            phone=phone,
-            job_type=session.get("job_type"),
-            postcode=session.get("postcode"),
-            job_size=session.get("job_size"),
-            budget=session.get("budget"),
-            timeline=session.get("timeline"),
-            notes=session.get("notes"),
+            ...
         )
+
+        name = session.get("name", "there")
+        job_type = session.get("job_type", "")
+        postcode = session.get("postcode", "")
+        budget = session.get("budget", "")
+        timeline = session.get("timeline", "")
+
 
         SESSIONS.pop(phone, None)
 
         return (
-            f"Perfect {session.get('name') or profile_name or ''} 👍\n\n"
-            "Thanks, your quote request has been received.\n\n"
-            "A member of the team will review the details and contact you shortly.\n\n"
-            "Have a great day 😊"
+            f"""
+            Perfect {name} 👍
+
+            I've passed your quote request to our team.
+
+            Summary:
+            • Project: {job_type}
+            • Postcode: {postcode}
+            • Budget: {budget}
+            • Timeline: {timeline}
+
+            A member of the team will be in touch shortly.
+            """
         )
 
     return (
