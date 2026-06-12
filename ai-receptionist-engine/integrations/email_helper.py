@@ -4,6 +4,7 @@ from email.message import EmailMessage
 
 OWNER_EMAIL = os.getenv("OWNER_EMAIL")
 
+print("CONNECTING TO GMAIL...")
 
 def send_quote_notification(
     name,
@@ -38,7 +39,9 @@ Notes:
 {notes}
 """
     )
-
+    print("EMAIL_FROM =", os.getenv("EMAIL_FROM"))
+    print("OWNER_EMAIL =", OWNER_EMAIL)
+    
     with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
         smtp.starttls()
 
