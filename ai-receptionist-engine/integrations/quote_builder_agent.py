@@ -16,9 +16,9 @@ def handle_message(phone, text, profile_name=None):
     print("PHONE:", phone)
     print("SESSION:", session)
     
-    if lower in ["reset", "start again", "new quote"]:
+    if lower in ["hi", "hello", "hey"]:
         SESSIONS.pop(phone, None)
-        session = SESSIONS.setdefault(phone, {})
+        session = {}
         
     if not session:
         session["name"] = profile_name or ""
