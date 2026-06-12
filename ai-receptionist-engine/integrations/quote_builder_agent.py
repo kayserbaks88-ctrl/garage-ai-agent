@@ -1,33 +1,34 @@
 import os
 from integrations.quote_sheets import add_quote_request
+from integrations.email_helper import send_quote_notification
 
 SESSIONS = {}
 
-BUSINESS_NAME = os.getenv("BUSINESS_NAME", "TrimTech Quote AI")
+BUSINESS_NAME = os.getenv("BUSINESS_NAME", "TrimTech Quotes")
+
+
+def welcome_message():
+    return (
+        "Hi 👋 Thanks for contacting TrimTech Quotes.\n\n"
+        "I'll gather a few details about your project and pass them to our team for a quote.\n\n"
+        "What work are you looking to have done?"
+    )
 
 
 def handle_message(phone, text, profile_name=None):
     text = (text or "").strip()
     lower = text.lower()
 
-    session = SESSIONS.setdefault(phone, {})
-    
-    print("SESSIONS:", SESSIONS)
-    print("PHONE:", phone)
-    print("SESSION:", session)
-    
-    if lower in ["hi", "hello", "hey"]:
+    if lower in ["hi", "hello", "hey", "start", "restart", "new quote"]:
         SESSIONS.pop(phone, None)
-        session = {}
-        
+        SESSIONS[phone] = {"name": profile_name or ""}
+        return welcome_message()
+
+    session = SESSIONS.setdefault(phone, {})
+
     if not session:
         session["name"] = profile_name or ""
-
-        return (
-            "Hi 👋 Thanks for contacting TrimTech Quotes.\n\n"
-            "I'll gather a few details about your project and pass them to our team for a quote.\n\n"
-            "What work are you looking to have done?"
-        )
+        return welcome_message()
 
     if "job_type" not in session:
         session["job_type"] = text
@@ -52,39 +53,47 @@ def handle_message(phone, text, profile_name=None):
     if "notes" not in session:
         session["notes"] = text
 
-        add_quote_request(
-            name=session.get("name") or profile_name or "Unknown",
-            phone=phone,
-            job_type=session.get("job_type"),
-            postcode=session.get("postcode"),
-            job_size=session.get("job_size"),
-            budget=session.get("budget"),
-            timeline=session.get("timeline"),
-            notes=session.get("notes"),
-        )
-
-        name = session.get("name", "there")
+        name = session.get("name") or profile_name or "Unknown"
         job_type = session.get("job_type", "")
         postcode = session.get("postcode", "")
+        job_size = session.get("job_size", "")
         budget = session.get("budget", "")
         timeline = session.get("timeline", "")
+        notes = session.get("notes", "")
+
+        add_quote_request(
+            name=name,
+            phone=phone,
+            job_type=job_type,
+            postcode=postcode,
+            job_size=job_size,
+            budget=budget,
+            timeline=timeline,
+            notes=notes,
+        )
+
+        send_quote_notification(
+            name=name,
+            phone=phone,
+            job_type=job_type,
+            postcode=postcode,
+            job_size=job_size,
+            budget=budget,
+            timeline=timeline,
+            notes=notes,
+        )
 
         SESSIONS.pop(phone, None)
 
         return (
-            f"""
-            Perfect {name} 👍
-
-            I've passed your quote request to our team.
-
-            Summary:
-            • Project: {job_type}
-            • Postcode: {postcode}
-            • Budget: {budget}
-            • Timeline: {timeline}
-
-            A member of the team will be in touch shortly.
-            """
+            f"Perfect {name} 👍\n\n"
+            "I've passed your quote request to our team.\n\n"
+            "Summary:\n"
+            f"• Project: {job_type}\n"
+            f"• Postcode: {postcode}\n"
+            f"• Budget: {budget}\n"
+            f"• Timeline: {timeline}\n\n"
+            "A member of the team will be in touch shortly."
         )
 
     return (
