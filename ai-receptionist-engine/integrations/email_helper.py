@@ -39,9 +39,12 @@ Notes:
 """
     )
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+    with smtplib.SMTP("smtp.gmail.com", 587) as smtp:
+        smtp.starttls()
+
         smtp.login(
             os.getenv("EMAIL_FROM"),
             os.getenv("EMAIL_PASSWORD"),
         )
+
         smtp.send_message(msg)
