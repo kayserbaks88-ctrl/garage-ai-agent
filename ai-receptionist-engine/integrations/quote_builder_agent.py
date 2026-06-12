@@ -72,10 +72,6 @@ def handle_message(phone, text, profile_name=None):
             notes=notes,
         )
 
-        add_quote_request(
-            ...
-        )
-
         try:
             send_quote_notification(
                name=name,
