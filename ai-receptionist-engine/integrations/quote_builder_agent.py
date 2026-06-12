@@ -53,7 +53,14 @@ def handle_message(phone, text, profile_name=None):
         session["notes"] = text
 
         add_quote_request(
-            ...
+            name=session.get("name") or profile_name or "Unknown",
+            phone=phone,
+            job_type=session.get("job_type"),
+            postcode=session.get("postcode"),
+            job_size=session.get("job_size"),
+            budget=session.get("budget"),
+            timeline=session.get("timeline"),
+            notes=session.get("notes"),
         )
 
         name = session.get("name", "there")
@@ -61,7 +68,6 @@ def handle_message(phone, text, profile_name=None):
         postcode = session.get("postcode", "")
         budget = session.get("budget", "")
         timeline = session.get("timeline", "")
-
 
         SESSIONS.pop(phone, None)
 
