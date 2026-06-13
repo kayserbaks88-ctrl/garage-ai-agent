@@ -74,17 +74,17 @@ def handle_message(phone, text, profile_name=None):
 
         try:
             send_quote_notification(
-               name=name,
-               phone=phone,
-               job_type=job_type,
-               postcode=postcode,
-               job_size=job_size,
-               budget=budget,
-               timeline=timeline,
-               notes=notes,
+                name=name,
+                phone=phone,
+                job_type=job_type,
+                postcode=postcode,
+                job_size=job_size,
+                budget=budget,
+                timeline=timeline,
+                notes=notes,
             )
         except Exception as e:
-            print("EMAIL ERROR:", str(e))
+            print("EMAIL ERROR:", e)
 
         SESSIONS.pop(phone, None)
 
