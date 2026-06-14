@@ -4,7 +4,6 @@ from email.message import EmailMessage
 
 OWNER_EMAIL = os.getenv("OWNER_EMAIL")
 
-print("CONNECTING TO GMAIL...")
 
 def send_quote_notification(
     name,
@@ -39,12 +38,16 @@ Notes:
 {notes}
 """
     )
+
     print("EMAIL_FROM =", os.getenv("EMAIL_FROM"))
     print("OWNER_EMAIL =", OWNER_EMAIL)
-    
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+    print("CONNECTING TO GMAIL...")
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
         smtp.login(
-        os.getenv("EMAIL_FROM"),
-        os.getenv("EMAIL_PASSWORD")
-    )
-    smtp.send_message(msg)
+            os.getenv("EMAIL_FROM"),
+            os.getenv("EMAIL_PASSWORD"),
+        )
+        smtp.send_message(msg)
+
+    print("EMAIL SENT")
