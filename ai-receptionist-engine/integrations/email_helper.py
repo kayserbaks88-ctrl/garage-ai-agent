@@ -1,9 +1,7 @@
 import os
-import smtplib
-from email.message import EmailMessage
+import requests
 
 OWNER_EMAIL = os.getenv("OWNER_EMAIL")
-
 
 def send_quote_notification(
     name,
@@ -15,16 +13,17 @@ def send_quote_notification(
     timeline,
     notes,
 ):
-    msg = EmailMessage()
-
-    msg["Subject"] = f"🔥 New Quote Request - {job_type}"
-    msg["From"] = os.getenv("EMAIL_FROM")
-    msg["To"] = OWNER_EMAIL
-
-    msg.set_content(
-        f"""
-New Quote Request
-
+    requests.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "from": "Quote Builder <onboarding@resend.dev>",
+            "to": [OWNER_EMAIL],
+            "subject": f"🔥 New Quote Request - {job_type}",
+            "text": f"""
 Name: {name}
 Phone: {phone}
 
@@ -36,33 +35,7 @@ Timeline: {timeline}
 
 Notes:
 {notes}
-"""
+""",
+        },
+        timeout=20,
     )
-
-    print("EMAIL_FROM =", os.getenv("EMAIL_FROM"))
-    print("OWNER_EMAIL =", OWNER_EMAIL)
-    print("CONNECTING TO GMAIL...")
-
-    try:
-        print("CONNECTING TO GMAIL...")
-
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as smtp:
-            smtp.ehlo()
-            smtp.starttls()
-            smtp.ehlo()
-
-            print("LOGGING IN...")
-
-        smtp.login(
-            os.getenv("EMAIL_FROM"),
-            os.getenv("EMAIL_PASSWORD")
-        )
-
-        print("SENDING EMAIL...")
-
-        smtp.send_message(msg)
-
-        print("EMAIL SENT")
-
-    except Exception as e:
-        print("EMAIL HELPER ERROR:", repr(e))
