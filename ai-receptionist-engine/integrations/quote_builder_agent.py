@@ -84,8 +84,8 @@ def handle_message(phone, text, profile_name=None):
                 notes=notes,
             )
         except Exception as e:
-            print("EMAIL ERROR:", e)
-
+            print("EMAIL ERROR:", repr(e))
+       
         SESSIONS.pop(phone, None)
 
         return (
