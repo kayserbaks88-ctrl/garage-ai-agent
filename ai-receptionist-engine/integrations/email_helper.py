@@ -43,11 +43,26 @@ Notes:
     print("OWNER_EMAIL =", OWNER_EMAIL)
     print("CONNECTING TO GMAIL...")
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as smtp:
+    try:
+        print("CONNECTING TO GMAIL...")
+
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=20) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
+
+            print("LOGGING IN...")
+
         smtp.login(
             os.getenv("EMAIL_FROM"),
-            os.getenv("EMAIL_PASSWORD"),
+            os.getenv("EMAIL_PASSWORD")
         )
+
+        print("SENDING EMAIL...")
+
         smtp.send_message(msg)
 
-    print("EMAIL SENT")
+        print("EMAIL SENT")
+
+    except Exception as e:
+        print("EMAIL HELPER ERROR:", repr(e))
