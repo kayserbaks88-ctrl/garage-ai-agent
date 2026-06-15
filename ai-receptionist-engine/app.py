@@ -4,10 +4,12 @@ from engine import BUSINESS
 
 app = Flask(__name__)
 
-reply = "Debug reply"
-reply = "Configuration error."
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
+    reply = "Sorry, something went wrong. Please try again."
+
+    incoming = request.values.get("Body", "")
+    phone = request.values.get("From", "")
 
     incoming = request.values.get("Body","")
     phone = request.values.get("From","")
