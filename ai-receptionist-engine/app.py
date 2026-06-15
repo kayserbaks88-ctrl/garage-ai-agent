@@ -4,12 +4,14 @@ from engine import BUSINESS
 
 app = Flask(__name__)
 
+reply = "Configuration error."
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
 
     incoming = request.values.get("Body","")
     phone = request.values.get("From","")
-
+    print("BUSINESS =", BUSINESS)
+    
     if BUSINESS == "garage":
         from integrations.garage_agent import handle_message
         profile_name = request.values.get("ProfileName", "")
