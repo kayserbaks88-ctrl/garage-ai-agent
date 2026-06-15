@@ -2,6 +2,8 @@ import os
 import requests
 
 OWNER_EMAIL = os.getenv("OWNER_EMAIL")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+
 
 def send_quote_notification(
     name,
@@ -13,10 +15,10 @@ def send_quote_notification(
     timeline,
     notes,
 ):
-    requests.post(
+    response = requests.post(
         "https://api.resend.com/emails",
         headers={
-            "Authorization": f"Bearer {os.getenv('RESEND_API_KEY')}",
+            "Authorization": f"Bearer {RESEND_API_KEY}",
             "Content-Type": "application/json",
         },
         json={
@@ -24,12 +26,14 @@ def send_quote_notification(
             "to": [OWNER_EMAIL],
             "subject": f"🔥 New Quote Request - {job_type}",
             "text": f"""
+New Quote Request
+
 Name: {name}
-Phone: {phone}
+Phone: {phone.replace("whatsapp:", "")}
 
 Project: {job_type}
+Size: {job_size}
 Postcode: {postcode}
-Job Size: {job_size}
 Budget: {budget}
 Timeline: {timeline}
 
@@ -39,3 +43,8 @@ Notes:
         },
         timeout=20,
     )
+
+    print("RESEND STATUS:", response.status_code)
+    print("RESEND RESPONSE:", response.text)
+
+    response.raise_for_status()

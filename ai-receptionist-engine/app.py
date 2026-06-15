@@ -42,27 +42,20 @@ def whatsapp():
 
         profile_name = request.values.get("ProfileName", "")
 
-        reply = handle_message(
-            phone, 
-            incoming,
-            profile_name
-        )
-         
         num_media = int(request.values.get("NumMedia", 0))
         media_urls = []
 
         for i in range(num_media):
             media_url = request.values.get(f"MediaUrl{i}")
             if media_url:
-                media_urls.append(media_url)
+               media_urls.append(media_url)
 
-        reply = handle_message(
-            phone=phone,
-            text=incoming,
-            profile_name=profile_name,
-            media_urls=media_urls,
-        )
-
+            reply = handle_message(
+                phone=phone,
+                text=incoming,
+                profile_name=profile_name,
+                media_urls=media_urls,
+            )
     resp = MessagingResponse()
     resp.message(reply)
 
