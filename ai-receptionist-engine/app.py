@@ -41,13 +41,7 @@ def whatsapp():
         from integrations.quote_builder_agent import handle_message
 
         profile_name = request.values.get("ProfileName", "")
-
-        reply = handle_message(
-            phone, 
-            incoming,
-            profile_name
-        )
-         
+     
         num_media = int(request.values.get("NumMedia", 0))
         media_urls = []
 
