@@ -4,6 +4,7 @@ from engine import BUSINESS
 
 app = Flask(__name__)
 
+reply = "Debug reply"
 reply = "Configuration error."
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
