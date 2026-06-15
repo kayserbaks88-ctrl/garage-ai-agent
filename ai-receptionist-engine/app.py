@@ -56,6 +56,7 @@ def whatsapp():
                 profile_name=profile_name,
                 media_urls=media_urls,
             )
+    print("REPLY =", reply)
     resp = MessagingResponse()
     resp.message(reply)
 
