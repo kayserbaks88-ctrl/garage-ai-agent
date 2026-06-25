@@ -61,6 +61,17 @@ def clean_project(text):
 
     return cleaned.capitalize()
 
+def looks_like_area(text):
+    return bool(text.strip()) and not looks_like_postcode(text)
+
+
+def format_location(session):
+    area = session.get("area", "")
+    postcode = session.get("postcode", "")
+
+    if area and postcode:
+        return f"{area} / {postcode}"
+    return postcode or area
 
 def format_postcode(text):
     pc = (text or "").strip().upper().replace(" ", "")
@@ -115,7 +126,7 @@ def summary_message(session):
     return (
         "📋 Quote Summary\n\n"
         f"Project: {session.get('job_type', '')}\n"
-        f"Postcode: {session.get('postcode', '')}\n"
+        f"Location: {format_location(session)}\n"
         f"Size: {session.get('job_size', '')}\n"
         f"Budget: {session.get('budget', '')}\n"
         f"Timeline: {session.get('timeline', '')}\n\n"
@@ -279,12 +290,23 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         session["job_size"] = text
         return "What postcode or area is the job in?"
 
-    if "postcode" not in session:
+    if "postcode" not in session and "area" not in session:
+        if looks_like_postcode(text):
+            session["postcode"] = format_postcode(text)
+            return "Do you have a budget in mind?"
+
+        session["area"] = text
+        return (
+            f"No problem 👍 I've saved the area as {text}.\n\n"
+            "Can I take the postcode as well?"
+        )
+
+    if "area" in session and "postcode" not in session:
         if not looks_like_postcode(text):
-            return (
-                "That doesn't look like a postcode 👍\n\n"
-                "Please send the postcode or area for the job."
-            )
+            return "Please send the postcode for the job 👍"
+
+        session["postcode"] = format_postcode(text)
+        return "Do you have a budget in mind?"
 
         session["postcode"] = format_postcode(text)
         return "Do you have a budget in mind?"
