@@ -208,12 +208,9 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         if session.get("awaiting_photos"):
             session["awaiting_photos"] = False
             session["awaiting_confirmation"] = True
-            return (
-                f"Thanks 👍 I've added {len(media_urls)} photo(s).\n\n"
-                + summary_message(session)
-            )
+            return summary_message(session)
 
-        return f"Thanks 👍 I've added {len(media_urls)} photo(s) to your quote request."
+        return ""
 
     if not any(k in session for k in ["job_type", "postcode", "job_size", "budget", "timeline", "notes"]):
         faq_reply = maybe_answer_faq(text)
