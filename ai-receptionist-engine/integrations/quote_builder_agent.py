@@ -166,7 +166,7 @@ def save_and_notify(phone, profile_name, session):
             name=name,
             phone=phone,
             job_type=job_type,
-            postcode=postcode,
+            postcode=format_location(session),
             job_size=job_size,
             budget=budget,
             timeline=timeline,
