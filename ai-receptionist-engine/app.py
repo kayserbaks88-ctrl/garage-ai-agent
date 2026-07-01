@@ -56,6 +56,17 @@ def whatsapp():
             profile_name=profile_name,
             media_urls=media_urls,
         )
+    
+    elif BUSINESS == "staff_manager":
+        from integrations.staff_manager_agent import handle_message
+
+        profile_name = request.values.get("ProfileName", "")
+
+        reply = handle_message(
+            phone=phone,
+            text=incoming,
+            profile_name=profile_name,
+    )
 
     resp = MessagingResponse()
     resp.message(reply)
