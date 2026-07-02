@@ -13,6 +13,9 @@ STAFF_SHEET_ID = os.getenv("STAFF_SHEET_ID", "").strip()
 def get_service():
     creds_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
 
+    print("SERVICE ACCOUNT EMAIL =", creds_info.get("client_email"))
+    print("STAFF_SHEET_ID =", STAFF_SHEET_ID)
+    
     creds = Credentials.from_service_account_info(
         creds_info,
         scopes=["https://www.googleapis.com/auth/spreadsheets"],
