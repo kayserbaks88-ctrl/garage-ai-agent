@@ -39,7 +39,7 @@ def add_check_in(employee, phone, site, notes=""):
 
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
-        range="Sheet1!A:I",
+        range="A:I",
         valueInputOption="RAW",
         body={"values": values},
     ).execute()
@@ -50,7 +50,7 @@ def get_rows():
 
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
-        range="Sheet1!A:I",
+        range="A:I",
     ).execute()
 
     return result.get("values", [])
