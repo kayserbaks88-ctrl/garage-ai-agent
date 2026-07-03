@@ -25,7 +25,7 @@ def get_rows():
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
-        range="A:I",
+        range="CheckIns!A:I"
     ).execute()
 
     return result.get("values", [])
