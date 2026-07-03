@@ -13,9 +13,6 @@ STAFF_SHEET_ID = os.getenv("STAFF_SHEET_ID", "").strip()
 def get_service():
     creds_info = json.loads(os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON"))
 
-    print("SERVICE ACCOUNT EMAIL =", creds_info.get("client_email"))
-    print("STAFF_SHEET_ID =", STAFF_SHEET_ID)
-    
     creds = Credentials.from_service_account_info(
         creds_info,
         scopes=["https://www.googleapis.com/auth/spreadsheets"],
@@ -24,7 +21,43 @@ def get_service():
     return build("sheets", "v4", credentials=creds)
 
 
+def get_rows():
+    service = get_service()
+    result = service.spreadsheets().values().get(
+        spreadsheetId=STAFF_SHEET_ID,
+        range="A:I",
+    ).execute()
+
+    return result.get("values", [])
+
+
+def get_active_check_in(phone):
+    rows = get_rows()
+    clean_phone = phone.replace("whatsapp:", "")
+
+    for idx in range(len(rows) - 1, 0, -1):
+        row = rows[idx] + [""] * 9
+
+        if row[2] == clean_phone and row[7] == "On Site" and not row[5]:
+            return {
+                "row_number": idx + 1,
+                "date": row[0],
+                "employee": row[1],
+                "phone": row[2],
+                "site": row[3],
+                "check_in": row[4],
+                "status": row[7],
+            }
+
+    return None
+
+
 def add_check_in(employee, phone, site, notes=""):
+    active = get_active_check_in(phone)
+
+    if active:
+        return False, active
+
     service = get_service()
     now = datetime.now(TIMEZONE)
 
@@ -47,16 +80,11 @@ def add_check_in(employee, phone, site, notes=""):
         body={"values": values},
     ).execute()
 
-
-def get_rows():
-    service = get_service()
-
-    result = service.spreadsheets().values().get(
-        spreadsheetId=STAFF_SHEET_ID,
-        range="A:I",
-    ).execute()
-
-    return result.get("values", [])
+    return True, {
+        "employee": employee,
+        "site": site,
+        "check_in": now.strftime("%H:%M"),
+    }
 
 
 def update_check_out(phone, site=None):
@@ -93,7 +121,7 @@ def update_check_out(phone, site=None):
 
             service.spreadsheets().values().update(
                 spreadsheetId=STAFF_SHEET_ID,
-                range=f"Sheet1!F{row_number}:H{row_number}",
+                range=f"F{row_number}:H{row_number}",
                 valueInputOption="RAW",
                 body={"values": [[now.strftime("%H:%M"), hours, "Completed"]]},
             ).execute()
@@ -109,6 +137,7 @@ def list_on_site():
 
     for row in rows[1:]:
         row = row + [""] * 9
+
         if row[7] == "On Site":
             active.append({
                 "employee": row[1],
