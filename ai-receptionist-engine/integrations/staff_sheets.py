@@ -34,7 +34,7 @@ def get_service():
 
 def sheet_get(tab_name, cell_range):
     service = get_service()
-    full_range = f"{tab_name}!{cell_range}"
+    full_range = f"'{tab_name}'!{cell_range}"
 
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
@@ -46,7 +46,7 @@ def sheet_get(tab_name, cell_range):
 
 def sheet_append(tab_name, cell_range, values):
     service = get_service()
-    full_range = f"{tab_name}!{cell_range}"
+    full_range = f"'{tab_name}'!{cell_range}"
 
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
@@ -55,7 +55,6 @@ def sheet_append(tab_name, cell_range, values):
         insertDataOption="INSERT_ROWS",
         body={"values": values},
     ).execute()
-
 from datetime import datetime
 
 
