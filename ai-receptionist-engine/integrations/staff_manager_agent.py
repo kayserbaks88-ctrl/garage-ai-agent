@@ -169,7 +169,7 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
     if "sites" in lower or "jobs" in lower:
         return format_list("📍 Sites", get_sites())
 
-    if is_start_message(lower):
+    if intent == "start":
         site = clean_site(text)
 
         if not site:
@@ -197,7 +197,7 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
             "Have a good shift 👍"
         )
 
-    if is_finish_message(lower):
+    if intent == "finish":
         site = clean_finish_site(text)
 
         completed_site, hours = update_check_out(
