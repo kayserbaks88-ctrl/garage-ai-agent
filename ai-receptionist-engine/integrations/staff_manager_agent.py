@@ -104,7 +104,11 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
     name = profile_name or "Staff"
 
     if lower in ["hi", "hello", "hey", "start again", "help"]:
-        active = get_active_check_in(phone)
+        try:
+            active = get_active_check_in(phone)
+        except Exception as e:
+            print("SHEET CHECK ERROR:", repr(e))
+            active = None
 
         if active:
             return (
