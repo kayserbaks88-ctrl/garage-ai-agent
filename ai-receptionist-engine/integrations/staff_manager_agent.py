@@ -182,7 +182,7 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         if not created:
             return (
                 "You're already checked in 👍\n\n"
-                f"Staff: {active['employee']}\n"
+                f"Staff: {active['name']}\n"
                 f"Site: {active['site']}\n"
                 f"Since: {active['check_in']}\n\n"
                 "Send FINISH when you're done."
