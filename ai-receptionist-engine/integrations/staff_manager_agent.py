@@ -1,5 +1,3 @@
-import re
-
 from integrations.staff_sheets import (
     add_check_in,
     update_check_out,
@@ -10,121 +8,114 @@ from integrations.staff_sheets import (
 from integrations.reports import owner_report
 from integrations.payroll import payroll_report
 from integrations.invoices import invoice_report
-from integrations.employees import get_employees
-from integrations.customers import get_customers
-from integrations.sites import get_sites
+from integrations.employees import find_employee_by_phone
 from integrations.intent_router import route_intent
 
+
+OWNER_ROLES = ["owner", "manager"]
+
+
+def get_user(phone, profile_name=None):
+    employee = find_employee_by_phone(phone)
+
+    if employee:
+        return {
+            "name": employee.get("name") or profile_name or "Staff",
+            "role": (employee.get("role") or "Staff").strip(),
+            "hourly_rate": employee.get("hourly_rate", ""),
+            "status": employee.get("status", "Active"),
+        }
+
+    return {
+        "name": profile_name or "Staff",
+        "role": "Staff",
+        "hourly_rate": "",
+        "status": "Active",
+    }
+
+
+def is_manager(user):
+    return user["role"].lower() in OWNER_ROLES
+
+
 def clean_site(text):
-    lower = text.lower().strip()
-    
-   
-    phrases = [
-        "clock me in at", "clock me in", "check me in at", "check me in",
-        "checking in at", "check in at", "check in",
-        "i'm at", "im at", "i am at",
-        "arrived at", "arrived",
-        "started at", "started",
-        "start at", "start",
-        "at",
+    t = (text or "").strip()
+
+    remove_phrases = [
+        "start",
+        "started",
+        "clock me in",
+        "clock in",
+        "check me in",
+        "check in",
+        "checking in",
+        "i'm at",
+        "im at",
+        "i am at",
+        "arrived at",
+        "arrived",
+        "i've arrived at",
+        "ive arrived at",
+        "i just got to",
+        "just got to",
+        "i'm on site at",
+        "im on site at",
     ]
 
-    for phrase in phrases:
-        lower = lower.replace(phrase, " ")
+    lower = t.lower()
 
-    return " ".join(lower.split()).strip().title()
+    for phrase in remove_phrases:
+        if lower.startswith(phrase):
+            site = t[len(phrase):].strip()
+            return site.title() if site else ""
+
+    return t.title()
 
 
 def clean_finish_site(text):
-    lower = text.lower().strip()
+    t = (text or "").strip()
 
-    phrases = [
-        "clock me out from", "clock me out",
-        "check me out from", "check me out",
-        "checking out from", "check out from", "check out",
-        "finished at", "finished from", "finished",
-        "finish at", "finish",
-        "done at", "done",
-        "leaving", "left",
+    remove_phrases = [
+        "finish",
+        "finished",
+        "done",
+        "done for today",
+        "clock me out",
+        "clock out",
+        "check out",
+        "checkout",
+        "i'm finished at",
+        "im finished at",
+        "finished at",
     ]
 
-    for phrase in phrases:
-        lower = lower.replace(phrase, " ")
+    lower = t.lower()
 
-    return " ".join(lower.split()).strip().title()
+    for phrase in remove_phrases:
+        if lower.startswith(phrase):
+            site = t[len(phrase):].strip()
+            return site.title() if site else None
 
-
-def is_start_message(lower):
-    return any(p in lower for p in [
-        "start", "started", "arrived",
-        "check in", "checking in",
-        "clock in", "clock me in",
-        "i'm at", "im at", "i am at",
-    ])
+    return None
 
 
-def is_finish_message(lower):
-    return any(p in lower for p in [
-        "finish", "finished",
-        "check out", "checking out",
-        "clock out", "clock me out",
-        "done", "leaving", "left",
-    ])
+def greeting_reply(phone, user):
+    active = get_active_check_in(phone)
 
-
-def is_owner_site_question(lower):
-    return any(p in lower for p in [
-        "who is on site",
-        "who's on site",
-        "who on site",
-        "who is working",
-        "who's working",
-        "where is everyone",
-        "where are staff",
-        "current staff",
-        "on site",
-    ])
-
-
-def format_list(title, rows):
-    if not rows or len(rows) <= 1:
-        return f"{title}\n\nNothing saved yet 👍"
-
-    message = f"{title}\n\n"
-
-    for row in rows[1:]:
-        row = row + [""] * 10
-        message += f"• {row[0]}\n"
-
-    return message.strip()
-
-
-def handle_message(phone, text, profile_name=None, media_urls=None):
-    text = (text or "").strip()
-    lower = text.lower()
-    intent = route_intent(text)
-    name = profile_name or "Staff"
-
-    if intent == "greeting":
-        try:
-            active = get_active_check_in(phone)
-        except Exception as e:
-            print("SHEET CHECK ERROR:", repr(e))
-            active = None
-
-        if active:
-            return (
-                f"Hi 👋 Welcome back, {name}.\n\n"
-                f"You're currently checked in at {active['site']} since {active['check_in']}.\n\n"
-                "You can say things like:\n"
-                "• Finished\n"
-                "• Who is on site?\n"
-                "• Payroll\n"
-                "• Report"
-            )
-
+    if active:
         return (
-            f"Hi 👋 Welcome back, {name}.\n\n"
+            f"Hi 👋 Welcome back, {user['name']}.\n\n"
+            f"You're currently checked in at {active['site']} since {active['check_in']}.\n\n"
+            "You can say things like:\n"
+            "• Finished\n"
+            "• Who is on site?\n"
+            "• Payroll\n"
+            "• Report"
+        )
+
+    if is_manager(user):
+        return (
+            f"Hi 👋 Welcome back, {user['name']}.\n\n"
             "You're currently checked out.\n\n"
             "You can say things like:\n"
             "• I'm at Tesco\n"
@@ -135,39 +126,50 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
             "• Report"
         )
 
-    if lower in ["thanks", "thank you", "cheers", "nice one"]:
-        return "You're welcome 👍"
+    return (
+        f"Hi 👋 Welcome back, {user['name']}.\n\n"
+        "You're currently checked out.\n\n"
+        "You can say things like:\n"
+        "• I'm at Tesco\n"
+        "• Start Amazon route 17\n"
+        "• Finished"
+    )
 
-    if is_owner_site_question(lower):
-        active = list_on_site()
 
-        if not active:
-            return "Nobody is currently marked as on site 👍"
+def no_access_reply():
+    return (
+        "Sorry, this looks like a manager-only request 🔒\n\n"
+        "You can still check in, check out, or ask for your current status."
+    )
 
-        reply = "📍 Currently on site:\n\n"
 
-        for item in active:
-            reply += f"👷 {item['name']} - {item['site']} since {item['check_in']}\n"
+def on_site_reply():
+    people = list_on_site()
 
-        return reply.strip()
+    if not people:
+        return "Nobody is currently marked as on site 👍"
 
-    if "report" in lower or "summary" in lower or "today" in lower:
-        return owner_report()
+    reply = "📍 Currently on site:\n\n"
 
-    if "payroll" in lower or "wages" in lower or "pay" in lower:
-        return payroll_report()
+    for item in people:
+        name = item.get("name") or item.get("employee") or "Staff"
+        site = item.get("site", "Unknown site")
+        check_in = item.get("check_in", "")
+        reply += f"👷 {name} - {site} since {check_in}\n"
 
-    if "invoice" in lower or "invoices" in lower or "bill" in lower:
-        return invoice_report()
+    return reply.strip()
 
-    if "employees" in lower or "staff list" in lower or "show staff" in lower:
-        return format_list("👥 Employees", get_employees())
 
-    if "customers" in lower or "clients" in lower:
-        return format_list("🏢 Customers", get_customers())
+def handle_message(phone, text, profile_name=None, media_urls=None):
+    text = (text or "").strip()
+    lower = text.lower()
+    intent = route_intent(text)
 
-    if "sites" in lower or "jobs" in lower:
-        return format_list("📍 Sites", get_sites())
+    user = get_user(phone, profile_name)
+    name = user["name"]
+
+    if intent == "greeting":
+        return greeting_reply(phone, user)
 
     if intent == "start":
         site = clean_site(text)
@@ -184,7 +186,7 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         if not created:
             return (
                 "You're already checked in 👍\n\n"
-                f"Staff: {active['name']}\n"
+                f"Staff: {active.get('name') or active.get('employee')}\n"
                 f"Site: {active['site']}\n"
                 f"Since: {active['check_in']}\n\n"
                 "Send FINISH when you're done."
@@ -219,11 +221,45 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
             "Nice work 👍"
         )
 
+    if intent == "on_site":
+        if not is_manager(user):
+            return no_access_reply()
+
+        return on_site_reply()
+
+    if intent == "report":
+        if not is_manager(user):
+            return no_access_reply()
+
+        return owner_report()
+
+    if intent == "payroll":
+        if not is_manager(user):
+            return no_access_reply()
+
+        return payroll_report()
+
+    if intent == "invoices":
+        if not is_manager(user):
+            return no_access_reply()
+
+        return invoice_report()
+
+    active = get_active_check_in(phone)
+
+    if active:
+        return (
+            f"You're currently checked in at {active['site']} since {active['check_in']} 👍\n\n"
+            "You can say:\n"
+            "• Finished\n"
+            "• Who is on site?\n"
+            "• Report"
+        )
+
     return (
-        "I can help manage staff, sites, payroll and invoices 👍\n\n"
+        "I can help with check-ins, reports, payroll and invoices 👍\n\n"
         "Try saying:\n"
         "• I'm at Tesco\n"
-        "• Finished Tesco\n"
         "• Who is on site?\n"
         "• Report\n"
         "• Payroll\n"
