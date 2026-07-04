@@ -62,13 +62,16 @@ def get_rows():
     return sheet_get("Checkins", "A1:I1000")
 
 
-def add_check_in(name, phone, site, notes=""):
+def add_check_in(name=None, phone="", site="", notes="", employee=None):
+    if employee and not name:
+        name = employee
+
     clean_phone = phone.replace("whatsapp:", "")
     now = datetime.now(TIMEZONE)
 
     values = [[
         now.strftime("%Y-%m-%d"),
-        name,
+        name or "",
         clean_phone,
         site,
         now.strftime("%H:%M"),
