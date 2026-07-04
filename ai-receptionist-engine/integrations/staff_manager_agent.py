@@ -145,7 +145,7 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         reply = "📍 Currently on site:\n\n"
 
         for item in active:
-            reply += f"✅ {item['employee']} - {item['site']} since {item['check_in']}\n"
+            reply += f"👷 {item['name']} - {item['site']} since {item['check_in']}\n"
 
         return reply.strip()
 
