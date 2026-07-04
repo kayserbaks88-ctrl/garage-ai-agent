@@ -55,3 +55,52 @@ def sheet_append(tab_name, cell_range, values):
         insertDataOption="INSERT_ROWS",
         body={"values": values},
     ).execute()
+
+from datetime import datetime
+
+
+def get_rows():
+    return sheet_get("Checkins", "A1:I1000")
+
+
+def add_check_in(name, phone, site, notes=""):
+    clean_phone = phone.replace("whatsapp:", "")
+    now = datetime.now(TIMEZONE)
+
+    values = [[
+        now.strftime("%Y-%m-%d"),
+        name,
+        clean_phone,
+        site,
+        now.strftime("%H:%M"),
+        "",
+        "",
+        "On Site",
+        notes,
+    ]]
+
+    sheet_append("Checkins", "A1:I1000", values)
+
+
+def get_active_check_in(phone):
+    rows = get_rows()
+    clean_phone = phone.replace("whatsapp:", "")
+
+    for idx in range(len(rows) - 1, 0, -1):
+        row = rows[idx] + [""] * 9
+
+        if row[2].strip() == clean_phone and row[7].strip().lower() == "on site":
+            return {
+                "row_number": idx + 1,
+                "date": row[0],
+                "name": row[1],
+                "phone": row[2],
+                "site": row[3],
+                "check_in": row[4],
+                "check_out": row[5],
+                "hours": row[6],
+                "status": row[7],
+                "notes": row[8],
+            }
+
+    return None   
