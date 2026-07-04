@@ -139,3 +139,23 @@ def update_check_out(row_number):
     ).execute()
 
     return hours
+
+def list_on_site():
+    rows = get_rows()
+    people = []
+
+    for row in rows[1:]:
+        row = row + [""] * 9
+
+        if row[7].strip().lower() == "on site":
+            people.append({
+                "date": row[0],
+                "name": row[1],
+                "phone": row[2],
+                "site": row[3],
+                "check_in": row[4],
+                "status": row[7],
+                "notes": row[8],
+            })
+
+    return people
