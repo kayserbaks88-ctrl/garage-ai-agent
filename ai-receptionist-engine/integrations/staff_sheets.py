@@ -66,6 +66,10 @@ def add_check_in(name=None, phone="", site="", notes="", employee=None):
     if employee and not name:
         name = employee
 
+    active = get_active_check_in(phone)
+    if active:
+        return False, active
+
     clean_phone = phone.replace("whatsapp:", "")
     now = datetime.now(TIMEZONE)
 
@@ -82,6 +86,8 @@ def add_check_in(name=None, phone="", site="", notes="", employee=None):
     ]]
 
     sheet_append("Checkins", "A1:I1000", values)
+
+    return True, None
 
 
 def get_active_check_in(phone):
@@ -107,25 +113,26 @@ def get_active_check_in(phone):
 
     return None   
 
-def update_check_out(row_number):
+def update_check_out(phone, site=None):
+    active = get_active_check_in(phone)
+
+    if not active:
+        return None, None
+
+    if site and active["site"].lower().strip() != site.lower().strip():
+        return None, None
+
+    row_number = active["row_number"]
+
     service = get_service()
     now = datetime.now(TIMEZONE)
 
-    rows = get_rows()
-    row = rows[row_number - 1] + [""] * 9
+    check_in_dt = datetime.strptime(
+        f"{active['date']} {active['check_in']}",
+        "%Y-%m-%d %H:%M"
+    ).replace(tzinfo=TIMEZONE)
 
-    check_in_time = row[4]
-
-    hours = ""
-    try:
-        check_in_dt = datetime.strptime(
-            f"{row[0]} {check_in_time}",
-            "%Y-%m-%d %H:%M"
-        ).replace(tzinfo=TIMEZONE)
-
-        hours = round((now - check_in_dt).total_seconds() / 3600, 2)
-    except Exception:
-        hours = ""
+    hours = round((now - check_in_dt).total_seconds() / 3600, 2)
 
     values = [[
         now.strftime("%H:%M"),
@@ -140,7 +147,7 @@ def update_check_out(row_number):
         body={"values": values},
     ).execute()
 
-    return hours
+    return active["site"], hours
 
 def list_on_site():
     rows = get_rows()
