@@ -1,33 +1,23 @@
-from integrations.staff_sheets import get_service, STAFF_SHEET_ID
+from integrations.staff_sheets import sheet_get, sheet_append
 
 
 def get_employees():
-    service = get_service()
-    result = service.spreadsheets().values().get(
-        spreadsheetId=STAFF_SHEET_ID,
-        range="Employees!A1:F1000",
-    ).execute()
-    return result.get("values", [])
+    return sheet_get("Employees", "A1:F1000")
 
 
 def add_employee(name, phone="", role="", hourly_rate="", notes=""):
-    service = get_service()
+    clean_phone = phone.replace("whatsapp:", "")
 
     values = [[
         name,
-        phone.replace("whatsapp:", ""),
+        clean_phone,
         role,
         hourly_rate,
         "Active",
         notes,
     ]]
 
-    service.spreadsheets().values().append(
-        spreadsheetId=STAFF_SHEET_ID,
-        range="Employees!A1:F1000",
-        valueInputOption="RAW",
-        body={"values": values},
-    ).execute()
+    sheet_append("Employees", "A1:F1000", values)
 
 
 def find_employee_by_phone(phone):
@@ -36,7 +26,8 @@ def find_employee_by_phone(phone):
 
     for row in rows[1:]:
         row = row + [""] * 6
-        if row[1] == clean_phone:
+
+        if row[1].strip() == clean_phone:
             return {
                 "name": row[0],
                 "phone": row[1],

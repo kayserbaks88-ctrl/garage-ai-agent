@@ -1,18 +1,11 @@
-from integrations.staff_sheets import get_service, STAFF_SHEET_ID
+from integrations.staff_sheets import sheet_get, sheet_append
 
 
 def get_customers():
-    service = get_service()
-    result = service.spreadsheets().values().get(
-        spreadsheetId=STAFF_SHEET_ID,
-        range="Customers!A1:G1000",
-    ).execute()
-    return result.get("values", [])
+    return sheet_get("Customers", "A1:G1000")
 
 
 def add_customer(customer, contact_name="", phone="", email="", invoice_frequency="", hourly_rate="", notes=""):
-    service = get_service()
-
     values = [[
         customer,
         contact_name,
@@ -23,12 +16,7 @@ def add_customer(customer, contact_name="", phone="", email="", invoice_frequenc
         notes,
     ]]
 
-    service.spreadsheets().values().append(
-        spreadsheetId=STAFF_SHEET_ID,
-        range="Customers!A1:G1000",
-        valueInputOption="RAW",
-        body={"values": values},
-    ).execute()
+    sheet_append("Customers", "A1:G1000", values)
 
 
 def find_customer(customer_name):
@@ -37,6 +25,7 @@ def find_customer(customer_name):
 
     for row in rows[1:]:
         row = row + [""] * 7
+
         if row[0].lower().strip() == search:
             return {
                 "customer": row[0],

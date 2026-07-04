@@ -1,33 +1,21 @@
-from integrations.staff_sheets import get_service, STAFF_SHEET_ID
+from integrations.staff_sheets import sheet_get, sheet_append
 
 
 def get_sites():
-    service = get_service()
-    result = service.spreadsheets().values().get(
-        spreadsheetId=STAFF_SHEET_ID,
-        range="Sites!A1:F1000",
-    ).execute()
-    return result.get("values", [])
+    return sheet_get("Sites", "A1:F1000")
 
 
-def add_site(site, customer="", address="", required_staff="", start_time="", notes=""):
-    service = get_service()
-
+def add_site(site, customer="", address="", contact="", phone="", notes=""):
     values = [[
         site,
         customer,
         address,
-        required_staff,
-        start_time,
+        contact,
+        phone,
         notes,
     ]]
 
-    service.spreadsheets().values().append(
-        spreadsheetId=STAFF_SHEET_ID,
-        range="Sites!A1:F1000",
-        valueInputOption="RAW",
-        body={"values": values},
-    ).execute()
+    sheet_append("Sites", "A1:F1000", values)
 
 
 def find_site(site_name):
@@ -36,13 +24,14 @@ def find_site(site_name):
 
     for row in rows[1:]:
         row = row + [""] * 6
+
         if row[0].lower().strip() == search:
             return {
                 "site": row[0],
                 "customer": row[1],
                 "address": row[2],
-                "required_staff": row[3],
-                "start_time": row[4],
+                "contact": row[3],
+                "phone": row[4],
                 "notes": row[5],
             }
 
