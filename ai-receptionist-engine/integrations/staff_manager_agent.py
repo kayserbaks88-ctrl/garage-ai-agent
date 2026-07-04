@@ -13,11 +13,12 @@ from integrations.invoices import invoice_report
 from integrations.employees import get_employees
 from integrations.customers import get_customers
 from integrations.sites import get_sites
-
+from integrations.intent_router import route_intent
 
 def clean_site(text):
     lower = text.lower().strip()
-
+    
+   
     phrases = [
         "clock me in at", "clock me in", "check me in at", "check me in",
         "checking in at", "check in at", "check in",
@@ -101,9 +102,10 @@ def format_list(title, rows):
 def handle_message(phone, text, profile_name=None, media_urls=None):
     text = (text or "").strip()
     lower = text.lower()
+    intent = route_intent(text)
     name = profile_name or "Staff"
 
-    if lower in ["hi", "hello", "hey", "start again", "help"]:
+    if intent == "greeting":
         try:
             active = get_active_check_in(phone)
         except Exception as e:
