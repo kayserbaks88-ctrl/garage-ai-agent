@@ -104,3 +104,38 @@ def get_active_check_in(phone):
             }
 
     return None   
+
+def update_check_out(row_number):
+    service = get_service()
+    now = datetime.now(TIMEZONE)
+
+    rows = get_rows()
+    row = rows[row_number - 1] + [""] * 9
+
+    check_in_time = row[4]
+
+    hours = ""
+    try:
+        check_in_dt = datetime.strptime(
+            f"{row[0]} {check_in_time}",
+            "%Y-%m-%d %H:%M"
+        ).replace(tzinfo=TIMEZONE)
+
+        hours = round((now - check_in_dt).total_seconds() / 3600, 2)
+    except Exception:
+        hours = ""
+
+    values = [[
+        now.strftime("%H:%M"),
+        hours,
+        "Completed",
+    ]]
+
+    service.spreadsheets().values().update(
+        spreadsheetId=STAFF_SHEET_ID,
+        range=f"Checkins!F{row_number}:H{row_number}",
+        valueInputOption="RAW",
+        body={"values": values},
+    ).execute()
+
+    return hours
