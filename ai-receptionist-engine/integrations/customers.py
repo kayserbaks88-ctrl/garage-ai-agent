@@ -5,7 +5,7 @@ def get_customers():
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
-        range="'Customers'!A:G",
+        range="Customers!A1:G1000",
     ).execute()
     return result.get("values", [])
 
@@ -25,7 +25,7 @@ def add_customer(customer, contact_name="", phone="", email="", invoice_frequenc
 
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
-        range="'Customers'!A:G",
+        range="Customers!A1:G1000",
         valueInputOption="RAW",
         body={"values": values},
     ).execute()

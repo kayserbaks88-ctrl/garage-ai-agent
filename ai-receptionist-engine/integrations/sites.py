@@ -5,7 +5,7 @@ def get_sites():
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
-        range="Sites!A:F",
+        range="Sites!A1:F1000",
     ).execute()
     return result.get("values", [])
 
@@ -24,7 +24,7 @@ def add_site(site, customer="", address="", required_staff="", start_time="", no
 
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
-        range="Sites!A:F",
+        range="Sites!A1:F1000",
         valueInputOption="RAW",
         body={"values": values},
     ).execute()

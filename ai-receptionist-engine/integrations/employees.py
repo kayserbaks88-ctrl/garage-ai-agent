@@ -5,7 +5,7 @@ def get_employees():
     service = get_service()
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
-        range="Employees!A:F",
+        range="Employees!A1:F1000",
     ).execute()
     return result.get("values", [])
 
@@ -24,7 +24,7 @@ def add_employee(name, phone="", role="", hourly_rate="", notes=""):
 
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
-        range="Employees!A:F",
+        range="Employees!A1:F1000",
         valueInputOption="RAW",
         body={"values": values},
     ).execute()
