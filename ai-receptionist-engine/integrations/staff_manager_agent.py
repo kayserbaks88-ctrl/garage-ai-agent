@@ -46,34 +46,34 @@ def is_manager(user, phone=None):
 
 
 def clean_site(text):
-    original = (text or "").strip()
-    lower = original.lower()
+    site = (text or "").strip()
 
-    phrases = [
+    remove_phrases = [
+        "can you please clock me in at",
+        "can you clock me in at",
+        "please clock me in at",
         "clock me in at",
         "check me in at",
         "sign me in at",
-        "clock in at",
-        "check in at",
-        "start at",
-        "started at",
-        "starting at",
         "i'm at",
         "im at",
         "i am at",
-        "arrived at",
-        "i've arrived at",
-        "ive arrived at",
-        "just got to",
-        "got to",
-        "working at",
-        "on site at",
         "start",
         "started",
-        "arrived",
+        "arrived at",
     ]
 
-    site = original
+    lower = site.lower()
+
+    for phrase in remove_phrases:
+        if lower.startswith(phrase):
+            site = site[len(phrase):].strip()
+            break
+
+    for word in ["please", "pls", "thanks", "thank you"]:
+        site = site.replace(word, "").replace(word.title(), "").strip()
+
+    return site.title()
 
     for phrase in phrases:
         if lower.startswith(phrase):
