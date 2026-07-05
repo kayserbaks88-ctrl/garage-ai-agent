@@ -48,23 +48,72 @@ def is_manager(user, phone=None):
 def clean_site(text):
     site = (text or "").strip()
 
-    remove_phrases = [
-        "can you please clock me in at",
-        "can you clock me in at",
-        "please clock me in at",
-        "clock me in at",
-        "check me in at",
-        "sign me in at",
-        "i'm at",
-        "im at",
-        "i am at",
-        "start",
-        "started",
-        "arrived at",
+    noise_start = [
+        "hi", "hello", "hey", "morning", "good morning",
+        "can you please", "can you", "please",
+        "could you please", "could you",
     ]
 
-    lower = site.lower()
+    action_phrases = [
+        "clock me in at", "check me in at", "sign me in at",
+        "clock in at", "check in at", "sign in at",
+        "clock me in", "check me in", "sign me in",
+        "i'm at", "im at", "i am at",
+        "start at", "started at", "starting at",
+        "start", "started", "starting",
+        "arrived at", "i've arrived at", "ive arrived at",
+        "just got to", "got to", "working at", "on site at",
+        "at",
+    ]
 
+    end_noise = [
+        "please", "pls", "thanks", "thank you", "cheers",
+    ]
+
+    changed = True
+
+    while changed:
+        changed = False
+        lower = site.lower().strip()
+
+        for phrase in noise_start:
+            if lower == phrase:
+                site = ""
+                changed = True
+                break
+
+            if lower.startswith(phrase + " "):
+                site = site[len(phrase):].strip()
+                changed = True
+                break
+
+        if changed:
+            continue
+
+        lower = site.lower().strip()
+
+        for phrase in action_phrases:
+            if lower == phrase:
+                site = ""
+                changed = True
+                break
+
+            if lower.startswith(phrase + " "):
+                site = site[len(phrase):].strip()
+                changed = True
+                break
+
+    for word in end_noise:
+        lower = site.lower().strip()
+
+        if lower.endswith(" " + word):
+            site = site[: -len(word)].strip()
+
+        if lower == word:
+            site = ""
+
+    return site.title()
+    
     for phrase in remove_phrases:
         if lower.startswith(phrase):
             site = site[len(phrase):].strip()
