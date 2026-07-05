@@ -60,13 +60,24 @@ def whatsapp():
     elif BUSINESS == "staff_manager":
         from integrations.staff_manager_agent import handle_message
 
+        incoming = request.values.get("Body", "").strip()
+        phone = request.values.get("From", "")
         profile_name = request.values.get("ProfileName", "")
+
+        num_media = int(request.values.get("NumMedia", 0))
+        media_urls = []
+
+        for i in range(num_media):
+            media_url = request.values.get(f"MediaUrl{i}")
+            if media_url:
+                media_urls.append(media_url)
 
         reply = handle_message(
             phone=phone,
             text=incoming,
             profile_name=profile_name,
-    )
+            media_urls=media_urls,
+        )
 
     resp = MessagingResponse()
     resp.message(reply)
