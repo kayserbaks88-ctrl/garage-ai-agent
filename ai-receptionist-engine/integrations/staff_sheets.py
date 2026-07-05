@@ -21,34 +21,25 @@ def get_service():
         raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is missing")
 
     creds_info = json.loads(raw_json)
-
-    creds = Credentials.from_service_account_info(
-        creds_info,
-        scopes=SCOPES,
-    )
+    creds = Credentials.from_service_account_info(creds_info, scopes=SCOPES)
 
     return build("sheets", "v4", credentials=creds)
 
 
 def sheet_get(tab_name, cell_range):
     service = get_service()
-    full_range = f"'{tab_name}'!{cell_range}"
-
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
-        range=full_range,
+        range=f"'{tab_name}'!{cell_range}",
     ).execute()
-
     return result.get("values", [])
 
 
 def sheet_append(tab_name, cell_range, values):
     service = get_service()
-    full_range = f"'{tab_name}'!{cell_range}"
-
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
-        range=full_range,
+        range=f"'{tab_name}'!{cell_range}",
         valueInputOption="RAW",
         insertDataOption="INSERT_ROWS",
         body={"values": values},
@@ -57,11 +48,9 @@ def sheet_append(tab_name, cell_range, values):
 
 def sheet_update(tab_name, cell_range, values):
     service = get_service()
-    full_range = f"'{tab_name}'!{cell_range}"
-
     service.spreadsheets().values().update(
         spreadsheetId=STAFF_SHEET_ID,
-        range=full_range,
+        range=f"'{tab_name}'!{cell_range}",
         valueInputOption="RAW",
         body={"values": values},
     ).execute()
@@ -78,7 +67,7 @@ def clean_phone(phone):
 
 
 def get_rows():
-    return sheet_get("Checkins", "A1:I1000")
+    return sheet_get("Checkins", "A1:K1000")
 
 
 def get_active_check_in(phone):
@@ -86,13 +75,9 @@ def get_active_check_in(phone):
     target_phone = clean_phone(phone)
 
     for index in range(len(rows) - 1, 0, -1):
-        row = rows[index] + [""] * 9
+        row = rows[index] + [""] * 11
 
-        row_phone = clean_phone(row[2])
-        status = row[7].strip().lower()
-        check_out = row[5].strip()
-
-        if row_phone == target_phone and status == "on site" and not check_out:
+        if clean_phone(row[2]) == target_phone and row[7].strip().lower() == "on site" and not row[5].strip():
             return {
                 "row_number": index + 1,
                 "date": row[0],
@@ -105,17 +90,18 @@ def get_active_check_in(phone):
                 "hours": row[6],
                 "status": row[7],
                 "notes": row[8],
+                "check_in_photo": row[9],
+                "check_out_photo": row[10],
             }
 
     return None
 
 
-def add_check_in(name=None, phone="", site="", notes="", employee=None):
+def add_check_in(name=None, phone="", site="", notes="", employee=None, check_in_photo=""):
     if employee and not name:
         name = employee
 
     active = get_active_check_in(phone)
-
     if active:
         return False, active
 
@@ -131,19 +117,22 @@ def add_check_in(name=None, phone="", site="", notes="", employee=None):
         "",
         "On Site",
         notes,
+        check_in_photo,
+        "",
     ]]
 
-    sheet_append("Checkins", "A1:I1000", values)
+    sheet_append("Checkins", "A1:K1000", values)
 
     return True, {
         "name": name or "Staff",
         "employee": name or "Staff",
         "site": site,
         "check_in": now.strftime("%H:%M"),
+        "check_in_photo": check_in_photo,
     }
 
 
-def update_check_out(phone, site=None):
+def update_check_out(phone, site=None, check_out_photo=""):
     active = get_active_check_in(phone)
 
     if not active:
@@ -173,12 +162,11 @@ def update_check_out(phone, site=None):
     sheet_update(
         "Checkins",
         f"F{row_number}:H{row_number}",
-        [[
-            now.strftime("%H:%M"),
-            hours,
-            "Completed",
-        ]],
+        [[now.strftime("%H:%M"), hours, "Completed"]],
     )
+
+    if check_out_photo:
+        sheet_update("Checkins", f"K{row_number}:K{row_number}", [[check_out_photo]])
 
     return active["site"], hours
 
@@ -188,12 +176,9 @@ def list_on_site():
     people = []
 
     for row in rows[1:]:
-        row = row + [""] * 9
+        row = row + [""] * 11
 
-        status = row[7].strip().lower()
-        check_out = row[5].strip()
-
-        if status == "on site" and not check_out:
+        if row[7].strip().lower() == "on site" and not row[5].strip():
             people.append({
                 "date": row[0],
                 "name": row[1],
@@ -203,6 +188,8 @@ def list_on_site():
                 "check_in": row[4],
                 "status": row[7],
                 "notes": row[8],
+                "check_in_photo": row[9],
+                "check_out_photo": row[10],
             })
 
     return people

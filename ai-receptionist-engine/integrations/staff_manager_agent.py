@@ -1,7 +1,4 @@
 import os
-from integrations.staff_sheets import clean_phone
-
-OWNER_NUMBER = clean_phone(os.getenv("OWNER_NUMBER", ""))
 
 from integrations.intent_router import route_intent
 from integrations.staff_sheets import (
@@ -9,6 +6,7 @@ from integrations.staff_sheets import (
     update_check_out,
     list_on_site,
     get_active_check_in,
+    clean_phone,
 )
 from integrations.employees import find_employee_by_phone
 from integrations.reports import owner_report
@@ -17,6 +15,9 @@ from integrations.invoices import invoice_report
 
 
 MANAGER_ROLES = ["owner", "manager"]
+OWNER_NUMBER = clean_phone(os.getenv("OWNER_NUMBER", ""))
+
+PENDING_PHOTO = {}
 
 
 def get_user(phone, profile_name=None):
@@ -45,6 +46,19 @@ def is_manager(user, phone=None):
     return user.get("role", "").strip().lower() in MANAGER_ROLES
 
 
+def first_photo(media_urls):
+    if not media_urls:
+        return ""
+
+    if isinstance(media_urls, list) and media_urls:
+        return media_urls[0]
+
+    if isinstance(media_urls, str):
+        return media_urls
+
+    return ""
+
+
 def clean_site(text):
     site = (text or "").strip()
 
@@ -66,22 +80,14 @@ def clean_site(text):
         "at",
     ]
 
-    end_noise = [
-        "please", "pls", "thanks", "thank you", "cheers",
-    ]
+    end_noise = ["please", "pls", "thanks", "thank you", "cheers"]
 
     changed = True
-
     while changed:
         changed = False
         lower = site.lower().strip()
 
         for phrase in noise_start:
-            if lower == phrase:
-                site = ""
-                changed = True
-                break
-
             if lower.startswith(phrase + " "):
                 site = site[len(phrase):].strip()
                 changed = True
@@ -93,11 +99,6 @@ def clean_site(text):
         lower = site.lower().strip()
 
         for phrase in action_phrases:
-            if lower == phrase:
-                site = ""
-                changed = True
-                break
-
             if lower.startswith(phrase + " "):
                 site = site[len(phrase):].strip()
                 changed = True
@@ -105,76 +106,42 @@ def clean_site(text):
 
     for word in end_noise:
         lower = site.lower().strip()
-
         if lower.endswith(" " + word):
             site = site[: -len(word)].strip()
-
-        if lower == word:
-            site = ""
-
-    return site.title()
-    
-    for phrase in remove_phrases:
-        if lower.startswith(phrase):
-            site = site[len(phrase):].strip()
-            break
-
-    for word in ["please", "pls", "thanks", "thank you"]:
-        site = site.replace(word, "").replace(word.title(), "").strip()
-
-    return site.title()
-
-    for phrase in phrases:
-        if lower.startswith(phrase):
-            site = original[len(phrase):].strip()
-            break
-
-    remove_words = ["please", "pls", "thanks", "thank you"]
-    for word in remove_words:
-        site = site.replace(word, "").replace(word.title(), "").strip()
 
     return site.title()
 
 
 def clean_finish_site(text):
-    original = (text or "").strip()
-    lower = original.lower()
+    site = (text or "").strip()
 
     phrases = [
-        "clock me out from",
-        "check me out from",
-        "sign me out from",
-        "clock out from",
-        "check out from",
-        "finish at",
-        "finished at",
-        "done at",
-        "leaving",
-        "left",
-        "finish",
-        "finished",
-        "done for today",
-        "done",
-        "clock me out",
-        "clock out",
-        "check me out",
-        "check out",
-        "sign me out",
-        "sign out",
-        "end shift",
-        "end my shift",
+        "clock me out from", "check me out from", "sign me out from",
+        "clock out from", "check out from",
+        "clock me out at", "check me out at", "sign me out at",
+        "finish at", "finished at", "done at",
+        "clock me out", "clock out",
+        "check me out", "check out",
+        "sign me out", "sign out",
+        "finish", "finished", "done for today", "done",
+        "end shift at", "end shift", "end my shift",
+        "leaving", "left",
     ]
 
-    site = ""
+    lower = site.lower()
 
     for phrase in phrases:
-        if lower.startswith(phrase):
-            site = original[len(phrase):].strip()
+        if lower.startswith(phrase + " "):
+            site = site[len(phrase):].strip()
+            break
+        if lower == phrase:
+            site = ""
             break
 
-    remove_words = ["please", "pls", "thanks", "thank you"]
-    for word in remove_words:
-        site = site.replace(word, "").replace(word.title(), "").strip()
+    for word in ["please", "pls", "thanks", "thank you", "cheers"]:
+        lower = site.lower().strip()
+        if lower.endswith(" " + word):
+            site = site[: -len(word)].strip()
 
     return site.title() if site else None
 
@@ -240,6 +207,70 @@ def on_site_reply():
     return reply.strip()
 
 
+def complete_pending_photo(phone, media_urls):
+    photo_url = first_photo(media_urls)
+
+    if not photo_url:
+        return None
+
+    pending = PENDING_PHOTO.get(clean_phone(phone))
+
+    if not pending:
+        return None
+
+    action = pending.get("action")
+
+    if action == "check_in":
+        created, active = add_check_in(
+            employee=pending["name"],
+            phone=phone,
+            site=pending["site"],
+            check_in_photo=photo_url,
+        )
+
+        PENDING_PHOTO.pop(clean_phone(phone), None)
+
+        if not created:
+            return (
+                "You're already checked in 👍\n\n"
+                f"Staff: {active['name']}\n"
+                f"Site: {active['site']}\n"
+                f"Since: {active['check_in']}"
+            )
+
+        return (
+            "✅ Photo received and checked in.\n\n"
+            f"Staff: {pending['name']}\n"
+            f"Site: {pending['site']}\n\n"
+            "Have a good shift 👍"
+        )
+
+    if action == "check_out":
+        completed_site, hours = update_check_out(
+            phone=phone,
+            site=pending.get("site"),
+            check_out_photo=photo_url,
+        )
+
+        PENDING_PHOTO.pop(clean_phone(phone), None)
+
+        if not completed_site:
+            return (
+                "I couldn't find an active check-in for you 👍\n\n"
+                "If you're starting work, just say:\n"
+                "I'm at Tesco"
+            )
+
+        return (
+            "✅ Photo received and checked out.\n\n"
+            f"Site: {completed_site}\n"
+            f"Hours: {hours}\n\n"
+            "Nice work 👍"
+        )
+
+    return None
+
+
 def handle_message(phone, text, profile_name=None, media_urls=None):
     text = (text or "").strip()
     lower = text.lower()
@@ -247,6 +278,10 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
 
     user = get_user(phone, profile_name)
     name = user["name"]
+
+    photo_result = complete_pending_photo(phone, media_urls)
+    if photo_result:
+        return photo_result
 
     if lower in ["thanks", "thank you", "cheers", "nice one"]:
         return "You're welcome 👍"
@@ -260,72 +295,92 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         if not site:
             return "No problem 👍 What site or route are you checking in to?"
 
-        created, active = add_check_in(
-            employee=name,
-            phone=phone,
-            site=site,
-        )
+        photo_url = first_photo(media_urls)
 
-        if not created:
-            return (
-                "You're already checked in 👍\n\n"
-                f"Staff: {active['name']}\n"
-                f"Site: {active['site']}\n"
-                f"Since: {active['check_in']}\n\n"
-                "Send FINISH when you're done."
+        if photo_url:
+            created, active = add_check_in(
+                employee=name,
+                phone=phone,
+                site=site,
+                check_in_photo=photo_url,
             )
 
+            if not created:
+                return (
+                    "You're already checked in 👍\n\n"
+                    f"Staff: {active['name']}\n"
+                    f"Site: {active['site']}\n"
+                    f"Since: {active['check_in']}"
+                )
+
+            return (
+                "✅ Checked in with photo.\n\n"
+                f"Staff: {name}\n"
+                f"Site: {site}\n\n"
+                "Have a good shift 👍"
+            )
+
+        PENDING_PHOTO[clean_phone(phone)] = {
+            "action": "check_in",
+            "name": name,
+            "site": site,
+        }
+
         return (
-            "✅ Checked in.\n\n"
-            f"Staff: {name}\n"
-            f"Site: {site}\n\n"
-            "Have a good shift 👍"
+            f"📸 Before I check you in at {site}, please send a quick photo from site."
         )
 
     if intent == "finish":
         site = clean_finish_site(text)
+        photo_url = first_photo(media_urls)
 
-        completed_site, hours = update_check_out(
-            phone=phone,
-            site=site,
-        )
-
-        if not completed_site:
-            return (
-                "I couldn't find an active check-in for you 👍\n\n"
-                "If you're starting work, just say:\n"
-                "I'm at Tesco"
+        if photo_url:
+            completed_site, hours = update_check_out(
+                phone=phone,
+                site=site,
+                check_out_photo=photo_url,
             )
 
-        return (
-            "✅ Checked out.\n\n"
-            f"Site: {completed_site}\n"
-            f"Hours: {hours}\n\n"
-            "Nice work 👍"
-        )
+            if not completed_site:
+                return (
+                    "I couldn't find an active check-in for you 👍\n\n"
+                    "If you're starting work, just say:\n"
+                    "I'm at Tesco"
+                )
+
+            return (
+                "✅ Checked out with photo.\n\n"
+                f"Site: {completed_site}\n"
+                f"Hours: {hours}\n\n"
+                "Nice work 👍"
+            )
+
+        PENDING_PHOTO[clean_phone(phone)] = {
+            "action": "check_out",
+            "name": name,
+            "site": site,
+        }
+
+        return "📸 Please send a quick checkout photo before I clock you out."
 
     if intent == "on_site":
         if not is_manager(user, phone):
             return no_access_reply()
-
         return on_site_reply()
 
     if intent == "report":
         if not is_manager(user, phone):
             return no_access_reply()
-
         return owner_report()
 
     if intent == "payroll":
         if not is_manager(user, phone):
             return no_access_reply()
-
         return payroll_report()
 
     if intent == "invoices":
         if not is_manager(user, phone):
             return no_access_reply()
-
         return invoice_report()
 
     active = get_active_check_in(phone)
