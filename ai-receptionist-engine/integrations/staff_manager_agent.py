@@ -1,18 +1,17 @@
+from integrations.intent_router import route_intent
 from integrations.staff_sheets import (
     add_check_in,
     update_check_out,
     list_on_site,
     get_active_check_in,
 )
-
+from integrations.employees import find_employee_by_phone
 from integrations.reports import owner_report
 from integrations.payroll import payroll_report
 from integrations.invoices import invoice_report
-from integrations.employees import find_employee_by_phone
-from integrations.intent_router import route_intent
 
 
-OWNER_ROLES = ["owner", "manager"]
+MANAGER_ROLES = ["owner", "manager"]
 
 
 def get_user(phone, profile_name=None):
@@ -21,7 +20,7 @@ def get_user(phone, profile_name=None):
     if employee:
         return {
             "name": employee.get("name") or profile_name or "Staff",
-            "role": (employee.get("role") or "Staff").strip(),
+            "role": employee.get("role", "Staff"),
             "hourly_rate": employee.get("hourly_rate", ""),
             "status": employee.get("status", "Active"),
         }
@@ -35,68 +34,92 @@ def get_user(phone, profile_name=None):
 
 
 def is_manager(user):
-    return user["role"].lower() in OWNER_ROLES
+    return user.get("role", "").strip().lower() in MANAGER_ROLES
 
 
 def clean_site(text):
-    t = (text or "").strip()
+    original = (text or "").strip()
+    lower = original.lower()
 
-    remove_phrases = [
-        "start",
-        "started",
-        "clock me in",
-        "clock in",
-        "check me in",
-        "check in",
-        "checking in",
+    phrases = [
+        "clock me in at",
+        "check me in at",
+        "sign me in at",
+        "clock in at",
+        "check in at",
+        "start at",
+        "started at",
+        "starting at",
         "i'm at",
         "im at",
         "i am at",
         "arrived at",
-        "arrived",
         "i've arrived at",
         "ive arrived at",
-        "i just got to",
         "just got to",
-        "i'm on site at",
-        "im on site at",
+        "got to",
+        "working at",
+        "on site at",
+        "start",
+        "started",
+        "arrived",
     ]
 
-    lower = t.lower()
+    site = original
 
-    for phrase in remove_phrases:
+    for phrase in phrases:
         if lower.startswith(phrase):
-            site = t[len(phrase):].strip()
-            return site.title() if site else ""
+            site = original[len(phrase):].strip()
+            break
 
-    return t.title()
+    remove_words = ["please", "pls", "thanks", "thank you"]
+    for word in remove_words:
+        site = site.replace(word, "").replace(word.title(), "").strip()
+
+    return site.title()
 
 
 def clean_finish_site(text):
-    t = (text or "").strip()
+    original = (text or "").strip()
+    lower = original.lower()
 
-    remove_phrases = [
+    phrases = [
+        "clock me out from",
+        "check me out from",
+        "sign me out from",
+        "clock out from",
+        "check out from",
+        "finish at",
+        "finished at",
+        "done at",
+        "leaving",
+        "left",
         "finish",
         "finished",
-        "done",
         "done for today",
+        "done",
         "clock me out",
         "clock out",
+        "check me out",
         "check out",
-        "checkout",
-        "i'm finished at",
-        "im finished at",
-        "finished at",
+        "sign me out",
+        "sign out",
+        "end shift",
+        "end my shift",
     ]
 
-    lower = t.lower()
+    site = ""
 
-    for phrase in remove_phrases:
+    for phrase in phrases:
         if lower.startswith(phrase):
-            site = t[len(phrase):].strip()
-            return site.title() if site else None
+            site = original[len(phrase):].strip()
+            break
 
-    return None
+    remove_words = ["please", "pls", "thanks", "thank you"]
+    for word in remove_words:
+        site = site.replace(word, "").replace(word.title(), "").strip()
+
+    return site.title() if site else None
 
 
 def greeting_reply(phone, user):
@@ -106,10 +129,9 @@ def greeting_reply(phone, user):
         return (
             f"Hi 👋 Welcome back, {user['name']}.\n\n"
             f"You're currently checked in at {active['site']} since {active['check_in']}.\n\n"
-            "You can say things like:\n"
+            "You can say:\n"
             "• Finished\n"
             "• Who is on site?\n"
-            "• Payroll\n"
             "• Report"
         )
 
@@ -117,28 +139,28 @@ def greeting_reply(phone, user):
         return (
             f"Hi 👋 Welcome back, {user['name']}.\n\n"
             "You're currently checked out.\n\n"
-            "You can say things like:\n"
-            "• I'm at Tesco\n"
-            "• Start Amazon route 17\n"
+            "Manager options:\n"
             "• Who is on site?\n"
+            "• Report\n"
             "• Payroll\n"
-            "• Invoices\n"
-            "• Report"
+            "• Invoices\n\n"
+            "Staff actions:\n"
+            "• I'm at Tesco\n"
+            "• Finished"
         )
 
     return (
         f"Hi 👋 Welcome back, {user['name']}.\n\n"
         "You're currently checked out.\n\n"
-        "You can say things like:\n"
+        "You can say:\n"
         "• I'm at Tesco\n"
-        "• Start Amazon route 17\n"
         "• Finished"
     )
 
 
 def no_access_reply():
     return (
-        "Sorry, this looks like a manager-only request 🔒\n\n"
+        "Sorry, this is a manager-only request 🔒\n\n"
         "You can still check in, check out, or ask for your current status."
     )
 
@@ -151,11 +173,12 @@ def on_site_reply():
 
     reply = "📍 Currently on site:\n\n"
 
-    for item in people:
-        name = item.get("name") or item.get("employee") or "Staff"
-        site = item.get("site", "Unknown site")
-        check_in = item.get("check_in", "")
-        reply += f"👷 {name} - {site} since {check_in}\n"
+    for person in people:
+        reply += (
+            f"👷 {person['name']}\n"
+            f"Site: {person['site']}\n"
+            f"Since: {person['check_in']}\n\n"
+        )
 
     return reply.strip()
 
@@ -167,6 +190,9 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
 
     user = get_user(phone, profile_name)
     name = user["name"]
+
+    if lower in ["thanks", "thank you", "cheers", "nice one"]:
+        return "You're welcome 👍"
 
     if intent == "greeting":
         return greeting_reply(phone, user)
@@ -186,7 +212,7 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         if not created:
             return (
                 "You're already checked in 👍\n\n"
-                f"Staff: {active.get('name') or active.get('employee')}\n"
+                f"Staff: {active['name']}\n"
                 f"Site: {active['site']}\n"
                 f"Since: {active['check_in']}\n\n"
                 "Send FINISH when you're done."
@@ -203,8 +229,8 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         site = clean_finish_site(text)
 
         completed_site, hours = update_check_out(
-            phone,
-            site if site else None,
+            phone=phone,
+            site=site,
         )
 
         if not completed_site:
@@ -257,9 +283,10 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         )
 
     return (
-        "I can help with check-ins, reports, payroll and invoices 👍\n\n"
+        "I can help manage staff check-ins, reports, payroll and invoices 👍\n\n"
         "Try saying:\n"
         "• I'm at Tesco\n"
+        "• Finished\n"
         "• Who is on site?\n"
         "• Report\n"
         "• Payroll\n"
