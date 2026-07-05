@@ -1,3 +1,8 @@
+import os
+from integrations.staff_sheets import clean_phone
+
+OWNER_NUMBER = clean_phone(os.getenv("OWNER_NUMBER", ""))
+
 from integrations.intent_router import route_intent
 from integrations.staff_sheets import (
     add_check_in,
@@ -33,7 +38,10 @@ def get_user(phone, profile_name=None):
     }
 
 
-def is_manager(user):
+def is_manager(user, phone=None):
+    if phone and OWNER_NUMBER and clean_phone(phone) == OWNER_NUMBER:
+        return True
+
     return user.get("role", "").strip().lower() in MANAGER_ROLES
 
 
@@ -135,7 +143,7 @@ def greeting_reply(phone, user):
             "• Report"
         )
 
-    if is_manager(user):
+    if is_manager(user, phone):
         return (
             f"Hi 👋 Welcome back, {user['name']}.\n\n"
             "You're currently checked out.\n\n"
@@ -248,25 +256,25 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
         )
 
     if intent == "on_site":
-        if not is_manager(user):
+        if not is_manager(user, phone):
             return no_access_reply()
 
         return on_site_reply()
 
     if intent == "report":
-        if not is_manager(user):
+        if not is_manager(user, phone):
             return no_access_reply()
 
         return owner_report()
 
     if intent == "payroll":
-        if not is_manager(user):
+        if not is_manager(user, phone):
             return no_access_reply()
 
         return payroll_report()
 
     if intent == "invoices":
-        if not is_manager(user):
+        if not is_manager(user, phone):
             return no_access_reply()
 
         return invoice_report()
