@@ -1,26 +1,24 @@
 import os
 import json
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 
-
 TIMEZONE = ZoneInfo("Europe/London")
-
 STAFF_SHEET_ID = os.getenv("STAFF_SHEET_ID", "").strip()
-
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
 def get_service():
-    if not STAFF_SHEET_ID:
-        raise ValueError("STAFF_SHEET_ID is missing from environment variables")
-
     raw_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
 
+    if not STAFF_SHEET_ID:
+        raise ValueError("STAFF_SHEET_ID is missing")
+
     if not raw_json:
-        raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is missing from environment variables")
+        raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is missing")
 
     creds_info = json.loads(raw_json)
 
@@ -55,11 +53,61 @@ def sheet_append(tab_name, cell_range, values):
         insertDataOption="INSERT_ROWS",
         body={"values": values},
     ).execute()
-from datetime import datetime
+
+
+def sheet_update(tab_name, cell_range, values):
+    service = get_service()
+    full_range = f"'{tab_name}'!{cell_range}"
+
+    service.spreadsheets().values().update(
+        spreadsheetId=STAFF_SHEET_ID,
+        range=full_range,
+        valueInputOption="RAW",
+        body={"values": values},
+    ).execute()
+
+
+def clean_phone(phone):
+    return (
+        (phone or "")
+        .replace("whatsapp:", "")
+        .replace(" ", "")
+        .replace("-", "")
+        .strip()
+    )
 
 
 def get_rows():
     return sheet_get("Checkins", "A1:I1000")
+
+
+def get_active_check_in(phone):
+    rows = get_rows()
+    target_phone = clean_phone(phone)
+
+    for index in range(len(rows) - 1, 0, -1):
+        row = rows[index] + [""] * 9
+
+        row_phone = clean_phone(row[2])
+        status = row[7].strip().lower()
+        check_out = row[5].strip()
+
+        if row_phone == target_phone and status == "on site" and not check_out:
+            return {
+                "row_number": index + 1,
+                "date": row[0],
+                "name": row[1],
+                "employee": row[1],
+                "phone": row[2],
+                "site": row[3],
+                "check_in": row[4],
+                "check_out": row[5],
+                "hours": row[6],
+                "status": row[7],
+                "notes": row[8],
+            }
+
+    return None
 
 
 def add_check_in(name=None, phone="", site="", notes="", employee=None):
@@ -67,16 +115,16 @@ def add_check_in(name=None, phone="", site="", notes="", employee=None):
         name = employee
 
     active = get_active_check_in(phone)
+
     if active:
         return False, active
 
-    clean_phone = phone.replace("whatsapp:", "")
     now = datetime.now(TIMEZONE)
 
     values = [[
         now.strftime("%Y-%m-%d"),
-        name or "",
-        clean_phone,
+        name or "Staff",
+        clean_phone(phone),
         site,
         now.strftime("%H:%M"),
         "",
@@ -87,31 +135,13 @@ def add_check_in(name=None, phone="", site="", notes="", employee=None):
 
     sheet_append("Checkins", "A1:I1000", values)
 
-    return True, None
+    return True, {
+        "name": name or "Staff",
+        "employee": name or "Staff",
+        "site": site,
+        "check_in": now.strftime("%H:%M"),
+    }
 
-
-def get_active_check_in(phone):
-    rows = get_rows()
-    clean_phone = phone.replace("whatsapp:", "")
-
-    for idx in range(len(rows) - 1, 0, -1):
-        row = rows[idx] + [""] * 9
-
-        if row[2].strip() == clean_phone and row[7].strip().lower() == "on site":
-            return {
-                "row_number": idx + 1,
-                "date": row[0],
-                "name": row[1],
-                "phone": row[2],
-                "site": row[3],
-                "check_in": row[4],
-                "check_out": row[5],
-                "hours": row[6],
-                "status": row[7],
-                "notes": row[8],
-            }
-
-    return None   
 
 def update_check_out(phone, site=None):
     active = get_active_check_in(phone)
@@ -119,35 +149,39 @@ def update_check_out(phone, site=None):
     if not active:
         return None, None
 
-    if site and active["site"].lower().strip() != site.lower().strip():
-        return None, None
+    if site:
+        wanted = site.lower().strip()
+        current = active["site"].lower().strip()
+
+        if wanted and wanted not in current and current not in wanted:
+            return None, None
+
+    now = datetime.now(TIMEZONE)
+
+    try:
+        start = datetime.strptime(
+            f"{active['date']} {active['check_in']}",
+            "%Y-%m-%d %H:%M",
+        ).replace(tzinfo=TIMEZONE)
+
+        hours = round((now - start).total_seconds() / 3600, 2)
+    except Exception:
+        hours = ""
 
     row_number = active["row_number"]
 
-    service = get_service()
-    now = datetime.now(TIMEZONE)
-
-    check_in_dt = datetime.strptime(
-        f"{active['date']} {active['check_in']}",
-        "%Y-%m-%d %H:%M"
-    ).replace(tzinfo=TIMEZONE)
-
-    hours = round((now - check_in_dt).total_seconds() / 3600, 2)
-
-    values = [[
-        now.strftime("%H:%M"),
-        hours,
-        "Completed",
-    ]]
-
-    service.spreadsheets().values().update(
-        spreadsheetId=STAFF_SHEET_ID,
-        range=f"Checkins!F{row_number}:H{row_number}",
-        valueInputOption="RAW",
-        body={"values": values},
-    ).execute()
+    sheet_update(
+        "Checkins",
+        f"F{row_number}:H{row_number}",
+        [[
+            now.strftime("%H:%M"),
+            hours,
+            "Completed",
+        ]],
+    )
 
     return active["site"], hours
+
 
 def list_on_site():
     rows = get_rows()
@@ -156,10 +190,14 @@ def list_on_site():
     for row in rows[1:]:
         row = row + [""] * 9
 
-        if row[7].strip().lower() == "on site":
+        status = row[7].strip().lower()
+        check_out = row[5].strip()
+
+        if status == "on site" and not check_out:
             people.append({
                 "date": row[0],
                 "name": row[1],
+                "employee": row[1],
                 "phone": row[2],
                 "site": row[3],
                 "check_in": row[4],
