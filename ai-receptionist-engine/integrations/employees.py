@@ -7,12 +7,12 @@ def get_employees():
 
 def find_employee_by_phone(phone):
     rows = get_employees()
-    target = clean_phone(phone)
+    target_phone = clean_phone(phone)
 
     for row in rows[1:]:
         row = row + [""] * 6
 
-        if clean_phone(row[1]) == target:
+        if clean_phone(row[1]) == target_phone:
             return {
                 "name": row[0],
                 "phone": row[1],

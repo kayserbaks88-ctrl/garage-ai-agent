@@ -28,15 +28,18 @@ def get_service():
 
 def sheet_get(tab_name, cell_range):
     service = get_service()
+
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
         range=f"'{tab_name}'!{cell_range}",
     ).execute()
+
     return result.get("values", [])
 
 
 def sheet_append(tab_name, cell_range, values):
     service = get_service()
+
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
         range=f"'{tab_name}'!{cell_range}",
@@ -48,6 +51,7 @@ def sheet_append(tab_name, cell_range, values):
 
 def sheet_update(tab_name, cell_range, values):
     service = get_service()
+
     service.spreadsheets().values().update(
         spreadsheetId=STAFF_SHEET_ID,
         range=f"'{tab_name}'!{cell_range}",
@@ -75,9 +79,13 @@ def get_active_check_in(phone):
     target_phone = clean_phone(phone)
 
     for index in range(len(rows) - 1, 0, -1):
-        row = rows[index] + [""] * 11
+        row = rows[index] + [""] * 12
 
-        if clean_phone(row[2]) == target_phone and row[7].strip().lower() == "on site" and not row[5].strip():
+        if (
+            clean_phone(row[2]) == target_phone
+            and row[7].strip().lower() == "on site"
+            and not row[5].strip()
+        ):
             return {
                 "row_number": index + 1,
                 "date": row[0],
@@ -92,14 +100,18 @@ def get_active_check_in(phone):
                 "notes": row[8],
                 "check_in_photo": row[9],
                 "check_out_photo": row[10],
+                "gps": row[11],
             }
 
     return None
 
 
-def add_check_in(name=None, phone="", site="", notes="", employee=None, check_in_photo="", gps_text=""):    
-    
+def add_check_in(name=None, phone="", site="", notes="", employee=None, check_in_photo="", gps_text=""):
+    if employee and not name:
+        name = employee
+
     active = get_active_check_in(phone)
+
     if active:
         return False, active
 
@@ -117,31 +129,17 @@ def add_check_in(name=None, phone="", site="", notes="", employee=None, check_in
         notes,
         check_in_photo,
         "",
-    ]]
-
-    values = [[
-        now.strftime("%Y-%m-%d"),
-        name or "Staff",
-        clean_phone(phone),
-        site,
-        now.strftime("%H:%M"),
-        "",
-        "",
-        "On Site",
-        notes,
-        check_in_photo,
-        "",
         gps_text,
     ]]
 
-    sheet_append("Checkins", "A1:K1000", values)
+    sheet_append("Checkins", "A1:L1000", values)
 
     return True, {
         "name": name or "Staff",
         "employee": name or "Staff",
         "site": site,
         "check_in": now.strftime("%H:%M"),
-        "check_in_photo": check_in_photo,
+        "gps": gps_text,
     }
 
 
@@ -203,6 +201,7 @@ def list_on_site():
                 "notes": row[8],
                 "check_in_photo": row[9],
                 "check_out_photo": row[10],
+                "gps": row[11],
             })
 
     return people

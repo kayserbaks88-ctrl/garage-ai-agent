@@ -1,6 +1,7 @@
 import os
 
 from integrations.intent_router import route_intent
+from integrations.gps_helper import verify_location
 from integrations.staff_sheets import (
     add_check_in,
     update_check_out,
@@ -17,7 +18,11 @@ from integrations.invoices import invoice_report
 MANAGER_ROLES = ["owner", "manager"]
 OWNER_NUMBER = clean_phone(os.getenv("OWNER_NUMBER", ""))
 
-PENDING_PHOTO = {}
+SESSIONS = {}
+
+
+def session_key(phone):
+    return clean_phone(phone)
 
 
 def get_user(phone, profile_name=None):
@@ -26,7 +31,7 @@ def get_user(phone, profile_name=None):
     if employee:
         return {
             "name": employee.get("name") or profile_name or "Staff",
-            "role": employee.get("role", "Staff"),
+            "role": employee.get("role") or "Staff",
             "hourly_rate": employee.get("hourly_rate", ""),
             "status": employee.get("status", "Active"),
         }
@@ -47,16 +52,15 @@ def is_manager(user, phone=None):
 
 
 def first_photo(media_urls):
-    if not media_urls:
-        return ""
-
     if isinstance(media_urls, list) and media_urls:
         return media_urls[0]
-
     if isinstance(media_urls, str):
         return media_urls
-
     return ""
+
+
+def has_location(location):
+    return bool((location or {}).get("latitude") and (location or {}).get("longitude"))
 
 
 def clean_site(text):
@@ -64,8 +68,8 @@ def clean_site(text):
 
     noise_start = [
         "hi", "hello", "hey", "morning", "good morning",
-        "can you please", "can you", "please",
-        "could you please", "could you",
+        "can you please", "can you", "could you please", "could you",
+        "please",
     ]
 
     action_phrases = [
@@ -80,25 +84,19 @@ def clean_site(text):
         "at",
     ]
 
-    end_noise = ["please", "pls", "thanks", "thank you", "cheers"]
+    end_noise = ["please", "pls", "thanks", "thank you", "cheers", "now"]
 
     changed = True
     while changed:
         changed = False
         lower = site.lower().strip()
 
-        for phrase in noise_start:
-            if lower.startswith(phrase + " "):
-                site = site[len(phrase):].strip()
+        for phrase in noise_start + action_phrases:
+            if lower == phrase:
+                site = ""
                 changed = True
                 break
 
-        if changed:
-            continue
-
-        lower = site.lower().strip()
-
-        for phrase in action_phrases:
             if lower.startswith(phrase + " "):
                 site = site[len(phrase):].strip()
                 changed = True
@@ -114,6 +112,7 @@ def clean_site(text):
 
 def clean_finish_site(text):
     site = (text or "").strip()
+    lower = site.lower()
 
     phrases = [
         "clock me out from", "check me out from", "sign me out from",
@@ -128,22 +127,34 @@ def clean_finish_site(text):
         "leaving", "left",
     ]
 
-    lower = site.lower()
-
     for phrase in phrases:
+        if lower == phrase:
+            return None
+
         if lower.startswith(phrase + " "):
             site = site[len(phrase):].strip()
             break
-        if lower == phrase:
-            site = ""
-            break
 
-    for word in ["please", "pls", "thanks", "thank you", "cheers"]:
+    for word in ["please", "pls", "thanks", "thank you", "cheers", "now"]:
         lower = site.lower().strip()
         if lower.endswith(" " + word):
             site = site[: -len(word)].strip()
 
     return site.title() if site else None
+
+
+def request_location(site):
+    return (
+        f"📍 Before I check you in at {site}, please share your current WhatsApp location.\n\n"
+        "Tap + or 📎 → Location → Send current location."
+    )
+
+
+def no_access_reply():
+    return (
+        "Sorry, this is a manager-only request 🔒\n\n"
+        "You can still check in, check out, or ask for your current status."
+    )
 
 
 def greeting_reply(phone, user):
@@ -169,7 +180,7 @@ def greeting_reply(phone, user):
             "• Payroll\n"
             "• Invoices\n\n"
             "Staff actions:\n"
-            "• I'm at Tesco\n"
+            "• Clock me in at Tesco\n"
             "• Finished"
         )
 
@@ -177,15 +188,8 @@ def greeting_reply(phone, user):
         f"Hi 👋 Welcome back, {user['name']}.\n\n"
         "You're currently checked out.\n\n"
         "You can say:\n"
-        "• I'm at Tesco\n"
+        "• Clock me in at Tesco\n"
         "• Finished"
-    )
-
-
-def no_access_reply():
-    return (
-        "Sorry, this is a manager-only request 🔒\n\n"
-        "You can still check in, check out, or ask for your current status."
     )
 
 
@@ -198,93 +202,128 @@ def on_site_reply():
     reply = "📍 Currently on site:\n\n"
 
     for person in people:
+        gps = person.get("gps", "")
+        gps_line = f"GPS: {gps}\n" if gps else ""
+
         reply += (
             f"👷 {person['name']}\n"
             f"Site: {person['site']}\n"
-            f"Since: {person['check_in']}\n\n"
+            f"Since: {person['check_in']}\n"
+            f"{gps_line}\n"
         )
 
     return reply.strip()
 
 
-def complete_pending_photo(phone, media_urls):
+def complete_gps_step(phone, location):
+    key = session_key(phone)
+    pending = SESSIONS.get(key)
+
+    if not pending or pending.get("stage") != "awaiting_location":
+        return None
+
+    lat = location.get("latitude")
+    lng = location.get("longitude")
+    site = pending["site"]
+    name = pending["name"]
+
+    gps_result = verify_location(site, lat, lng)
+
+    if not gps_result["verified"]:
+        return gps_result["message"]
+
+    if gps_result.get("photo_required"):
+        SESSIONS[key] = {
+            "stage": "awaiting_photo",
+            "name": name,
+            "site": gps_result["site"],
+            "gps_text": gps_result["gps_text"],
+        }
+
+        return (
+            f"{gps_result['message']}\n\n"
+            "📸 This site requires photo proof. Please send a quick photo from site."
+        )
+
+    created, active = add_check_in(
+        employee=name,
+        phone=phone,
+        site=gps_result["site"],
+        gps_text=gps_result["gps_text"],
+    )
+
+    SESSIONS.pop(key, None)
+
+    if not created:
+        return (
+            "You're already checked in 👍\n\n"
+            f"Staff: {active['name']}\n"
+            f"Site: {active['site']}\n"
+            f"Since: {active['check_in']}"
+        )
+
+    return (
+        f"{gps_result['message']}\n\n"
+        "✅ Checked in.\n\n"
+        f"Staff: {name}\n"
+        f"Site: {gps_result['site']}\n\n"
+        "Have a good shift 👍"
+    )
+
+
+def complete_photo_step(phone, media_urls):
+    key = session_key(phone)
+    pending = SESSIONS.get(key)
     photo_url = first_photo(media_urls)
 
-    if not photo_url:
+    if not pending or pending.get("stage") != "awaiting_photo" or not photo_url:
         return None
 
-    pending = PENDING_PHOTO.get(clean_phone(phone))
+    created, active = add_check_in(
+        employee=pending["name"],
+        phone=phone,
+        site=pending["site"],
+        check_in_photo=photo_url,
+        gps_text=pending.get("gps_text", ""),
+    )
 
-    if not pending:
-        return None
+    SESSIONS.pop(key, None)
 
-    action = pending.get("action")
-
-    if action == "check_in":
-        gps_text = pending.get("gps_text", "⏳ No GPS")
-       
-        created, active = add_check_in(
-            employee=pending["name"],
-            phone=phone,
-            site=pending["site"],
-            check_in_photo=photo_url,
-            gps_text=gps_text,
-        )
-
-        PENDING_PHOTO.pop(clean_phone(phone), None)
-
-        if not created:
-            return (
-                "You're already checked in 👍\n\n"
-                f"Staff: {active['name']}\n"
-                f"Site: {active['site']}\n"
-                f"Since: {active['check_in']}"
-            )
-
+    if not created:
         return (
-            "✅ Photo received and checked in.\n\n"
-            f"Staff: {pending['name']}\n"
-            f"Site: {pending['site']}\n\n"
-            "Have a good shift 👍"
+            "You're already checked in 👍\n\n"
+            f"Staff: {active['name']}\n"
+            f"Site: {active['site']}\n"
+            f"Since: {active['check_in']}"
         )
 
-    if action == "check_out":
-        completed_site, hours = update_check_out(
-            phone=phone,
-            site=pending.get("site"),
-            check_out_photo=photo_url,
-        )
-
-        PENDING_PHOTO.pop(clean_phone(phone), None)
-
-        if not completed_site:
-            return (
-                "I couldn't find an active check-in for you 👍\n\n"
-                "If you're starting work, just say:\n"
-                "I'm at Tesco"
-            )
-
-        return (
-            "✅ Photo received and checked out.\n\n"
-            f"Site: {completed_site}\n"
-            f"Hours: {hours}\n\n"
-            "Nice work 👍"
-        )
-
-    return None
+    return (
+        "✅ Photo received and checked in.\n\n"
+        f"Staff: {pending['name']}\n"
+        f"Site: {pending['site']}\n\n"
+        "Have a good shift 👍"
+    )
 
 
 def handle_message(phone, text, profile_name=None, media_urls=None, location=None):
     text = (text or "").strip()
     lower = text.lower()
-    intent = route_intent(text)
+    media_urls = media_urls or []
+    location = location or {}
 
+    intent = route_intent(text)
     user = get_user(phone, profile_name)
     name = user["name"]
+    key = session_key(phone)
 
-    photo_result = complete_pending_photo(phone, media_urls)
-    if photo_result:
-        return photo_result
+    if has_location(location):
+        gps_reply = complete_gps_step(phone, location)
+        if gps_reply:
+            return gps_reply
+
+    photo_reply = complete_photo_step(phone, media_urls)
+    if photo_reply:
+        return photo_reply
 
     if lower in ["thanks", "thank you", "cheers", "nice one"]:
         return "You're welcome 👍"
@@ -293,80 +332,58 @@ def handle_message(phone, text, profile_name=None, media_urls=None, location=Non
         return greeting_reply(phone, user)
 
     if intent == "start":
+        active = get_active_check_in(phone)
+
+        if active:
+            return (
+                "You're already checked in 👍\n\n"
+                f"Staff: {active['name']}\n"
+                f"Site: {active['site']}\n"
+                f"Since: {active['check_in']}\n\n"
+                "Send FINISH when you're done."
+            )
+
         site = clean_site(text)
 
         if not site:
             return "No problem 👍 What site or route are you checking in to?"
 
-        photo_url = first_photo(media_urls)
-        gps_text = "⏳ No GPS"
-       
-        if photo_url:
-            created, active = add_check_in(
-                employee=name,
-                phone=phone,
-                site=site,
-                check_in_photo=photo_url,
-                gps_text=gps_text,
-            )
+        if not has_location(location):
+            SESSIONS[key] = {
+                "stage": "awaiting_location",
+                "name": name,
+                "site": site,
+            }
 
-            if not created:
-                return (
-                    "You're already checked in 👍\n\n"
-                    f"Staff: {active['name']}\n"
-                    f"Site: {active['site']}\n"
-                    f"Since: {active['check_in']}"
-                )
+            return request_location(site)
 
-            return (
-                "✅ Checked in with photo.\n\n"
-                f"Staff: {name}\n"
-                f"Site: {site}\n\n"
-                "Have a good shift 👍"
-            )
-
-        PENDING_PHOTO[clean_phone(phone)] = {
-            "action": "check_in",
-            "name": name,
-            "site": site,
-        }
-
-        return (
-            f"📸 Before I check you in at {site}, please send a quick photo from site."
-        )
+        gps_reply = complete_gps_step(phone, location)
+        if gps_reply:
+            return gps_reply
 
     if intent == "finish":
         site = clean_finish_site(text)
         photo_url = first_photo(media_urls)
 
-        if photo_url:
-            completed_site, hours = update_check_out(
-                phone=phone,
-                site=site,
-                check_out_photo=photo_url,
-            )
+        completed_site, hours = update_check_out(
+            phone=phone,
+            site=site,
+            check_out_photo=photo_url,
+        )
 
-            if not completed_site:
-                return (
-                    "I couldn't find an active check-in for you 👍\n\n"
-                    "If you're starting work, just say:\n"
-                    "I'm at Tesco"
-                )
-
+        if not completed_site:
             return (
-                "✅ Checked out with photo.\n\n"
-                f"Site: {completed_site}\n"
-                f"Hours: {hours}\n\n"
-                "Nice work 👍"
+                "I couldn't find an active check-in for you 👍\n\n"
+                "If you're starting work, just say:\n"
+                "Clock me in at Tesco"
             )
 
-        PENDING_PHOTO[clean_phone(phone)] = {
-            "action": "check_out",
-            "name": name,
-            "site": site,
-        }
-
-        return "📸 Please send a quick checkout photo before I clock you out."
+        return (
+            "✅ Checked out.\n\n"
+            f"Site: {completed_site}\n"
+            f"Hours: {hours}\n\n"
+            "Nice work 👍"
+        )
 
     if intent == "on_site":
         if not is_manager(user, phone):
@@ -388,6 +405,14 @@ def handle_message(phone, text, profile_name=None, media_urls=None, location=Non
             return no_access_reply()
         return invoice_report()
 
+    pending = SESSIONS.get(key)
+
+    if pending and pending.get("stage") == "awaiting_location":
+        return request_location(pending["site"])
+
+    if pending and pending.get("stage") == "awaiting_photo":
+        return "📸 Please send a quick photo from site to complete your check-in."
+
     active = get_active_check_in(phone)
 
     if active:
@@ -402,7 +427,7 @@ def handle_message(phone, text, profile_name=None, media_urls=None, location=Non
     return (
         "I can help manage staff check-ins, reports, payroll and invoices 👍\n\n"
         "Try saying:\n"
-        "• I'm at Tesco\n"
+        "• Clock me in at Tesco\n"
         "• Finished\n"
         "• Who is on site?\n"
         "• Report\n"
