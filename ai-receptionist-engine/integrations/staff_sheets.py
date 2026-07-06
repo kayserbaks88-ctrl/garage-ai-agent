@@ -31,7 +31,7 @@ def sheet_get(tab_name, cell_range):
 
     result = service.spreadsheets().values().get(
         spreadsheetId=STAFF_SHEET_ID,
-        range=f"'{tab_name}'!{cell_range}",
+        range=f"{tab_name}!{cell_range}",
     ).execute()
 
     return result.get("values", [])
@@ -42,7 +42,7 @@ def sheet_append(tab_name, cell_range, values):
 
     service.spreadsheets().values().append(
         spreadsheetId=STAFF_SHEET_ID,
-        range=f"'{tab_name}'!{cell_range}",
+        range=f"{tab_name}!{cell_range}",
         valueInputOption="RAW",
         insertDataOption="INSERT_ROWS",
         body={"values": values},
@@ -54,7 +54,7 @@ def sheet_update(tab_name, cell_range, values):
 
     service.spreadsheets().values().update(
         spreadsheetId=STAFF_SHEET_ID,
-        range=f"'{tab_name}'!{cell_range}",
+        range=f"{tab_name}!{cell_range}",
         valueInputOption="RAW",
         body={"values": values},
     ).execute()
