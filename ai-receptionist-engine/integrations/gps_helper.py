@@ -8,7 +8,7 @@ def normalise(value):
 
 
 def get_sites():
-    rows = sheet_get("Sites", "A1:E1000")
+    rows = sheet_get("Sites", "A:E")
     sites = []
 
     for row in rows[1:]:
