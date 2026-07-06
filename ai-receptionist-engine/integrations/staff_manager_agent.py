@@ -271,7 +271,7 @@ def complete_pending_photo(phone, media_urls):
     return None
 
 
-def handle_message(phone, text, profile_name=None, media_urls=None):
+def handle_message(phone, text, profile_name=None, media_urls=None, location=None):
     text = (text or "").strip()
     lower = text.lower()
     intent = route_intent(text)
