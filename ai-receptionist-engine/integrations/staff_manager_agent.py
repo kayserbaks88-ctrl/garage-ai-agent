@@ -221,11 +221,14 @@ def complete_pending_photo(phone, media_urls):
     action = pending.get("action")
 
     if action == "check_in":
+        gps_text = pending.get("gps_text", "⏳ No GPS")
+       
         created, active = add_check_in(
             employee=pending["name"],
             phone=phone,
             site=pending["site"],
             check_in_photo=photo_url,
+            gps_text=gps_text,
         )
 
         PENDING_PHOTO.pop(clean_phone(phone), None)
