@@ -1,6 +1,23 @@
 import math
-
 from integrations.staff_sheets import sheet_get
+
+
+FALLBACK_SITES = {
+    "tesco": {
+        "site": "Tesco",
+        "latitude": 53.4808,
+        "longitude": -2.2426,
+        "radius": 100,
+        "photo_required": False,
+    },
+    "amazon": {
+        "site": "Amazon",
+        "latitude": 53.4839,
+        "longitude": -2.2,
+        "radius": 100,
+        "photo_required": True,
+    },
+}
 
 
 def normalise(value):
@@ -8,33 +25,41 @@ def normalise(value):
 
 
 def get_sites():
-    rows = sheet_get("Sites", "A:E")
     sites = []
 
-    for row in rows[1:]:
-        row = row + [""] * 5
+    try:
+        rows = sheet_get("Sites", "A1:E1000")
 
-        site = row[0].strip()
-        latitude = row[1].strip()
-        longitude = row[2].strip()
-        radius = row[3].strip()
-        photo_required = row[4].strip().lower()
+        for row in rows[1:]:
+            row = row + [""] * 5
 
-        if not site or not latitude or not longitude:
-            continue
+            site = row[0].strip()
+            latitude = row[1].strip()
+            longitude = row[2].strip()
+            radius = row[3].strip()
+            photo_required = row[4].strip().lower()
 
-        try:
-            sites.append({
-                "site": site,
-                "latitude": float(latitude),
-                "longitude": float(longitude),
-                "radius": float(radius or 100),
-                "photo_required": photo_required in ["yes", "y", "true", "1"],
-            })
-        except ValueError:
-            continue
+            if not site or not latitude or not longitude:
+                continue
 
-    return sites
+            try:
+                sites.append({
+                    "site": site,
+                    "latitude": float(latitude),
+                    "longitude": float(longitude),
+                    "radius": float(radius or 100),
+                    "photo_required": photo_required in ["yes", "y", "true", "1"],
+                })
+            except ValueError:
+                continue
+
+    except Exception as e:
+        print("GPS SITES SHEET ERROR:", repr(e))
+
+    if sites:
+        return sites
+
+    return list(FALLBACK_SITES.values())
 
 
 def find_site(site_name):
@@ -43,10 +68,7 @@ def find_site(site_name):
     for site in get_sites():
         current = normalise(site["site"])
 
-        if current == search:
-            return site
-
-        if search in current or current in search:
+        if current == search or search in current or current in search:
             return site
 
     return None
@@ -68,7 +90,6 @@ def calculate_distance_metres(lat1, lon1, lat2, lon2):
     )
 
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-
     return round(earth_radius * c)
 
 
@@ -82,7 +103,7 @@ def verify_location(site_name, latitude, longitude):
             "site": site_name,
             "photo_required": False,
             "gps_text": "⚠️ Site GPS missing",
-            "message": f"⚠️ I couldn't find GPS details for {site_name}. Please ask a manager to add this site.",
+            "message": f"⚠️ I couldn't find GPS details for {site_name}.",
         }
 
     distance = calculate_distance_metres(
