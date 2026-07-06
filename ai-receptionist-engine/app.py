@@ -72,11 +72,18 @@ def whatsapp():
             if media_url:
                 media_urls.append(media_url)
 
+        latitude = request.values.get("Latitude", "")
+        longitude = request.values.get("Longitude", "")
+       
         reply = handle_message(
             phone=phone,
             text=incoming,
             profile_name=profile_name,
             media_urls=media_urls,
+            location={
+                "latitude": latitude,
+                "longitude": longitude,
+            },
         )
 
     resp = MessagingResponse()

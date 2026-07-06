@@ -296,13 +296,15 @@ def handle_message(phone, text, profile_name=None, media_urls=None):
             return "No problem 👍 What site or route are you checking in to?"
 
         photo_url = first_photo(media_urls)
-
+        gps_text = "⏳ No GPS"
+       
         if photo_url:
             created, active = add_check_in(
                 employee=name,
                 phone=phone,
                 site=site,
                 check_in_photo=photo_url,
+                gps_text=gps_text,
             )
 
             if not created:

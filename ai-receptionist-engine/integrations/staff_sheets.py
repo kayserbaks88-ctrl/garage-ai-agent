@@ -67,7 +67,7 @@ def clean_phone(phone):
 
 
 def get_rows():
-    return sheet_get("Checkins", "A1:K1000")
+    return sheet_get("Checkins", "A1:L1000")
 
 
 def get_active_check_in(phone):
@@ -97,10 +97,8 @@ def get_active_check_in(phone):
     return None
 
 
-def add_check_in(name=None, phone="", site="", notes="", employee=None, check_in_photo=""):
-    if employee and not name:
-        name = employee
-
+def add_check_in(name=None, phone="", site="", notes="", employee=None, check_in_photo="", gps_text=""):    
+    
     active = get_active_check_in(phone)
     if active:
         return False, active
@@ -119,6 +117,21 @@ def add_check_in(name=None, phone="", site="", notes="", employee=None, check_in
         notes,
         check_in_photo,
         "",
+    ]]
+
+    values = [[
+        now.strftime("%Y-%m-%d"),
+        name or "Staff",
+        clean_phone(phone),
+        site,
+        now.strftime("%H:%M"),
+        "",
+        "",
+        "On Site",
+        notes,
+        check_in_photo,
+        "",
+        gps_text,
     ]]
 
     sheet_append("Checkins", "A1:K1000", values)
@@ -176,7 +189,7 @@ def list_on_site():
     people = []
 
     for row in rows[1:]:
-        row = row + [""] * 11
+        row = row + [""] * 12
 
         if row[7].strip().lower() == "on site" and not row[5].strip():
             people.append({
