@@ -424,6 +424,18 @@ def handle_message(phone, text, profile_name=None, media_urls=None, location=Non
             "• Report"
         )
 
+    if intent is None:
+        return (
+            "I didn't quite understand that 👍\n\n"
+            "Try saying:\n"
+            "• Clock me in at Tesco\n"
+            "• Finished\n"
+            "• Who is on site?\n"
+            "• Report\n"
+            "• Payroll\n"
+            "• Invoices"
+        )
+    
     return (
         "I can help manage staff check-ins, reports, payroll and invoices 👍\n\n"
         "Try saying:\n"
