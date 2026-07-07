@@ -137,11 +137,15 @@ def clean_finish_site(text):
 
     for word in ["please", "pls", "thanks", "thank you", "cheers", "now"]:
         lower = site.lower().strip()
+
+        if lower == word:
+            site = ""
+            break
+
         if lower.endswith(" " + word):
             site = site[: -len(word)].strip()
 
     return site.title() if site else None
-
 
 def request_location(site):
     return (
