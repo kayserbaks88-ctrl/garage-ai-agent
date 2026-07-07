@@ -7,14 +7,14 @@ FALLBACK_SITES = {
         "site": "Tesco",
         "latitude": 53.4808,
         "longitude": -2.2426,
-        "radius": 100,
+        "radius": 500000,
         "photo_required": False,
     },
     "amazon": {
         "site": "Amazon",
         "latitude": 53.4839,
         "longitude": -2.2,
-        "radius": 100,
+        "radius": 500000,
         "photo_required": True,
     },
 }
