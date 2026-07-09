@@ -17,10 +17,10 @@ def say_and_listen(message):
         language="en-GB",
     )
 
-    gather.say(message, voice="alice", language="en-GB")
+    gather.say(message, voice="Polly.Amy", language="en-GB")
     response.append(gather)
 
-    response.say("Sorry, I didn't hear anything. Please call again.", voice="alice")
+    response.say("Sorry, I didn't hear anything. Please call again.", voice="Polly.Amy")
     response.hangup()
 
     return str(response)
@@ -28,7 +28,7 @@ def say_and_listen(message):
 
 def end_call(message):
     response = VoiceResponse()
-    response.say(message, voice="alice", language="en-GB")
+    response.say(message, voice="Polly.Amy", language="en-GB")
     response.hangup()
     return str(response)
 
@@ -67,9 +67,10 @@ def handle_voice_start(call_sid, caller_number):
     }
 
     return say_and_listen(
-        "Hi, you've reached TrimTech Garage. "
-        "Nobody is available right now, but I can take your details. "
-        "What do you need help with today?"
+        "Hi, thanks for calling TrimTech Garage. "
+        "The team are busy at the moment, but I can take a few details "
+        "and make sure someone gets back to you. "
+        "How can I help today?"
     )
 
 

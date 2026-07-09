@@ -96,7 +96,7 @@ def whatsapp():
 
     return str(resp)
 
-    return str(resp)
+    
 
 
 @app.route("/voice", methods=["POST"])
