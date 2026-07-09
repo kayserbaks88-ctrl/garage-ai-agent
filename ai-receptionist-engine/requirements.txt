@@ -67,3 +67,4 @@ yarl==1.22.0
 gunicorn
 openai==1.84.0
 httpx==0.28.1
+twilio

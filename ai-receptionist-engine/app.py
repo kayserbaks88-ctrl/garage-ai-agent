@@ -2,6 +2,11 @@ from flask import Flask, request
 from twilio.twiml.messaging_response import MessagingResponse
 from engine import BUSINESS
 
+from integrations.garage_voice_agent import (
+    handle_voice_start,
+    handle_voice_process,
+)
+
 app = Flask(__name__)
 
 @app.route("/whatsapp", methods=["POST"])
@@ -91,4 +96,25 @@ def whatsapp():
 
     return str(resp)
 
-    
+    return str(resp)
+
+
+@app.route("/voice", methods=["POST"])
+def voice():
+    call_sid = request.values.get("CallSid", "")
+    caller_number = request.values.get("From", "")
+
+    return handle_voice_start(call_sid, caller_number)
+
+
+@app.route("/voice/process", methods=["POST"])
+def voice_process():
+    call_sid = request.values.get("CallSid", "")
+    caller_number = request.values.get("From", "")
+    speech_text = request.values.get("SpeechResult", "")
+
+    return handle_voice_process(
+        call_sid=call_sid,
+        caller_number=caller_number,
+        speech_text=speech_text,
+    )
