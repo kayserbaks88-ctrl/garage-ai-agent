@@ -70,6 +70,7 @@ from core.speech_parser import (
     extract_name,
     extract_registration,
     extract_service_key,
+    parse_requested_time,
     parse_speech,
 )
 from integrations.garage_config import BUSINESS_NAME, TIMEZONE
@@ -706,8 +707,27 @@ def handle_voice_process(
             save_session(call_sid, conversation)
             return continue_conversation(call_sid, conversation)
 
-        parsed = parse_speech(speech_text)
-        conversation = update_conversation(conversation, parsed, speech_text)
+        
+
+        # When the day is already known and we are waiting for a time,
+        # attach the spoken time to the saved appointment date.
+        if awaiting == "requested_datetime":
+            saved_date = conversation.get("requested_date")
+
+            exact_datetime = parse_requested_time(
+                speech_text,
+                requested_date=saved_date,
+            )
+
+            if exact_datetime:
+                parsed["requested_datetime"] = exact_datetime
+                parsed["time_phrase"] = speech_text
+
+        conversation = update_conversation(
+            conversation,
+            parsed,
+            speech_text,
+        )
         conversation = reset_retry(conversation)
 
         if awaiting == "name" and not conversation.get("name"):
