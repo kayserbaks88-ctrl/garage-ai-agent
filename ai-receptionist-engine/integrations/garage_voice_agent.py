@@ -707,10 +707,10 @@ def handle_voice_process(
             save_session(call_sid, conversation)
             return continue_conversation(call_sid, conversation)
 
-        
+        parsed = parse_speech(speech_text)
 
-        # When the day is already known and we are waiting for a time,
-        # attach the spoken time to the saved appointment date.
+        # If the day is already stored and we are waiting for a time,
+        # attach the spoken time to that saved date.
         if awaiting == "requested_datetime":
             saved_date = conversation.get("requested_date")
 
