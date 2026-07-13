@@ -1,3 +1,5 @@
+import re
+from datetime import datetime, time
 from __future__ import annotations
 
 """
@@ -719,9 +721,43 @@ def handle_voice_process(
                 requested_date=saved_date,
             )
 
-            if exact_datetime:
-                parsed["requested_datetime"] = exact_datetime
-                parsed["time_phrase"] = speech_text
+            # Reliable fallback for times Twilio returns as:
+            # "6:00 p.m.", "5 p.m.", "10:30 a.m."
+            if not exact_datetime and saved_date:
+                normalised = (
+                    speech_text.lower()
+                    .replace("a.m.", "am")
+                    .replace("p.m.", "pm")
+                    .replace("a.m", "am")
+                    .replace("p.m", "pm")
+                    .strip()
+            )
+
+            match = re.search(
+                r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b",
+                normalised,
+            )
+
+            if match:
+                hour = int(match.group(1))
+                minute = int(match.group(2) or 0)
+                period = match.group(3)
+
+                if period == "pm" and hour != 12:
+                    hour += 12
+
+                if period == "am" and hour == 12:
+                    hour = 0
+
+                exact_datetime = datetime.combine(
+                    saved_date,
+                    time(hour=hour, minute=minute),
+                    tzinfo=TIMEZONE,
+                )
+
+        if exact_datetime:
+            parsed["requested_datetime"] = exact_datetime
+            parsed["time_phrase"] = speech_text
 
         conversation = update_conversation(
             conversation,
