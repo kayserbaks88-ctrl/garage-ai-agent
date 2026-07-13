@@ -492,7 +492,18 @@ def parse_requested_time(
     returns None. The period is returned separately by parse_speech().
     """
     now = now or datetime.now(TIMEZONE)
-    phrase = extract_time_phrase(text)
+    
+    normalised_time_text = (
+        normalise_text(text)
+        .replace("a.m.", "am")
+        .replace("p.m.", "pm")
+        .replace("a.m", "am")
+        .replace("p.m", "pm")
+    )
+
+    phrase = extract_time_phrase(
+    normalised_time_text
+)
 
     if not phrase:
         return None

@@ -77,7 +77,7 @@ from integrations.garage_config import BUSINESS_NAME, TIMEZONE
 from integrations.garage_leads import save_garage_lead
 
 
-VOICE_NAME = "Polly.Amy"
+VOICE_NAME = "Polly.Emma"
 VOICE_LANGUAGE = "en-GB"
 VOICE_PROCESS_URL = "/voice/process"
 
