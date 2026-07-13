@@ -13,10 +13,6 @@ Public functions used by app.py:
     handle_voice_process(call_sid, caller_number, speech_text)
 """
 
-from copy import deepcopy
-from datetime import datetime
-from typing import Any
-
 from twilio.twiml.voice_response import Gather, VoiceResponse
 
 from core.booking_engine import (
@@ -714,9 +710,9 @@ def handle_voice_process(
 
         parsed = parse_speech(speech_text)
 
-        # If the day is already stored and we are waiting for a time,
-        # attach the spoken time to that saved date.
+        # Only run clock-time parsing while waiting for an appointment time.
         if awaiting == "requested_datetime":
+            exact_datetime = None
             saved_date = conversation.get("requested_date")
 
             exact_datetime = parse_requested_time(
@@ -724,7 +720,7 @@ def handle_voice_process(
                 requested_date=saved_date,
             )
 
-            # Reliable fallback for times Twilio returns as:
+            # Fallback for Twilio results such as:
             # "6:00 p.m.", "5 p.m.", "10:30 a.m."
             if not exact_datetime and saved_date:
                 normalised = (
@@ -734,39 +730,40 @@ def handle_voice_process(
                     .replace("a.m", "am")
                     .replace("p.m", "pm")
                     .strip()
-            )
-
-            match = re.search(
-                r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b",
-                normalised,
-            )
-
-            if match:
-                hour = int(match.group(1))
-                minute = int(match.group(2) or 0)
-                period = match.group(3)
-
-                if period == "pm" and hour != 12:
-                    hour += 12
-
-                if period == "am" and hour == 12:
-                    hour = 0
-
-                exact_datetime = datetime.combine(
-                    saved_date,
-                    time(hour=hour, minute=minute),
-                    tzinfo=TIMEZONE,
                 )
 
-        if exact_datetime:
-            parsed["requested_datetime"] = exact_datetime
-            parsed["time_phrase"] = speech_text
+                match = re.search(
+                    r"\b(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b",
+                    normalised,
+                )
+
+                if match:
+                    hour = int(match.group(1))
+                    minute = int(match.group(2) or 0)
+                    period = match.group(3)
+
+                    if period == "pm" and hour != 12:
+                       hour += 12
+
+                    if period == "am" and hour == 12:
+                        hour = 0
+
+                    exact_datetime = datetime.combine(
+                        saved_date,
+                        time(hour=hour, minute=minute),
+                        tzinfo=TIMEZONE,
+                    )
+
+            if exact_datetime:
+                parsed["requested_datetime"] = exact_datetime
+                parsed["time_phrase"] = speech_text
 
         conversation = update_conversation(
             conversation,
             parsed,
             speech_text,
         )
+
         conversation = reset_retry(conversation)
 
         if awaiting == "name" and not conversation.get("name"):
