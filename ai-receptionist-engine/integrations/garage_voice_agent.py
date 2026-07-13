@@ -341,8 +341,12 @@ def lookup_vehicle_if_possible(
     if not registration:
         return conversation, None
 
-    if conversation.get("vehicle") and conversation.get("vehicle_confirmed"):
-        return conversation, None
+    if conversation.get("vehicle") and not conversation.get("vehicle_confirmed"):
+        return ask_field(
+            call_sid,
+            conversation,
+            "vehicle_confirmation",
+        )
 
     result = safely_lookup_vehicle(registration)
 
@@ -357,21 +361,23 @@ def lookup_vehicle_if_possible(
 
     if result.get("success"):
         vehicle = result.get("vehicle") or {}
-        conversation = set_vehicle(conversation, vehicle, confirmed=False)
-        conversation = set_awaiting(conversation, "vehicle_confirmation")
-        save_session(call_sid, conversation)
-        return conversation, twiml_listen(
-            build_vehicle_confirmation_question(vehicle)
+
+        conversation = set_vehicle(
+            conversation,
+            vehicle,
+            confirmed=False,
         )
 
-    conversation["vehicle"] = {
-        "reg": registration,
-        "registration": registration,
-        "make_model": "Vehicle not confirmed",
-    }
-    conversation["vehicle_confirmed"] = False
-    save_session(call_sid, conversation)
-    return conversation, None
+        conversation["registration"] = (
+            vehicle.get("registration")
+            or vehicle.get("reg")
+            or conversation.get("registration")
+            or ""
+        )
+    conversation = mark_vehicle_confirmed(
+    conversation,
+    confirmed=True,
+)
 
 
 def prepare_confirmation(call_sid: str, conversation: dict) -> str:
