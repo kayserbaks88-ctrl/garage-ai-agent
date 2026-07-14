@@ -1,29 +1,41 @@
+from __future__ import annotations
+
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 import dateparser
 
-from integrations.garage_config import (
-    SERVICE_ALIASES,
-    SERVICES,
-    TIMEZONE,
-)
+from integrations.garage_config import SERVICE_ALIASES, SERVICES, TIMEZONE
 
 
-DAY_WORDS = {
-    "today",
-    "tomorrow",
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
+NUMBER_WORDS = {
+    "zero": "0", "oh": "0",
+    "one": "1", "two": "2", "three": "3", "four": "4",
+    "five": "5", "six": "6", "seven": "7", "eight": "8", "nine": "9",
 }
 
-PERIOD_WORDS = {
+LETTER_WORDS = {
+    "alpha": "A", "bravo": "B", "charlie": "C", "delta": "D",
+    "echo": "E", "foxtrot": "F", "golf": "G", "hotel": "H",
+    "india": "I", "juliet": "J", "juliett": "J", "kilo": "K",
+    "lima": "L", "mike": "M", "november": "N", "oscar": "O",
+    "papa": "P", "quebec": "Q", "romeo": "R", "sierra": "S",
+    "tango": "T", "uniform": "U", "victor": "V", "whiskey": "W",
+    "xray": "X", "x-ray": "X", "yankee": "Y", "zulu": "Z",
+}
+
+YES_PHRASES = {
+    "yes", "yeah", "yep", "correct", "that's right", "thats right",
+    "right", "okay", "ok", "it is", "that's correct", "thats correct",
+}
+
+NO_PHRASES = {
+    "no", "nope", "incorrect", "wrong", "that's wrong", "thats wrong",
+    "not correct", "different vehicle", "not that one",
+}
+
+PERIODS = {
     "morning": "morning",
     "in the morning": "morning",
     "before lunch": "morning",
@@ -34,81 +46,15 @@ PERIOD_WORDS = {
     "in the evening": "evening",
 }
 
-YES_WORDS = {
-    "yes",
-    "yeah",
-    "yep",
-    "correct",
-    "that's right",
-    "thats right",
-    "right",
-    "sure",
-    "please",
-    "okay",
-    "ok",
-}
-
-NO_WORDS = {
-    "no",
-    "nope",
-    "incorrect",
-    "that's wrong",
-    "thats wrong",
-    "wrong vehicle",
-    "not that one",
-}
-
-NUMBER_WORDS = {
-    "zero": "0",
-    "oh": "0",
-    "one": "1",
-    "two": "2",
-    "three": "3",
-    "four": "4",
-    "five": "5",
-    "six": "6",
-    "seven": "7",
-    "eight": "8",
-    "nine": "9",
-}
-
-LETTER_WORDS = {
-    "alpha": "A",
-    "bravo": "B",
-    "charlie": "C",
-    "delta": "D",
-    "echo": "E",
-    "foxtrot": "F",
-    "golf": "G",
-    "hotel": "H",
-    "india": "I",
-    "juliet": "J",
-    "kilo": "K",
-    "lima": "L",
-    "mike": "M",
-    "november": "N",
-    "oscar": "O",
-    "papa": "P",
-    "quebec": "Q",
-    "romeo": "R",
-    "sierra": "S",
-    "tango": "T",
-    "uniform": "U",
-    "victor": "V",
-    "whiskey": "W",
-    "x-ray": "X",
-    "xray": "X",
-    "yankee": "Y",
-    "zulu": "Z",
+HOUR_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
+    "twelve": 12,
 }
 
 
 def clean_text(value: Any) -> str:
-    return re.sub(
-        r"\s+",
-        " ",
-        str(value or "").strip(),
-    )
+    return re.sub(r"\s+", " ", str(value or "").strip())
 
 
 def normalise_text(value: Any) -> str:
@@ -116,267 +62,152 @@ def normalise_text(value: Any) -> str:
 
 
 def extract_confirmation(text: str) -> str:
-    """
-    Returns:
-        "yes"
-        "no"
-        ""
-    """
-    normalised = normalise_text(text)
-
-    if not normalised:
+    t = normalise_text(text)
+    if not t:
         return ""
 
-    if any(phrase in normalised for phrase in NO_WORDS):
-        return "no"
+    for phrase in sorted(NO_PHRASES, key=len, reverse=True):
+        if t == phrase or phrase in t:
+            return "no"
 
-    if any(phrase in normalised for phrase in YES_WORDS):
-        return "yes"
+    for phrase in sorted(YES_PHRASES, key=len, reverse=True):
+        if t == phrase or phrase in t:
+            return "yes"
 
     return ""
 
 
 def extract_service_key(text: str) -> str:
-    """
-    Convert natural service wording into a key from SERVICES.
-
-    Examples:
-        "I need an MOT" -> "mot"
-        "engine warning light" -> "diagnostic"
-        "oil and filter change" -> "oil_change"
-    """
-    normalised = normalise_text(text)
-
-    if not normalised:
+    t = normalise_text(text)
+    if not t:
         return ""
 
-    # Check longest aliases first so "full service" wins over "service".
-    aliases = sorted(
-        SERVICE_ALIASES.items(),
-        key=lambda item: len(item[0]),
-        reverse=True,
-    )
+    aliases = sorted(SERVICE_ALIASES.items(), key=lambda item: len(item[0]), reverse=True)
+    for alias, key in aliases:
+        if alias in t and key in SERVICES:
+            return key
 
-    for alias, service_key in aliases:
-        if alias in normalised and service_key in SERVICES:
-            return service_key
-
-    extra_rules = [
-        (
-            [
-                "clutch",
-                "gearbox",
-                "won't start",
-                "wont start",
-                "not starting",
-                "lost power",
-                "limp mode",
-                "strange noise",
-            ],
-            "diagnostic",
-        ),
-        (
-            [
-                "brake noise",
-                "brakes squeaking",
-                "brakes grinding",
-                "brake pads",
-                "brake discs",
-            ],
-            "brake_check",
-        ),
-        (
-            [
-                "oil filter",
-                "engine oil",
-            ],
-            "oil_change",
-        ),
+    extra = [
+        (("clutch", "gearbox", "won't start", "wont start", "not starting",
+          "lost power", "limp mode", "engine noise", "car noise"), "diagnostic"),
+        (("brake noise", "squeaking brakes", "grinding brakes", "brake pads",
+          "brake discs"), "brake_check"),
+        (("oil filter", "engine oil"), "oil_change"),
     ]
-
-    for phrases, service_key in extra_rules:
-        if any(phrase in normalised for phrase in phrases):
-            if service_key in SERVICES:
-                return service_key
-
+    for phrases, key in extra:
+        if any(p in t for p in phrases) and key in SERVICES:
+            return key
     return ""
 
 
-def service_label(service_key: str) -> str:
-    service = SERVICES.get(service_key or "")
-    return service.get("label", "") if service else ""
-
-
-def _replace_spoken_characters(text: str) -> str:
-    words = normalise_text(text).split()
-    converted = []
-
-    for word in words:
-        cleaned_word = word.strip(".,!?-")
-
-        if cleaned_word in NUMBER_WORDS:
-            converted.append(NUMBER_WORDS[cleaned_word])
-            continue
-
-        if cleaned_word in LETTER_WORDS:
-            converted.append(LETTER_WORDS[cleaned_word])
-            continue
-
-        # Single spoken letters such as "b", "c", "d".
-        if len(cleaned_word) == 1 and cleaned_word.isalpha():
-            converted.append(cleaned_word.upper())
-            continue
-
-        # Already contains letters or digits.
-        if re.fullmatch(r"[a-zA-Z0-9]+", cleaned_word):
-            converted.append(cleaned_word.upper())
-
-    return "".join(converted)
-
-
-def format_registration(registration: str) -> str:
-    compact = re.sub(
-        r"[^A-Z0-9]",
-        "",
-        str(registration or "").upper(),
-    )
-
-    # Most modern UK registrations are 7 characters.
+def format_registration(value: str) -> str:
+    compact = re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
     if len(compact) == 7:
         return f"{compact[:4]} {compact[4:]}"
-
     return compact
+
+
+def _spoken_characters(text: str) -> str:
+    tokens = re.findall(r"[A-Za-z]+|\d+", normalise_text(text))
+    result: list[str] = []
+
+    ignored = {
+        "registration", "reg", "number", "plate", "is", "it", "the",
+        "my", "vehicle", "car", "please",
+    }
+
+    for token in tokens:
+        if token in ignored:
+            continue
+        if token in NUMBER_WORDS:
+            result.append(NUMBER_WORDS[token])
+        elif token in LETTER_WORDS:
+            result.append(LETTER_WORDS[token])
+        elif len(token) == 1 and token.isalpha():
+            result.append(token.upper())
+        elif token.isdigit():
+            result.extend(list(token))
+        elif re.fullmatch(r"[a-z0-9]{2,7}", token):
+            result.extend(list(token.upper()))
+
+    return "".join(result)
 
 
 def extract_registration(text: str) -> str:
     """
-    Attempt to recognise a UK registration from normal or spoken text.
-
-    Examples:
-        "AB12 CDE"
-        "A B one two C D E"
-        "alpha bravo one two charlie delta echo"
+    V1 accepts the normal modern UK format only: two letters, two digits,
+    three letters. Partial transcripts are rejected before DVLA.
     """
     raw = clean_text(text).upper()
 
-    if not raw:
-        return ""
+    direct = re.search(r"\b([A-Z]{2})\s*(\d{2})\s*([A-Z]{3})\b", raw)
+    if direct:
+        return format_registration("".join(direct.groups()))
 
-    # Normal written registration.
-    candidates = re.findall(
-        r"\b[A-Z]{1,3}\s?\d{1,4}\s?[A-Z]{0,3}\b",
-        raw,
-    )
-
-    for candidate in candidates:
-        compact = re.sub(r"[^A-Z0-9]", "", candidate)
-
-        if 5 <= len(compact) <= 8:
-            return format_registration(compact)
-
-    # Registration spoken one character at a time.
-    spoken = _replace_spoken_characters(text)
-
-    if 5 <= len(spoken) <= 8:
-        has_letter = bool(re.search(r"[A-Z]", spoken))
-        has_number = bool(re.search(r"\d", spoken))
-
-        if has_letter and has_number:
-            return format_registration(spoken)
+    spoken = _spoken_characters(text)
+    if re.fullmatch(r"[A-Z]{2}\d{2}[A-Z]{3}", spoken):
+        return format_registration(spoken)
 
     return ""
+
+
+def registration_is_valid(value: str) -> bool:
+    compact = re.sub(r"[^A-Z0-9]", "", str(value or "").upper())
+    return bool(re.fullmatch(r"[A-Z]{2}\d{2}[A-Z]{3}", compact))
 
 
 def extract_name(text: str) -> str:
-    """
-    Extract a caller's name when they introduce themselves.
-
-    Examples:
-        "My name is John Smith"
-        "It's Sarah"
-        "This is David"
-    """
     cleaned = clean_text(text)
-
     patterns = [
-        r"\bmy name is\s+([a-zA-ZÀ-ÿ' -]{2,50})",
-        r"\bi am called\s+([a-zA-ZÀ-ÿ' -]{2,50})",
-        r"\bi'm called\s+([a-zA-ZÀ-ÿ' -]{2,50})",
-        r"\bthis is\s+([a-zA-ZÀ-ÿ' -]{2,50})",
-        r"\bit'?s\s+([a-zA-ZÀ-ÿ' -]{2,50})",
-        r"\bi am\s+([a-zA-ZÀ-ÿ' -]{2,50})",
-        r"\bi'm\s+([a-zA-ZÀ-ÿ' -]{2,50})",
+        r"\bmy name is\s+([A-Za-zÀ-ÿ' -]{2,60})",
+        r"\bthis is\s+([A-Za-zÀ-ÿ' -]{2,60})",
+        r"\bi am called\s+([A-Za-zÀ-ÿ' -]{2,60})",
+        r"\bi'm called\s+([A-Za-zÀ-ÿ' -]{2,60})",
+        r"\bit'?s\s+([A-Za-zÀ-ÿ' -]{2,60})",
     ]
 
-    stop_words = {
-        "calling",
-        "looking",
-        "trying",
-        "after",
-        "at",
-        "from",
-        "here",
-        "having",
-        "needing",
-    }
-
     for pattern in patterns:
-        match = re.search(
-            pattern,
-            cleaned,
-            flags=re.IGNORECASE,
-        )
-
+        match = re.search(pattern, cleaned, re.IGNORECASE)
         if not match:
             continue
-
-        candidate = match.group(1).strip(" .,!")
-
-        # Stop when the rest of the request begins.
         candidate = re.split(
             r"\b(?:and|because|about|for|with|i need|i want|my car)\b",
-            candidate,
+            match.group(1),
             maxsplit=1,
             flags=re.IGNORECASE,
-        )[0].strip()
-
+        )[0].strip(" .,!")
         words = candidate.split()
-
-        if not words:
-            continue
-
-        if words[0].lower() in stop_words:
-            continue
-
-        if len(words) <= 4:
-            return " ".join(
-                word.capitalize()
-                for word in words
-            )
-
+        if 1 <= len(words) <= 4:
+            return " ".join(word.capitalize() for word in words)
     return ""
 
 
+def clean_direct_name(text: str) -> str:
+    candidate = clean_text(text).strip(" .,!?:;")
+    candidate = re.sub(
+        r"^(?:my name is|this is|i am|i'm|its|it's)\s+",
+        "",
+        candidate,
+        flags=re.IGNORECASE,
+    )
+    words = candidate.split()
+    if not 1 <= len(words) <= 4:
+        return ""
+    if any(char.isdigit() for char in candidate):
+        return ""
+    return " ".join(word.capitalize() for word in words)
+
+
 def extract_preferred_period(text: str) -> str:
-    normalised = normalise_text(text)
-
-    for phrase, period in sorted(
-        PERIOD_WORDS.items(),
-        key=lambda item: len(item[0]),
-        reverse=True,
-    ):
-        if phrase in normalised:
+    t = normalise_text(text)
+    for phrase, period in sorted(PERIODS.items(), key=lambda item: len(item[0]), reverse=True):
+        if phrase in t:
             return period
-
     return ""
 
 
 def extract_date_phrase(text: str) -> str:
-    """
-    Return the part of the sentence that describes a date.
-    """
-    normalised = normalise_text(text)
-
+    t = normalise_text(text)
     patterns = [
         r"\bday after tomorrow\b",
         r"\bnext\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
@@ -384,46 +215,25 @@ def extract_date_phrase(text: str) -> str:
         r"\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
         r"\b(?:today|tomorrow)\b",
         r"\bnext week\b",
-        r"\b\d{1,2}(?:st|nd|rd|th)?\s+"
-        r"(?:january|february|march|april|may|june|july|august|"
-        r"september|october|november|december)\b",
-        r"\b(?:january|february|march|april|may|june|july|august|"
-        r"september|october|november|december)\s+\d{1,2}(?:st|nd|rd|th)?\b",
+        r"\b\d{1,2}(?:st|nd|rd|th)?\s+(?:january|february|march|april|may|june|"
+        r"july|august|september|october|november|december)\b",
         r"\b\d{1,2}[/-]\d{1,2}(?:[/-]\d{2,4})?\b",
     ]
-
     for pattern in patterns:
-        match = re.search(pattern, normalised)
-
+        match = re.search(pattern, t)
         if match:
             return match.group(0)
-
     return ""
 
 
-def parse_requested_date(
-    text: str,
-    now: datetime | None = None,
-) -> date | None:
-    """
-    Convert natural UK date wording into a date.
-    """
+def parse_requested_date(text: str, now: datetime | None = None) -> date | None:
     now = now or datetime.now(TIMEZONE)
     phrase = extract_date_phrase(text)
-
     if not phrase:
         return None
 
     if phrase == "day after tomorrow":
         return (now + timedelta(days=2)).date()
-
-    if phrase == "next week":
-        days_until_monday = (7 - now.weekday()) % 7
-
-        if days_until_monday == 0:
-            days_until_monday = 7
-
-        return (now + timedelta(days=days_until_monday)).date()
 
     parsed = dateparser.parse(
         phrase,
@@ -436,216 +246,127 @@ def parse_requested_date(
         },
         languages=["en"],
     )
-
     if not parsed:
         return None
-
     parsed = parsed.astimezone(TIMEZONE)
-
-    # If someone says today's weekday after the time has passed,
-    # dateparser can occasionally return today. Prefer the future.
-    if parsed.date() < now.date():
-        return None
-
-    return parsed.date()
+    return parsed.date() if parsed.date() >= now.date() else None
 
 
-def extract_time_phrase(text: str) -> str:
-    normalised = normalise_text(text)
-
-    patterns = [
-        r"\b(?:at|around|about)?\s*"
-        r"(?:[01]?\d|2[0-3])"
-        r"(?::[0-5]\d|\.[0-5]\d)?"
-        r"\s*(?:a\.?m\.?|p\.?m\.?)\b",
-        r"\b(?:at|around|about)\s+"
-        r"(?:[01]?\d|2[0-3])"
-        r"(?::[0-5]\d|\.[0-5]\d)?\b",
-        r"\b(?:nine|ten|eleven|twelve|one|two|three|four|five)"
-        r"(?:\s+thirty|\s+fifteen|\s+forty five)?"
-        r"\s*(?:in the morning|in the afternoon|a\.?m\.?|p\.?m\.?)?\b",
-        r"\b(?:midday|noon)\b",
-    ]
-
-    for pattern in patterns:
-        match = re.search(
-            pattern,
-            normalised,
-            flags=re.IGNORECASE,
-        )
-
-        if match:
-            return match.group(0).strip()
-
-    return ""
-
-
-def parse_requested_time(
-    text: str,
-    requested_date: date | None = None,
-    now: datetime | None = None,
-) -> datetime | None:
-    """
-    Convert a spoken time into a timezone-aware datetime.
-
-    A period such as "morning" alone is not an exact time and therefore
-    returns None. The period is returned separately by parse_speech().
-    """
-    now = now or datetime.now(TIMEZONE)
-    
-    normalised_time_text = (
+def _normalise_clock_text(text: str) -> str:
+    return (
         normalise_text(text)
         .replace("a.m.", "am")
         .replace("p.m.", "pm")
         .replace("a.m", "am")
         .replace("p.m", "pm")
+        .replace("o'clock", "")
+        .replace("oclock", "")
     )
 
-    phrase = extract_time_phrase(
-    normalised_time_text
-)
 
-    if not phrase:
+def parse_requested_time(
+    text: str,
+    requested_date: date | None,
+    now: datetime | None = None,
+) -> datetime | None:
+    if not requested_date:
         return None
 
-    base_date = requested_date or now.date()
+    now = now or datetime.now(TIMEZONE)
+    t = _normalise_clock_text(text)
 
-    parsed = dateparser.parse(
-        phrase,
-        settings={
-            "TIMEZONE": str(TIMEZONE),
-            "RETURN_AS_TIMEZONE_AWARE": True,
-            "PREFER_DATES_FROM": "future",
-            "DATE_ORDER": "DMY",
-            "RELATIVE_BASE": datetime.combine(
-                base_date,
-                now.time(),
-                tzinfo=TIMEZONE,
-            ),
-        },
-        languages=["en"],
+    # Numeric: 5 pm, 5:30 p.m., 17:00
+    match = re.search(r"\b(\d{1,2})(?::|\.)(\d{2})\s*(am|pm)?\b", t)
+    if not match:
+        match = re.search(r"\b(\d{1,2})\s*(am|pm)\b", t)
+
+    if match:
+        hour = int(match.group(1))
+        minute = 0
+        period = ""
+
+        if len(match.groups()) == 3:
+            minute = int(match.group(2) or 0)
+            period = match.group(3) or ""
+        else:
+            period = match.group(2) or ""
+
+        if minute > 59:
+            return None
+        if period:
+            if not 1 <= hour <= 12:
+                return None
+            if period == "pm" and hour != 12:
+                hour += 12
+            elif period == "am" and hour == 12:
+                hour = 0
+        elif not 0 <= hour <= 23:
+            return None
+
+        return datetime.combine(requested_date, time(hour=hour, minute=minute), tzinfo=TIMEZONE)
+
+    # Word hours: "five in the afternoon", "ten thirty in the morning"
+    word_pattern = (
+        r"\b(" + "|".join(HOUR_WORDS.keys()) + r")"
+        r"(?:\s+(fifteen|thirty|forty five))?"
+        r"(?:\s+(?:in the\s+)?(morning|afternoon|evening))?\b"
     )
+    match = re.search(word_pattern, t)
+    if match:
+        hour = HOUR_WORDS[match.group(1)]
+        minute_word = match.group(2) or ""
+        minute = {"fifteen": 15, "thirty": 30, "forty five": 45}.get(minute_word, 0)
+        period = match.group(3) or extract_preferred_period(t)
 
-    if not parsed:
-        return None
+        if period in {"afternoon", "evening"} and hour != 12:
+            hour += 12
+        elif period == "morning" and hour == 12:
+            hour = 0
+        elif not period:
+            # Without a period, choose a sensible garage-hour interpretation.
+            if hour < 8:
+                hour += 12
 
-    return datetime.combine(
-        base_date,
-        parsed.astimezone(TIMEZONE).time().replace(
-            second=0,
-            microsecond=0,
-        ),
-        tzinfo=TIMEZONE,
-    )
+        return datetime.combine(requested_date, time(hour=hour, minute=minute), tzinfo=TIMEZONE)
+
+    if "midday" in t or "noon" in t:
+        return datetime.combine(requested_date, time(hour=12), tzinfo=TIMEZONE)
+
+    return None
 
 
 def extract_issue(text: str) -> str:
-    """
-    Keep the caller's own description as the issue when it contains
-    useful mechanical context.
-    """
     cleaned = clean_text(text)
-    normalised = cleaned.lower()
-
-    issue_terms = [
-        "noise",
-        "rattle",
-        "squeak",
-        "grinding",
-        "clutch",
-        "brake",
-        "warning light",
-        "engine light",
-        "won't start",
-        "wont start",
-        "not starting",
-        "lost power",
-        "oil leak",
-        "leak",
-        "overheating",
-        "smoke",
-        "vibration",
-        "pulling",
-        "tyre",
-        "battery",
-        "gearbox",
-        "exhaust",
-        "problem",
-        "issue",
-        "fix",
-        "repair",
-    ]
-
-    if any(term in normalised for term in issue_terms):
-        return cleaned
-
-    return ""
+    t = cleaned.lower()
+    terms = (
+        "noise", "rattle", "squeak", "grinding", "clutch", "brake",
+        "warning light", "engine light", "won't start", "wont start",
+        "not starting", "lost power", "oil leak", "leak", "overheating",
+        "smoke", "vibration", "pulling", "tyre", "battery", "gearbox",
+        "exhaust", "problem", "issue", "fix", "repair",
+    )
+    return cleaned if any(term in t for term in terms) else ""
 
 
 def parse_speech(
     text: str,
+    requested_date: date | None = None,
     now: datetime | None = None,
 ) -> dict:
-    """
-    Extract all useful details available in one piece of speech.
-
-    Empty values mean the information was not confidently found.
-    """
     now = now or datetime.now(TIMEZONE)
     cleaned = clean_text(text)
-
-    requested_date = parse_requested_date(
-        cleaned,
-        now=now,
-    )
-
-    requested_datetime = parse_requested_time(
-        cleaned,
-        requested_date=requested_date,
-        now=now,
-    )
+    found_date = parse_requested_date(cleaned, now=now) or requested_date
+    found_time = parse_requested_time(cleaned, requested_date=found_date, now=now)
 
     return {
         "raw_text": cleaned,
         "name": extract_name(cleaned),
         "service_key": extract_service_key(cleaned),
         "registration": extract_registration(cleaned),
-        "requested_date": requested_date,
-        "requested_datetime": requested_datetime,
+        "requested_date": found_date if extract_date_phrase(cleaned) else None,
+        "requested_datetime": found_time,
         "date_phrase": extract_date_phrase(cleaned),
-        "time_phrase": extract_time_phrase(cleaned),
         "preferred_period": extract_preferred_period(cleaned),
         "issue": extract_issue(cleaned),
         "confirmation": extract_confirmation(cleaned),
     }
-
-
-def merge_parsed_details(
-    existing: dict,
-    parsed: dict,
-) -> dict:
-    """
-    Safely merge newly extracted details into conversation memory.
-    Empty values do not erase information already collected.
-    """
-    result = dict(existing or {})
-
-    fields = [
-        "name",
-        "service_key",
-        "registration",
-        "requested_date",
-        "requested_datetime",
-        "date_phrase",
-        "time_phrase",
-        "preferred_period",
-        "issue",
-    ]
-
-    for field in fields:
-        value = parsed.get(field)
-
-        if value not in (None, "", []):
-            result[field] = value
-
-    return result

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 from datetime import datetime
@@ -8,26 +10,17 @@ from googleapiclient.discovery import build
 
 
 TIMEZONE = ZoneInfo("Europe/London")
-
-GARAGE_LEADS_SHEET_ID = os.getenv(
-    "GARAGE_LEADS_SHEET_ID",
-    "",
-).strip()
-
-GOOGLE_SERVICE_ACCOUNT_JSON = os.getenv(
-    "GOOGLE_SERVICE_ACCOUNT_JSON",
-    "",
-).strip()
-
-SHEET_TAB = "Garage Leads"
+SHEET_ID = os.getenv("GARAGE_LEADS_SHEET_ID", "").strip()
+SERVICE_ACCOUNT_JSON = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip()
+TAB = "Garage Leads"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 
 
-def clean(value):
+def clean(value) -> str:
     return str(value or "").strip()
 
 
-def clean_phone(phone):
+def clean_phone(phone: str) -> str:
     return (
         clean(phone)
         .replace("whatsapp:", "")
@@ -38,63 +31,28 @@ def clean_phone(phone):
     )
 
 
-def clean_registration(registration):
-    return (
-        clean(registration)
-        .replace(" ", "")
-        .replace("-", "")
-        .upper()
-    )
+def clean_registration(reg: str) -> str:
+    return clean(reg).replace(" ", "").replace("-", "").upper()
 
 
-def _load_service_account_json():
-    if not GOOGLE_SERVICE_ACCOUNT_JSON:
-        raise ValueError(
-            "GOOGLE_SERVICE_ACCOUNT_JSON is missing"
-        )
-
+def _credentials_info() -> dict:
+    if not SERVICE_ACCOUNT_JSON:
+        raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON is missing")
     try:
-        return json.loads(
-            GOOGLE_SERVICE_ACCOUNT_JSON
-        )
-
+        return json.loads(SERVICE_ACCOUNT_JSON)
     except json.JSONDecodeError:
-        fixed_json = (
-            GOOGLE_SERVICE_ACCOUNT_JSON
-            .replace("\\n", "\n")
-        )
-
-        return json.loads(fixed_json)
+        return json.loads(SERVICE_ACCOUNT_JSON.replace("\\n", "\n"))
 
 
 def get_service():
-    if not GARAGE_LEADS_SHEET_ID:
-        raise ValueError(
-            "GARAGE_LEADS_SHEET_ID is missing"
-        )
-
-    credentials_info = (
-        _load_service_account_json()
-    )
-
-    credentials = (
-        Credentials.from_service_account_info(
-            credentials_info,
-            scopes=SCOPES,
-        )
-    )
-
-    return build(
-        "sheets",
-        "v4",
-        credentials=credentials,
-        cache_discovery=False,
-    )
+    if not SHEET_ID:
+        raise ValueError("GARAGE_LEADS_SHEET_ID is missing")
+    creds = Credentials.from_service_account_info(_credentials_info(), scopes=SCOPES)
+    return build("sheets", "v4", credentials=creds, cache_discovery=False)
 
 
-def row_to_lead(row):
+def row_to_lead(row) -> dict:
     row = list(row or []) + [""] * 10
-
     return {
         "date": clean(row[0]),
         "time": clean(row[1]),
@@ -109,39 +67,12 @@ def row_to_lead(row):
     }
 
 
-def get_lead_rows():
-    service = get_service()
-
-    result = (
-        service.spreadsheets()
-        .values()
-        .get(
-            spreadsheetId=GARAGE_LEADS_SHEET_ID,
-            range=f"{SHEET_TAB}!A:J",
-        )
-        .execute()
-    )
-
+def get_lead_rows() -> list[list[str]]:
+    result = get_service().spreadsheets().values().get(
+        spreadsheetId=SHEET_ID,
+        range=f"{TAB}!A:J",
+    ).execute()
     return result.get("values", [])
-
-
-def sheet_append(tab_name, values):
-    service = get_service()
-
-    (
-        service.spreadsheets()
-        .values()
-        .append(
-            spreadsheetId=GARAGE_LEADS_SHEET_ID,
-            range=f"{tab_name}!A:J",
-            valueInputOption="USER_ENTERED",
-            insertDataOption="INSERT_ROWS",
-            body={
-                "values": [values],
-            },
-        )
-        .execute()
-    )
 
 
 def save_garage_lead(
@@ -155,7 +86,6 @@ def save_garage_lead(
     status="New",
 ):
     now = datetime.now(TIMEZONE)
-
     values = [
         now.strftime("%Y-%m-%d"),
         now.strftime("%H:%M"),
@@ -169,119 +99,53 @@ def save_garage_lead(
         clean(status) or "New",
     ]
 
-    sheet_append(
-        SHEET_TAB,
-        values,
-    )
-
+    get_service().spreadsheets().values().append(
+        spreadsheetId=SHEET_ID,
+        range=f"{TAB}!A:J",
+        valueInputOption="USER_ENTERED",
+        insertDataOption="INSERT_ROWS",
+        body={"values": [values]},
+    ).execute()
     return row_to_lead(values)
 
 
-def find_customer_by_phone(phone):
-    """
-    Return the most recent lead matching the caller's
-    phone number.
-
-    Returns None when no previous customer is found.
-    """
-    target_phone = clean_phone(phone)
-
-    if not target_phone:
+def find_customer_by_phone(phone: str):
+    target = clean_phone(phone)
+    if not target:
         return None
 
     try:
         rows = get_lead_rows()
-
     except Exception as error:
-        print(
-            "GARAGE CUSTOMER LOOKUP ERROR:",
-            repr(error),
-        )
+        print("CUSTOMER LOOKUP ERROR:", repr(error))
         return None
 
-    matches = []
-
-    for row in rows[1:]:
-        lead = row_to_lead(row)
-
-        if clean_phone(
-            lead.get("phone")
-        ) == target_phone:
-            matches.append(lead)
-
+    matches = [
+        row_to_lead(row)
+        for row in rows[1:]
+        if clean_phone(row_to_lead(row)["phone"]) == target
+    ]
     if not matches:
         return None
 
     latest = matches[-1]
-
-    return {
-        "name": latest.get("name", ""),
-        "phone": latest.get("phone", ""),
-        "vehicle_reg": latest.get(
-            "vehicle_reg",
-            "",
-        ),
-        "service_needed": latest.get(
-            "service_needed",
-            "",
-        ),
-        "issue": latest.get("issue", ""),
-        "preferred_time": latest.get(
-            "preferred_time",
-            "",
-        ),
-        "notes": latest.get("notes", ""),
-        "status": latest.get("status", ""),
-        "previous_visits": len(matches),
-    }
+    latest["previous_visits"] = len(matches)
+    return latest
 
 
-def get_customer_history(phone, limit=5):
-    """
-    Return the caller's most recent enquiries,
-    newest last.
-    """
-    target_phone = clean_phone(phone)
-
-    if not target_phone:
+def get_customer_history(phone: str, limit: int = 5) -> list[dict]:
+    target = clean_phone(phone)
+    if not target:
         return []
-
     try:
         rows = get_lead_rows()
-
     except Exception as error:
-        print(
-            "GARAGE HISTORY LOOKUP ERROR:",
-            repr(error),
-        )
+        print("CUSTOMER HISTORY ERROR:", repr(error))
         return []
 
-    matches = []
-
-    for row in rows[1:]:
-        lead = row_to_lead(row)
-
-        if clean_phone(
-            lead.get("phone")
-        ) == target_phone:
-            matches.append(lead)
-
+    matches = [
+        row_to_lead(row)
+        for row in rows[1:]
+        if clean_phone(row_to_lead(row)["phone"]) == target
+    ]
     return matches[-limit:]
-
-
-def get_latest_registration(phone):
-    customer = find_customer_by_phone(phone)
-
-    if not customer:
-        return ""
-
-    return clean_registration(
-        customer.get("vehicle_reg")
-    )
-
-
-def customer_exists(phone):
-    return (
-        find_customer_by_phone(phone)
-        is not None
-    )
