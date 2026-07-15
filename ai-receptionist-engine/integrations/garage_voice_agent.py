@@ -83,14 +83,21 @@ def _save_lead(session: dict, status: str, note: str = "") -> None:
         slot = session.get("selected_slot") or session.get("requested_datetime")
         preferred = format_slot(slot) if isinstance(slot, datetime) else ""
         vehicle = session.get("vehicle") or {}
+
         notes = " | ".join(
-            value for value in (
+            value
+            for value in (
                 clean(session.get("issue")),
                 clean(note),
-                f"Vehicle: {vehicle.get('make_model')}" if vehicle.get("make_model") else "",
+                (
+                    f"Vehicle: {vehicle.get('make_model')}"
+                    if vehicle.get("make_model")
+                    else ""
+                ),
             )
             if value
         )
+
         save_garage_lead(
             name=session.get("name", ""),
             phone=session.get("phone", ""),
@@ -113,7 +120,7 @@ def _question_for_stage(session: dict) -> str:
 
     if stage == "same_vehicle":
         return (
-            f"Is this call about the same vehicle as last time, registration "
+            "Is this call about the same vehicle as last time, registration "
             f"{_spoken_reg(session['previous_registration'])}?"
         )
 
@@ -133,7 +140,11 @@ def _question_for_stage(session: dict) -> str:
         return vehicle_confirmation_question(session["vehicle"])
 
     if stage == "date":
-        return "What day would you like to bring the vehicle in?"
+        return (
+            "What date would you like to bring the vehicle in? "
+            "You can say something like next Monday, Monday the fourteenth, "
+            "or the fourteenth of July."
+        )
 
     if stage == "time":
         period = session.get("preferred_period")
@@ -142,13 +153,23 @@ def _question_for_stage(session: dict) -> str:
         return "What exact time would suit you on that day?"
 
     if stage == "name":
-        return "Finally, can I take your name please?"
+        return "Finally, can I take your first name please?"
+
+    if stage == "confirm_name":
+        pending_name = clean(session.get("pending_name"))
+        return f"I heard your name as {pending_name}. Is that correct?"
 
     if stage == "summary":
-        return summary_text(session, service_label(session["service_key"]))
+        return summary_text(
+            session,
+            service_label(session["service_key"]),
+        )
 
     if stage == "correction":
-        return "What would you like me to change: the service, registration, day, time, or name?"
+        return (
+            "What would you like me to change: "
+            "the service, registration, date, time, or name?"
+        )
 
     return "How can I help today?"
 
@@ -172,16 +193,19 @@ def _advance(call_sid: str, session: dict) -> str:
             session["selected_slot"] = result["slots"][0]
         else:
             session["available_slots"] = result["slots"]
+
             if result["slots"]:
                 set_stage(session, "slot_choice")
                 SESSIONS[call_sid] = session
                 return _listen(build_slot_offer(result["slots"]))
+
             session["requested_date"] = None
             session["requested_datetime"] = None
             set_stage(session, "date")
             SESSIONS[call_sid] = session
             return _listen(
-                "I couldn't find availability that day. What other day would suit you?"
+                "I couldn't find availability that day. "
+                "What other day would suit you?"
             )
 
     SESSIONS[call_sid] = session
@@ -193,7 +217,11 @@ def _retry(call_sid: str, session: dict, silence: bool = False) -> str:
     SESSIONS[call_sid] = session
 
     if should_end(session):
-        _save_lead(session, "Incomplete Call", "Repeated silence or recognition failure")
+        _save_lead(
+            session,
+            "Incomplete Call",
+            "Repeated silence or recognition failure",
+        )
         SESSIONS.pop(call_sid, None)
         return _end(final_message(BUSINESS_NAME))
 
@@ -208,6 +236,7 @@ def _retry(call_sid: str, session: dict, silence: bool = False) -> str:
 
 def handle_voice_start(call_sid: str, caller_number: str) -> str:
     memory = load_customer_memory(caller_number)
+
     session = create_session(
         call_sid=call_sid,
         phone=caller_number,
@@ -216,7 +245,12 @@ def handle_voice_start(call_sid: str, caller_number: str) -> str:
     SESSIONS[call_sid] = session
 
     hour = datetime.now(TIMEZONE).hour
-    greeting = "Good morning" if hour < 12 else "Good afternoon" if hour < 18 else "Good evening"
+    if hour < 12:
+        greeting = "Good morning"
+    elif hour < 18:
+        greeting = "Good afternoon"
+    else:
+        greeting = "Good evening"
 
     if memory.get("found"):
         return _listen(
@@ -231,12 +265,18 @@ def handle_voice_start(call_sid: str, caller_number: str) -> str:
     )
 
 
-def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) -> str:
+def handle_voice_process(
+    call_sid: str,
+    caller_number: str,
+    speech_text: str,
+) -> str:
     session = SESSIONS.get(call_sid)
+
     if not session:
         return handle_voice_start(call_sid, caller_number)
 
     speech_text = clean(speech_text)
+
     if not speech_text:
         return _retry(call_sid, session, silence=True)
 
@@ -244,18 +284,26 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
     stage = session["stage"]
     confirmation = extract_confirmation(speech_text)
 
-    print("VOICE INPUT:", {"stage": stage, "speech": speech_text})
+    print(
+        "VOICE INPUT:",
+        {
+            "stage": stage,
+            "speech": speech_text,
+        },
+    )
 
     if stage == "same_vehicle":
         if confirmation == "yes":
             session["registration"] = session["previous_registration"]
             session["registration_confirmed"] = True
+
         elif confirmation == "no":
             session["returning_customer"] = False
             session["registration"] = ""
             set_stage(session, "registration")
             SESSIONS[call_sid] = session
             return _listen(_question_for_stage(session))
+
         else:
             return _retry(call_sid, session)
 
@@ -263,7 +311,14 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
         if confirmation == "yes":
             session["registration_confirmed"] = True
             result = safely_lookup_vehicle(session["registration"])
-            print("DVLA RESULT:", {"success": result["success"], "reason": result["reason"]})
+
+            print(
+                "DVLA RESULT:",
+                {
+                    "success": result["success"],
+                    "reason": result["reason"],
+                },
+            )
 
             if result["success"]:
                 session["vehicle"] = result["vehicle"]
@@ -272,18 +327,21 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
                 reset_retries(session)
                 SESSIONS[call_sid] = session
                 return _listen(_question_for_stage(session))
+
         elif confirmation == "no":
             session["registration"] = ""
             session["registration_confirmed"] = False
             set_stage(session, "registration")
             SESSIONS[call_sid] = session
             return _listen(_question_for_stage(session))
+
         else:
             return _retry(call_sid, session)
 
     elif stage == "vehicle_confirm":
         if confirmation == "yes":
             session["vehicle_confirmed"] = True
+
         elif confirmation == "no":
             session["registration"] = ""
             session["registration_confirmed"] = False
@@ -292,13 +350,16 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
             set_stage(session, "registration")
             SESSIONS[call_sid] = session
             return _listen(_question_for_stage(session))
+
         else:
             return _retry(call_sid, session)
 
     elif stage == "registration":
         reg = extract_registration(speech_text)
+
         if not registration_is_valid(reg):
             return _retry(call_sid, session)
+
         session["registration"] = reg
         session["registration_confirmed"] = False
         set_stage(session, "registration_confirm")
@@ -308,11 +369,34 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
 
     elif stage == "date":
         parsed_date = parse_requested_date(speech_text)
+
         if not parsed_date:
-            return _retry(call_sid, session)
+            parsed = parse_speech(
+                speech_text,
+                requested_date=session.get("requested_date"),
+            )
+            parsed_date = parsed.get("requested_date")
+
+        if not parsed_date:
+            return _listen(
+                "Sorry, I didn't understand the date. "
+                "Please say it like next Monday, Monday the fourteenth, "
+                "or the fourteenth of July."
+            )
+
         session["requested_date"] = parsed_date
-        session["preferred_period"] = parse_speech(speech_text).get("preferred_period", "")
-        parsed_time = parse_requested_time(speech_text, requested_date=parsed_date)
+
+        parsed = parse_speech(
+            speech_text,
+            requested_date=parsed_date,
+        )
+        session["preferred_period"] = parsed.get("preferred_period", "")
+
+        parsed_time = parse_requested_time(
+            speech_text,
+            requested_date=parsed_date,
+        )
+
         if parsed_time:
             session["requested_datetime"] = parsed_time
 
@@ -321,20 +405,58 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
             speech_text,
             requested_date=session.get("requested_date"),
         )
+
         if not parsed_time:
             return _retry(call_sid, session)
+
         session["requested_datetime"] = parsed_time
 
     elif stage == "name":
-        name = clean_direct_name(speech_text)
-        if not name:
+        heard_name = clean_direct_name(speech_text)
+
+        if not heard_name:
             return _retry(call_sid, session)
-        session["name"] = name
+
+        session["pending_name"] = heard_name.title()
+        set_stage(session, "confirm_name")
+        reset_retries(session)
+        SESSIONS[call_sid] = session
+        return _listen(_question_for_stage(session))
+
+    elif stage == "confirm_name":
+        if confirmation == "yes":
+            confirmed_name = clean(session.get("pending_name"))
+
+            if not confirmed_name:
+                set_stage(session, "name")
+                SESSIONS[call_sid] = session
+                return _listen(_question_for_stage(session))
+
+            session["name"] = confirmed_name.title()
+            session.pop("pending_name", None)
+
+        elif confirmation == "no":
+            session.pop("pending_name", None)
+            set_stage(session, "name")
+            reset_retries(session)
+            SESSIONS[call_sid] = session
+            return _listen(
+                "Sorry about that. Please say your first name again slowly. "
+                "You can also spell it one letter at a time."
+            )
+
+        else:
+            return _retry(call_sid, session)
 
     elif stage == "slot_choice":
-        selected = match_slot(speech_text, session.get("available_slots", []))
+        selected = match_slot(
+            speech_text,
+            session.get("available_slots", []),
+        )
+
         if not selected:
             return _retry(call_sid, session)
+
         session["selected_slot"] = selected
         set_stage(session, "summary")
         reset_retries(session)
@@ -348,27 +470,38 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
                 session["booking"] = booking
                 _save_lead(session, "Provisional Booking")
                 SESSIONS.pop(call_sid, None)
+
                 return _end(
                     f"Perfect, {first_name(session.get('name'))}. "
-                    f"I've added a provisional booking for "
+                    "I've added a provisional booking for "
                     f"{format_slot(session.get('selected_slot') or session['requested_datetime'])}. "
                     "The garage team will contact you shortly to confirm. "
                     f"Thank you for calling {BUSINESS_NAME}. Goodbye."
                 )
+
             except ValueError as error:
                 if str(error) == "slot_taken":
                     session["selected_slot"] = None
                     session["requested_datetime"] = None
                     set_stage(session, "time")
                     SESSIONS[call_sid] = session
-                    return _listen("That time has just become unavailable. What other time would suit you?")
+                    return _listen(
+                        "That time has just become unavailable. "
+                        "What other time would suit you?"
+                    )
                 raise
+
             except Exception as error:
                 print("BOOKING ERROR:", repr(error))
-                _save_lead(session, "Needs Confirmation", "Calendar booking failed")
+                _save_lead(
+                    session,
+                    "Needs Confirmation",
+                    "Calendar booking failed",
+                )
                 SESSIONS.pop(call_sid, None)
                 return _end(
-                    "I couldn't complete the diary booking, but I've saved all your details. "
+                    "I couldn't complete the diary booking, "
+                    "but I've saved all your details. "
                     "The team will contact you to confirm. Goodbye."
                 )
 
@@ -388,6 +521,7 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
 
         if parsed.get("service_key"):
             session["service_key"] = parsed["service_key"]
+
         elif parsed.get("registration"):
             session["registration"] = parsed["registration"]
             session["registration_confirmed"] = False
@@ -395,20 +529,30 @@ def handle_voice_process(call_sid: str, caller_number: str, speech_text: str) ->
             set_stage(session, "registration_confirm")
             SESSIONS[call_sid] = session
             return _listen(_question_for_stage(session))
+
+        elif parsed.get("requested_datetime"):
+            session["requested_datetime"] = parsed["requested_datetime"]
+            if parsed.get("requested_date"):
+                session["requested_date"] = parsed["requested_date"]
+
         elif parsed.get("requested_date"):
             session["requested_date"] = parsed["requested_date"]
             session["requested_datetime"] = None
-        elif parsed.get("requested_datetime"):
-            session["requested_datetime"] = parsed["requested_datetime"]
+
         elif "time" in lower:
             session["requested_datetime"] = None
+
         elif "day" in lower or "date" in lower:
             session["requested_date"] = None
             session["requested_datetime"] = None
+
         elif "name" in lower:
             session["name"] = ""
+            session.pop("pending_name", None)
+
         elif "service" in lower:
             session["service_key"] = ""
+
         else:
             return _retry(call_sid, session)
 
