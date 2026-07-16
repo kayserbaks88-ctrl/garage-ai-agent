@@ -97,7 +97,10 @@ def whatsapp():
     return str(resp)
 
     
-
+from integrations.garage_voice_agent import (
+    handle_incoming_call,
+    handle_voice_process,
+)
 
 @app.route("/voice", methods=["POST"])
 def voice():
@@ -105,7 +108,6 @@ def voice():
     caller_number = request.values.get("From", "")
 
     return handle_voice_start(call_sid, caller_number)
-
 
 @app.route("/voice/process", methods=["POST"])
 def voice_process():
