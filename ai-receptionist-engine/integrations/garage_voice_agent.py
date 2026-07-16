@@ -422,7 +422,7 @@ def _retry(
     return _listen(message)
 
 
-def handle_incoming_call(
+def handle_voice_start(
     call_sid: str,
     caller_number: str,
 ) -> str:
@@ -449,6 +449,8 @@ def handle_incoming_call(
 
     return _listen(greeting)
 
+# Backwards-compatible name
+handle_incoming_call = handle_voice_start
 
 def _handle_service(
     session: dict,
