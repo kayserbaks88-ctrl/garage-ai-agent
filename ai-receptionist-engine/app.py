@@ -373,6 +373,120 @@ def vapi_check_availability():
         ),
     }), 200
 
+@app.route("/vapi/book-appointment", methods=["POST"])
+def vapi_book_appointment():
+    from integrations.garage_calendar import create_booking
+    from integrations.garage_config import SERVICES
+
+    data = request.get_json(silent=True) or {}
+
+    phone = str(data.get("phone") or "").strip()
+    service_key = str(data.get("service_key") or "").strip().lower()
+    raw_datetime = str(data.get("requested_datetime") or "").strip()
+    customer_name = str(data.get("customer_name") or "").strip()
+    registration = str(data.get("registration") or "").strip().upper()
+    make_model = str(data.get("make_model") or "").strip()
+    notes = str(data.get("notes") or "").strip()
+
+    if service_key not in SERVICES:
+        return jsonify({
+            "success": False,
+            "message": "The garage service is missing or invalid.",
+        }), 200
+
+    if not raw_datetime:
+        return jsonify({
+            "success": False,
+            "message": "The appointment date and time are missing.",
+        }), 200
+
+    if not customer_name:
+        return jsonify({
+            "success": False,
+            "message": "The customer's full name is required.",
+        }), 200
+
+    if not registration:
+        return jsonify({
+            "success": False,
+            "message": "The vehicle registration is required.",
+        }), 200
+
+    try:
+        requested_datetime = datetime.fromisoformat(
+            raw_datetime.replace("Z", "+00:00")
+        )
+    except ValueError:
+        return jsonify({
+            "success": False,
+            "message": "The appointment date and time could not be understood.",
+        }), 200
+
+    if requested_datetime.tzinfo is None:
+        requested_datetime = requested_datetime.replace(tzinfo=TIMEZONE)
+    else:
+        requested_datetime = requested_datetime.astimezone(TIMEZONE)
+
+    try:
+        booking = create_booking(
+            phone=phone,
+            service_key=service_key,
+            start_dt=requested_datetime,
+            customer_name=customer_name,
+            vehicle={
+                "reg": registration,
+                "registration": registration,
+                "make_model": make_model or "Vehicle confirmed by customer",
+            },
+            notes=notes,
+            source="Vapi Voice AI",
+        )
+
+    except ValueError as error:
+        if str(error) == "slot_taken":
+            return jsonify({
+                "success": False,
+                "message": (
+                    "That appointment time has just become unavailable. "
+                    "Please check availability again."
+                ),
+            }), 200
+
+        print("VAPI BOOKING VALUE ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "message": "The appointment could not be booked.",
+        }), 200
+
+    except Exception as error:
+        print("VAPI BOOKING ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "The garage booking system is temporarily unavailable."
+            ),
+        }), 200
+
+    service_label = SERVICES[service_key]["label"]
+    spoken_time = requested_datetime.strftime(
+        "%A %-d %B at %-I:%M %p"
+    ).replace(":00", "")
+
+    return jsonify({
+        "success": True,
+        "booking_id": booking.get("id"),
+        "calendar_link": booking.get("link"),
+        "service_key": service_key,
+        "service": service_label,
+        "requested_datetime": requested_datetime.isoformat(),
+        "message": (
+            f"The {service_label} appointment is now booked for "
+            f"{customer_name} on {spoken_time}."
+        ),
+    }), 200
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
