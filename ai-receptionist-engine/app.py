@@ -487,6 +487,61 @@ def vapi_book_appointment():
         ),
     }), 200
 
+@app.route("/vapi/lookup-vehicle", methods=["POST"])
+def vapi_lookup_vehicle():
+    from core.dvla_helper import (
+        safely_lookup_vehicle,
+        vehicle_confirmation_question,
+    )
+
+    data = request.get_json(silent=True) or {}
+    registration = str(data.get("registration") or "").strip()
+
+    if not registration:
+        return jsonify({
+            "success": False,
+            "message": "The vehicle registration is missing.",
+        }), 200
+
+    result = safely_lookup_vehicle(registration)
+
+    if not result.get("success"):
+        reasons = {
+            "invalid_registration": "That registration does not appear to be valid.",
+            "key_missing": "The DVLA service has not been configured.",
+            "key_rejected": "The DVLA API key was rejected.",
+            "forbidden": "The DVLA service denied the request.",
+            "not_found": "I could not find a vehicle with that registration.",
+            "rate_limited": "The DVLA service is temporarily busy.",
+            "service_unavailable": "The DVLA service is temporarily unavailable.",
+        }
+
+        return jsonify({
+            "success": False,
+            "reason": result.get("reason"),
+            "message": reasons.get(
+                result.get("reason"),
+                "The vehicle could not be looked up.",
+            ),
+        }), 200
+
+    vehicle = result["vehicle"]
+
+    return jsonify({
+        "success": True,
+        "vehicle": {
+            "registration": vehicle.get("registration"),
+            "make": vehicle.get("make"),
+            "model": vehicle.get("model"),
+            "make_model": vehicle.get("make_model"),
+            "colour": vehicle.get("colour"),
+            "year_of_manufacture": vehicle.get("year_of_manufacture"),
+            "mot_status": vehicle.get("mot_status"),
+            "mot_expiry_date": vehicle.get("mot_expiry_date"),
+        },
+        "message": vehicle_confirmation_question(vehicle),
+    }), 200
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
