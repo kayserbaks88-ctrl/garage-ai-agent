@@ -277,6 +277,101 @@ def _vapi_check_availability(arguments: dict) -> str:
 
     return "The requested time is unavailable and there are no other slots that day."
 
+@app.route("/vapi/check-availability", methods=["POST"])
+def vapi_check_availability():
+    from core.booking_engine import check_requested_slot
+
+    data = request.get_json(silent=True) or {}
+
+    service_key = str(data.get("service_key") or "").strip().lower()
+    raw_datetime = str(data.get("requested_datetime") or "").strip()
+    preferred_period = str(data.get("preferred_period") or "").strip().lower()
+
+    if not service_key:
+        return jsonify({
+            "success": False,
+            "message": "The service is missing."
+        }), 200
+
+    if not raw_datetime:
+        return jsonify({
+            "success": False,
+            "message": "The requested date and time are missing."
+        }), 200
+
+    try:
+        requested_datetime = datetime.fromisoformat(
+            raw_datetime.replace("Z", "+00:00")
+        )
+    except ValueError:
+        return jsonify({
+            "success": False,
+            "message": "The requested date and time could not be understood."
+        }), 200
+
+    if requested_datetime.tzinfo is None:
+        requested_datetime = requested_datetime.replace(tzinfo=TIMEZONE)
+    else:
+        requested_datetime = requested_datetime.astimezone(TIMEZONE)
+
+    result = check_requested_slot({
+        "service_key": service_key,
+        "requested_datetime": requested_datetime,
+        "preferred_period": preferred_period,
+    })
+
+    if result.get("error") == "calendar_unavailable":
+        return jsonify({
+            "success": False,
+            "message": "The garage calendar is temporarily unavailable."
+        }), 200
+
+    slots = result.get("slots") or []
+
+    if result.get("available") and slots:
+        slot = slots[0].astimezone(TIMEZONE)
+        spoken = slot.strftime("%A %-d %B at %-I:%M %p").replace(":00", "")
+
+        return jsonify({
+            "success": True,
+            "available": True,
+            "requested_datetime": slot.isoformat(),
+            "message": f"The requested appointment is available on {spoken}."
+        }), 200
+
+    alternatives = []
+
+    for slot in slots:
+        local_slot = slot.astimezone(TIMEZONE)
+        alternatives.append({
+            "datetime": local_slot.isoformat(),
+            "spoken": local_slot.strftime(
+                "%A %-d %B at %-I:%M %p"
+            ).replace(":00", ""),
+        })
+
+    if alternatives:
+        labels = [item["spoken"] for item in alternatives]
+
+        return jsonify({
+            "success": True,
+            "available": False,
+            "alternatives": alternatives,
+            "message": (
+                "The requested time is unavailable. "
+                f"Available alternatives are: {', '.join(labels)}."
+            ),
+        }), 200
+
+    return jsonify({
+        "success": True,
+        "available": False,
+        "alternatives": [],
+        "message": (
+            "The requested time is unavailable and "
+            "there are no alternative slots that day."
+        ),
+    }), 200
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
