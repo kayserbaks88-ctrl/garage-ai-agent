@@ -380,7 +380,18 @@ def vapi_book_appointment():
 
     data = request.get_json(silent=True) or {}
 
-    phone = str(data.get("phone") or "").strip()
+    message = data.get("message") or {}
+    call = message.get("call") or data.get("call") or {}
+    customer = call.get("customer") or {}
+
+    phone = str(
+        data.get("phone")
+        or customer.get("number")
+        or call.get("customerNumber")
+        or ""
+    ).strip()
+
+    print("VAPI BOOKING PHONE:", repr(phone))
     service_key = str(data.get("service_key") or "").strip().lower()
     raw_datetime = str(data.get("requested_datetime") or "").strip()
     customer_name = str(data.get("customer_name") or "").strip()
@@ -426,6 +437,15 @@ def vapi_book_appointment():
         requested_datetime = requested_datetime.replace(tzinfo=TIMEZONE)
     else:
         requested_datetime = requested_datetime.astimezone(TIMEZONE)
+
+    if requested_datetime <= datetime.now(TIMEZONE):
+        return jsonify({
+            "success": False,
+            "message": (
+                "That appointment date is in the past. "
+                "Please confirm a future date and time."
+            ),
+        }), 200
 
     try:
         booking = create_booking(
@@ -540,6 +560,412 @@ def vapi_lookup_vehicle():
             "mot_expiry_date": vehicle.get("mot_expiry_date"),
         },
         "message": vehicle_confirmation_question(vehicle),
+    }), 200
+
+
+# =========================================================
+# Vapi booking-management routes
+# =========================================================
+
+def _normalise_phone(value: str) -> str:
+    """Keep phone matching consistent with the value stored on calendar events."""
+    return str(value or "").strip()
+
+
+def _parse_vapi_datetime(raw_datetime: str) -> datetime:
+    """
+    Parse an ISO-8601 datetime and convert it to Europe/London.
+
+    Raises ValueError when the value is missing, invalid, or in the past.
+    """
+    raw_datetime = str(raw_datetime or "").strip()
+
+    if not raw_datetime:
+        raise ValueError("missing_datetime")
+
+    try:
+        parsed = datetime.fromisoformat(
+            raw_datetime.replace("Z", "+00:00")
+        )
+    except ValueError as error:
+        raise ValueError("invalid_datetime") from error
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=TIMEZONE)
+    else:
+        parsed = parsed.astimezone(TIMEZONE)
+
+    if parsed <= datetime.now(TIMEZONE):
+        raise ValueError("past_datetime")
+
+    return parsed
+
+
+def _spoken_datetime(value: str | datetime) -> str:
+    """Return a phone-friendly UK date and time."""
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        parsed = datetime.fromisoformat(
+            str(value).replace("Z", "+00:00")
+        )
+
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=TIMEZONE)
+    else:
+        parsed = parsed.astimezone(TIMEZONE)
+
+    return parsed.strftime(
+        "%A %-d %B at %-I:%M %p"
+    ).replace(":00", "")
+
+
+def _public_booking(booking: dict) -> dict:
+    """Return only the booking fields Vapi needs."""
+    start = booking.get("start") or ""
+
+    return {
+        "booking_id": booking.get("id"),
+        "service_key": booking.get("service"),
+        "customer_name": booking.get("customer_name"),
+        "registration": booking.get("reg"),
+        "make_model": booking.get("make_model"),
+        "requested_datetime": start,
+        "spoken_datetime": _spoken_datetime(start) if start else "",
+        "summary": booking.get("summary"),
+    }
+
+
+@app.route("/vapi/list-bookings", methods=["POST"])
+def vapi_list_bookings():
+    """
+    Find future garage bookings belonging to the caller.
+
+    Expected JSON:
+    {
+        "phone": "+447368593535"
+    }
+    """
+    from integrations.garage_calendar import list_bookings
+
+    data = request.get_json(silent=True) or {}
+    phone = _normalise_phone(data.get("phone"))
+
+    if not phone:
+        return jsonify({
+            "success": False,
+            "bookings": [],
+            "message": (
+                "The caller's phone number is required to find "
+                "their appointments."
+            ),
+        }), 200
+
+    try:
+        bookings = list_bookings(phone)
+    except Exception as error:
+        print("VAPI LIST BOOKINGS ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "bookings": [],
+            "message": (
+                "The garage calendar is temporarily unavailable."
+            ),
+        }), 200
+
+    public_bookings = [
+        _public_booking(booking)
+        for booking in bookings
+    ]
+
+    if not public_bookings:
+        return jsonify({
+            "success": True,
+            "bookings": [],
+            "message": (
+                "I could not find any upcoming appointments "
+                "for this phone number."
+            ),
+        }), 200
+
+    if len(public_bookings) == 1:
+        booking = public_bookings[0]
+        service = booking.get("service_key") or "garage"
+        registration = booking.get("registration") or "the vehicle"
+
+        return jsonify({
+            "success": True,
+            "bookings": public_bookings,
+            "message": (
+                f"I found one upcoming {service} appointment for "
+                f"{registration} on {booking['spoken_datetime']}."
+            ),
+        }), 200
+
+    labels = []
+
+    for index, booking in enumerate(public_bookings, start=1):
+        service = booking.get("service_key") or "garage"
+        registration = booking.get("registration") or "the vehicle"
+        labels.append(
+            f"option {index}: {service} for {registration} "
+            f"on {booking['spoken_datetime']}"
+        )
+
+    return jsonify({
+        "success": True,
+        "bookings": public_bookings,
+        "message": (
+            "I found more than one upcoming appointment. "
+            + "; ".join(labels)
+            + ". Ask the caller which one they mean."
+        ),
+    }), 200
+
+
+@app.route("/vapi/cancel-appointment", methods=["POST"])
+def vapi_cancel_appointment():
+    """
+    Cancel a confirmed booking.
+
+    Expected JSON:
+    {
+        "phone": "+447368593535",
+        "booking_id": "google-calendar-event-id"
+    }
+    """
+    from integrations.garage_calendar import (
+        cancel_booking,
+        list_bookings,
+    )
+
+    data = request.get_json(silent=True) or {}
+    phone = _normalise_phone(data.get("phone"))
+    booking_id = str(data.get("booking_id") or "").strip()
+
+    if not phone:
+        return jsonify({
+            "success": False,
+            "message": (
+                "The caller's phone number is required before "
+                "an appointment can be cancelled."
+            ),
+        }), 200
+
+    if not booking_id:
+        return jsonify({
+            "success": False,
+            "message": (
+                "The booking must be found and confirmed before "
+                "it can be cancelled."
+            ),
+        }), 200
+
+    try:
+        bookings = list_bookings(phone)
+    except Exception as error:
+        print("VAPI CANCEL LOOKUP ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "The garage calendar is temporarily unavailable."
+            ),
+        }), 200
+
+    booking = next(
+        (
+            item for item in bookings
+            if str(item.get("id") or "") == booking_id
+        ),
+        None,
+    )
+
+    if not booking:
+        return jsonify({
+            "success": False,
+            "message": (
+                "That upcoming appointment could not be found for "
+                "this caller. Please search for the booking again."
+            ),
+        }), 200
+
+    try:
+        cancel_booking(booking_id)
+    except Exception as error:
+        print("VAPI CANCEL APPOINTMENT ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "The appointment could not be cancelled right now."
+            ),
+        }), 200
+
+    service = booking.get("service") or "garage"
+    registration = booking.get("reg") or "the vehicle"
+    spoken = _spoken_datetime(booking.get("start"))
+
+    return jsonify({
+        "success": True,
+        "booking_id": booking_id,
+        "message": (
+            f"The {service} appointment for {registration} "
+            f"on {spoken} has been cancelled."
+        ),
+    }), 200
+
+
+@app.route("/vapi/reschedule-appointment", methods=["POST"])
+def vapi_reschedule_appointment():
+    """
+    Move an existing confirmed booking to a new confirmed time.
+
+    The assistant must call check_availability first.
+
+    Expected JSON:
+    {
+        "phone": "+447368593535",
+        "booking_id": "google-calendar-event-id",
+        "new_requested_datetime": "2026-07-24T10:00:00+01:00"
+    }
+    """
+    from integrations.garage_calendar import (
+        list_bookings,
+        reschedule_booking,
+    )
+
+    data = request.get_json(silent=True) or {}
+    phone = _normalise_phone(data.get("phone"))
+    booking_id = str(data.get("booking_id") or "").strip()
+    raw_datetime = str(
+        data.get("new_requested_datetime")
+        or data.get("requested_datetime")
+        or ""
+    ).strip()
+
+    if not phone:
+        return jsonify({
+            "success": False,
+            "message": (
+                "The caller's phone number is required before "
+                "an appointment can be rescheduled."
+            ),
+        }), 200
+
+    if not booking_id:
+        return jsonify({
+            "success": False,
+            "message": (
+                "The existing booking must be found and confirmed "
+                "before it can be rescheduled."
+            ),
+        }), 200
+
+    try:
+        new_start = _parse_vapi_datetime(raw_datetime)
+    except ValueError as error:
+        reason = str(error)
+
+        messages = {
+            "missing_datetime": (
+                "The new appointment date and time are missing."
+            ),
+            "invalid_datetime": (
+                "The new appointment date and time could not be understood."
+            ),
+            "past_datetime": (
+                "The new appointment must be in the future."
+            ),
+        }
+
+        return jsonify({
+            "success": False,
+            "message": messages.get(
+                reason,
+                "The new appointment date and time are invalid.",
+            ),
+        }), 200
+
+    try:
+        bookings = list_bookings(phone)
+    except Exception as error:
+        print("VAPI RESCHEDULE LOOKUP ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "The garage calendar is temporarily unavailable."
+            ),
+        }), 200
+
+    existing_booking = next(
+        (
+            item for item in bookings
+            if str(item.get("id") or "") == booking_id
+        ),
+        None,
+    )
+
+    if not existing_booking:
+        return jsonify({
+            "success": False,
+            "message": (
+                "That upcoming appointment could not be found for "
+                "this caller. Please search for the booking again."
+            ),
+        }), 200
+
+    try:
+        updated = reschedule_booking(
+            event_id=booking_id,
+            new_start=new_start,
+        )
+    except ValueError as error:
+        if str(error) == "slot_taken":
+            return jsonify({
+                "success": False,
+                "message": (
+                    "That new appointment time is no longer available. "
+                    "Please check availability again."
+                ),
+            }), 200
+
+        print("VAPI RESCHEDULE VALUE ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "The appointment could not be rescheduled."
+            ),
+        }), 200
+    except Exception as error:
+        print("VAPI RESCHEDULE APPOINTMENT ERROR:", repr(error))
+
+        return jsonify({
+            "success": False,
+            "message": (
+                "The garage calendar is temporarily unavailable."
+            ),
+        }), 200
+
+    service = existing_booking.get("service") or "garage"
+    registration = existing_booking.get("reg") or "the vehicle"
+    old_spoken = _spoken_datetime(existing_booking.get("start"))
+    new_spoken = _spoken_datetime(new_start)
+
+    return jsonify({
+        "success": True,
+        "booking_id": updated.get("id"),
+        "calendar_link": updated.get("link"),
+        "service_key": updated.get("service"),
+        "old_requested_datetime": existing_booking.get("start"),
+        "new_requested_datetime": updated.get("start"),
+        "message": (
+            f"The {service} appointment for {registration} has been "
+            f"moved from {old_spoken} to {new_spoken}."
+        ),
     }), 200
 
 if __name__ == "__main__":
