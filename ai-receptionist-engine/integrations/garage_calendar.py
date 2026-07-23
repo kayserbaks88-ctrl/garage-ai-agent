@@ -68,6 +68,38 @@ def _normalise_service_key(service_key: str) -> str:
     return "diagnostic"
 
 
+def normalise_phone(phone: str) -> str:
+    """
+    Convert common UK phone-number formats into +44 format.
+
+    Examples:
+    07368593535      -> +447368593535
+    447368593535     -> +447368593535
+    +447368593535    -> +447368593535
+    00447368593535   -> +447368593535
+    """
+    value = str(phone or "").strip().lower()
+    value = value.replace("whatsapp:", "")
+
+    # Remove spaces, brackets, dashes and other spoken formatting.
+    digits = "".join(character for character in value if character.isdigit())
+
+    if not digits:
+        return ""
+
+    if digits.startswith("0044"):
+        return "+44" + digits[4:]
+
+    if digits.startswith("44"):
+        return "+" + digits
+
+    if digits.startswith("0"):
+        return "+44" + digits[1:]
+
+    # Preserve non-UK numbers in international-looking format.
+    return "+" + digits
+
+
 def _service_minutes(service_key: str) -> int:
     key = _normalise_service_key(service_key)
     return int(SERVICES[key]["minutes"])
@@ -204,7 +236,7 @@ def find_next_available_slots(
     for offset in range(days_to_check):
         current_date = start_date + timedelta(days=offset)
 
-        # Skip Sundays for now.
+        # Skip Sundays.
         if current_date.weekday() == 6:
             continue
 
@@ -236,6 +268,9 @@ def create_booking(
 
     service_key = _normalise_service_key(service_key)
     service_config = SERVICES[service_key]
+
+    # Always save phone numbers in one consistent format.
+    phone = normalise_phone(phone)
 
     start_dt = start_dt.astimezone(TIMEZONE)
     end_dt = start_dt + timedelta(
@@ -307,6 +342,7 @@ def create_booking(
     return {
         "id": created.get("id"),
         "link": created.get("htmlLink"),
+        "phone": phone,
         "service": service_key,
         "service_label": service_config["label"],
         "start": start_dt.isoformat(),
@@ -320,6 +356,15 @@ def create_booking(
 
 def list_bookings(phone: str) -> list[dict]:
     service = _get_calendar_service()
+
+    # This makes 073..., 4473... and +4473... match.
+    wanted_phone = normalise_phone(phone)
+
+    # Never allow an empty phone number to match old blank events.
+    if not wanted_phone:
+        print("LIST BOOKINGS: missing phone number")
+        return []
+
     now = datetime.now(TIMEZONE).isoformat()
 
     result = (
@@ -346,7 +391,14 @@ def list_bookings(phone: str) -> list[dict]:
             or {}
         )
 
-        if private.get("phone") != phone:
+        saved_phone = normalise_phone(
+            private.get("phone", "")
+        )
+
+        if not saved_phone:
+            continue
+
+        if saved_phone != wanted_phone:
             continue
 
         bookings.append({
@@ -355,6 +407,7 @@ def list_bookings(phone: str) -> list[dict]:
             "start": (event.get("start") or {}).get("dateTime"),
             "end": (event.get("end") or {}).get("dateTime"),
             "link": event.get("htmlLink"),
+            "phone": saved_phone,
             "service": private.get("service"),
             "customer_name": private.get("customer_name"),
             "reg": private.get("reg"),
@@ -363,7 +416,10 @@ def list_bookings(phone: str) -> list[dict]:
             "source": private.get("source"),
         })
 
-    bookings.sort(key=lambda booking: booking.get("start") or "")
+    bookings.sort(
+        key=lambda booking: booking.get("start") or ""
+    )
+
     return bookings
 
 
@@ -442,6 +498,7 @@ def reschedule_booking(
     return {
         "id": updated.get("id"),
         "link": updated.get("htmlLink"),
+        "phone": normalise_phone(private.get("phone", "")),
         "service": service_key,
         "start": new_start.isoformat(),
         "end": new_end.isoformat(),
