@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+import importlib
 import json
 import os
 from datetime import datetime
@@ -967,6 +969,645 @@ def vapi_reschedule_appointment():
             f"moved from {old_spoken} to {new_spoken}."
         ),
     }), 200
+
+
+# =========================================================
+# TrimTech automation, reports and campaign integration
+# =========================================================
+
+def _configured_secret(*names: str) -> str:
+    """Return the first configured secret from the supplied environment names."""
+    for name in names:
+        value = os.getenv(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
+def _request_secret() -> str:
+    """Read a private API token from a bearer header or X-Internal-Token."""
+    authorization = request.headers.get("Authorization", "").strip()
+
+    if authorization.lower().startswith("bearer "):
+        return authorization[7:].strip()
+
+    return request.headers.get("X-Internal-Token", "").strip()
+
+
+def _require_private_access():
+    """
+    Protect internal automation, dashboard and campaign routes.
+
+    Configure either:
+      INTERNAL_API_TOKEN
+      SCHEDULER_SECRET
+      DASHBOARD_API_KEY
+    """
+    expected = _configured_secret(
+        "INTERNAL_API_TOKEN",
+        "SCHEDULER_SECRET",
+        "DASHBOARD_API_KEY",
+    )
+
+    if not expected:
+        return jsonify(
+            {
+                "success": False,
+                "error": "private_api_not_configured",
+                "message": (
+                    "Set INTERNAL_API_TOKEN in Render before using "
+                    "private TrimTech routes."
+                ),
+            }
+        ), 503
+
+    supplied = _request_secret()
+
+    if not supplied or not hmac.compare_digest(supplied, expected):
+        return jsonify(
+            {
+                "success": False,
+                "error": "unauthorised",
+            }
+        ), 401
+
+    return None
+
+
+def _json_payload() -> dict:
+    payload = request.get_json(silent=True)
+    return payload if isinstance(payload, dict) else {}
+
+
+def _load_callable(module_name: str, function_names: tuple[str, ...]):
+    """
+    Load the first available function from a module.
+
+    This keeps app.py compatible with the exact function naming used in the
+    saved automation modules while still failing clearly when a module is
+    incomplete.
+    """
+    module = importlib.import_module(module_name)
+
+    for function_name in function_names:
+        function = getattr(module, function_name, None)
+        if callable(function):
+            return function
+
+    raise AttributeError(
+        f"{module_name} does not provide any of: {', '.join(function_names)}"
+    )
+
+
+def _run_automation(
+    label: str,
+    module_name: str,
+    function_names: tuple[str, ...],
+) -> dict:
+    try:
+        function = _load_callable(module_name, function_names)
+        result = function()
+
+        return {
+            "success": True,
+            "automation": label,
+            "result": result,
+        }
+
+    except Exception as error:
+        print(
+            "AUTOMATION ERROR:",
+            {
+                "automation": label,
+                "module": module_name,
+                "error": repr(error),
+            },
+        )
+
+        return {
+            "success": False,
+            "automation": label,
+            "error": repr(error),
+        }
+
+
+def _register_optional_reminder_blueprint() -> None:
+    """
+    Register reminder_scheduler_bp when the saved reminder module exposes it.
+
+    The manual/private scheduler endpoints below remain available even when
+    the module does not use a Flask Blueprint.
+    """
+    try:
+        module = importlib.import_module("integrations.reminder_scheduler")
+        blueprint = getattr(module, "reminder_scheduler_bp", None)
+
+        if blueprint is not None and blueprint.name not in app.blueprints:
+            app.register_blueprint(blueprint)
+
+    except Exception as error:
+        print("REMINDER BLUEPRINT NOT REGISTERED:", repr(error))
+
+
+_register_optional_reminder_blueprint()
+
+
+# =========================================================
+# Private automation routes
+# =========================================================
+
+@app.route("/internal/run/automations", methods=["POST"])
+def run_all_automations():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    jobs = (
+        (
+            "appointment_reminders",
+            "integrations.reminder_scheduler",
+            (
+                "process_appointment_reminders",
+                "process_reminders",
+                "run_reminders",
+                "process_due_reminders",
+            ),
+        ),
+        (
+            "customer_care",
+            "integrations.customer_care",
+            (
+                "process_customer_care",
+            ),
+        ),
+        (
+            "review_reminders",
+            "integrations.review_request",
+            (
+                "process_review_reminders",
+            ),
+        ),
+        (
+            "mot_reminders",
+            "integrations.mot_reminders",
+            (
+                "process_mot_reminders",
+                "process_due_mot_reminders",
+            ),
+        ),
+        (
+            "vehicle_reminders",
+            "integrations.vehicle_reminders",
+            (
+                "process_vehicle_reminders",
+                "process_service_reminders",
+                "process_due_vehicle_reminders",
+            ),
+        ),
+    )
+
+    results = [
+        _run_automation(label, module_name, function_names)
+        for label, module_name, function_names in jobs
+    ]
+
+    return jsonify(
+        {
+            "success": all(item["success"] for item in results),
+            "results": results,
+            "ran_at": datetime.now(TIMEZONE).isoformat(),
+        }
+    ), 200
+
+
+@app.route("/internal/run/reminders", methods=["POST"])
+def run_appointment_reminders():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    result = _run_automation(
+        "appointment_reminders",
+        "integrations.reminder_scheduler",
+        (
+            "process_appointment_reminders",
+            "process_reminders",
+            "run_reminders",
+            "process_due_reminders",
+        ),
+    )
+
+    return jsonify(result), 200 if result["success"] else 500
+
+
+@app.route("/internal/run/customer-care", methods=["POST"])
+def run_customer_care():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    result = _run_automation(
+        "customer_care",
+        "integrations.customer_care",
+        ("process_customer_care",),
+    )
+
+    return jsonify(result), 200 if result["success"] else 500
+
+
+@app.route("/internal/run/review-reminders", methods=["POST"])
+def run_review_reminders():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    result = _run_automation(
+        "review_reminders",
+        "integrations.review_request",
+        ("process_review_reminders",),
+    )
+
+    return jsonify(result), 200 if result["success"] else 500
+
+
+@app.route("/internal/run/mot-reminders", methods=["POST"])
+def run_mot_reminders():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    result = _run_automation(
+        "mot_reminders",
+        "integrations.mot_reminders",
+        (
+            "process_mot_reminders",
+            "process_due_mot_reminders",
+        ),
+    )
+
+    return jsonify(result), 200 if result["success"] else 500
+
+
+@app.route("/internal/run/vehicle-reminders", methods=["POST"])
+def run_vehicle_reminders():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    result = _run_automation(
+        "vehicle_reminders",
+        "integrations.vehicle_reminders",
+        (
+            "process_vehicle_reminders",
+            "process_service_reminders",
+            "process_due_vehicle_reminders",
+        ),
+    )
+
+    return jsonify(result), 200 if result["success"] else 500
+
+
+# =========================================================
+# Private dashboard and reporting API
+# =========================================================
+
+@app.route("/api/dashboard/summary", methods=["GET"])
+def dashboard_summary():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    try:
+        from integrations.garage_reports import get_dashboard_summary
+
+        return jsonify(get_dashboard_summary()), 200
+
+    except Exception as error:
+        print("DASHBOARD SUMMARY ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "dashboard_summary_failed",
+            }
+        ), 500
+
+
+@app.route("/api/dashboard/morning-briefing", methods=["GET"])
+def dashboard_morning_briefing():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    try:
+        from integrations.garage_reports import get_owner_morning_briefing
+
+        return jsonify(get_owner_morning_briefing()), 200
+
+    except Exception as error:
+        print("MORNING BRIEFING ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "morning_briefing_failed",
+            }
+        ), 500
+
+
+@app.route("/api/reports/today", methods=["GET"])
+def report_today():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    try:
+        from integrations.garage_reports import get_today_report
+
+        return jsonify(get_today_report()), 200
+
+    except Exception as error:
+        print("TODAY REPORT ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "today_report_failed",
+            }
+        ), 500
+
+
+@app.route("/api/reports/week", methods=["GET"])
+def report_week():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    try:
+        from integrations.garage_reports import get_week_report
+
+        return jsonify(get_week_report()), 200
+
+    except Exception as error:
+        print("WEEK REPORT ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "week_report_failed",
+            }
+        ), 500
+
+
+@app.route("/api/reports/month", methods=["GET"])
+def report_month():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    try:
+        from integrations.garage_reports import get_month_report
+
+        year = request.args.get("year", type=int)
+        month = request.args.get("month", type=int)
+
+        return jsonify(
+            get_month_report(
+                year=year,
+                month=month,
+            )
+        ), 200
+
+    except ValueError as error:
+        return jsonify(
+            {
+                "success": False,
+                "error": str(error),
+            }
+        ), 400
+
+    except Exception as error:
+        print("MONTH REPORT ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "month_report_failed",
+            }
+        ), 500
+
+
+@app.route("/api/reports/today-schedule", methods=["GET"])
+def report_today_schedule():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    try:
+        from integrations.garage_reports import get_today_schedule
+
+        return jsonify(
+            {
+                "success": True,
+                "schedule": get_today_schedule(),
+            }
+        ), 200
+
+    except Exception as error:
+        print("TODAY SCHEDULE ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "today_schedule_failed",
+            }
+        ), 500
+
+
+# =========================================================
+# Private campaign API
+# =========================================================
+
+@app.route("/api/campaigns/summary", methods=["GET"])
+def campaign_summary():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    try:
+        from integrations.campaigns import get_campaign_dashboard_summary
+
+        return jsonify(get_campaign_dashboard_summary()), 200
+
+    except Exception as error:
+        print("CAMPAIGN SUMMARY ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "campaign_summary_failed",
+            }
+        ), 500
+
+
+@app.route("/api/campaigns/preview", methods=["POST"])
+def campaign_preview():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    data = _json_payload()
+    campaign_type = str(data.get("campaign_type") or "").strip()
+    offer_text = str(data.get("offer_text") or "").strip()
+    message_title = str(data.get("message_title") or "").strip()
+    limit = data.get("limit", 250)
+    force = bool(data.get("force", False))
+
+    if not campaign_type:
+        return jsonify(
+            {
+                "success": False,
+                "error": "campaign_type_required",
+            }
+        ), 400
+
+    try:
+        from integrations.campaigns import run_campaign
+
+        result = run_campaign(
+            campaign_type=campaign_type,
+            offer_text=offer_text,
+            message_title=message_title,
+            limit=int(limit),
+            dry_run=True,
+            force=force,
+        )
+
+        return jsonify(result), 200
+
+    except (TypeError, ValueError) as error:
+        return jsonify(
+            {
+                "success": False,
+                "error": str(error),
+            }
+        ), 400
+
+    except Exception as error:
+        print("CAMPAIGN PREVIEW ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "campaign_preview_failed",
+            }
+        ), 500
+
+
+@app.route("/api/campaigns/run", methods=["POST"])
+def campaign_run():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    data = _json_payload()
+    campaign_type = str(data.get("campaign_type") or "").strip()
+    offer_text = str(data.get("offer_text") or "").strip()
+    message_title = str(data.get("message_title") or "").strip()
+    limit = data.get("limit", 250)
+
+    # Deliberately require a second explicit confirmation in the JSON body.
+    confirmed = data.get("confirm_send") is True
+    force = data.get("force") is True
+
+    if not campaign_type:
+        return jsonify(
+            {
+                "success": False,
+                "error": "campaign_type_required",
+            }
+        ), 400
+
+    if not confirmed:
+        return jsonify(
+            {
+                "success": False,
+                "error": "campaign_send_not_confirmed",
+                "message": (
+                    "Preview the audience first, then send again with "
+                    '"confirm_send": true.'
+                ),
+            }
+        ), 400
+
+    try:
+        from integrations.campaigns import run_campaign
+
+        result = run_campaign(
+            campaign_type=campaign_type,
+            offer_text=offer_text,
+            message_title=message_title,
+            limit=int(limit),
+            dry_run=False,
+            force=force,
+        )
+
+        return jsonify(result), 200
+
+    except (TypeError, ValueError) as error:
+        return jsonify(
+            {
+                "success": False,
+                "error": str(error),
+            }
+        ), 400
+
+    except Exception as error:
+        print("CAMPAIGN RUN ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "campaign_run_failed",
+            }
+        ), 500
+
+
+@app.route("/api/campaigns/opt-out", methods=["POST"])
+def campaign_opt_out():
+    denied = _require_private_access()
+    if denied:
+        return denied
+
+    data = _json_payload()
+    phone = str(data.get("phone") or "").strip()
+    reason = str(data.get("reason") or "").strip()
+
+    if not phone:
+        return jsonify(
+            {
+                "success": False,
+                "error": "phone_required",
+            }
+        ), 400
+
+    try:
+        from integrations.campaigns import record_marketing_opt_out
+
+        return jsonify(
+            record_marketing_opt_out(
+                phone=phone,
+                reason=reason,
+            )
+        ), 200
+
+    except ValueError as error:
+        return jsonify(
+            {
+                "success": False,
+                "error": str(error),
+            }
+        ), 400
+
+    except Exception as error:
+        print("CAMPAIGN OPT-OUT ERROR:", repr(error))
+        return jsonify(
+            {
+                "success": False,
+                "error": "campaign_opt_out_failed",
+            }
+        ), 500
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
