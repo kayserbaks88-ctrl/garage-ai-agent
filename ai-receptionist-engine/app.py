@@ -6,7 +6,8 @@ import json
 import os
 from datetime import datetime
 
-from flask import Flask, jsonify, request
+
+from flask import Flask, jsonify, request, render_template
 from twilio.twiml.messaging_response import MessagingResponse
 
 from engine import BUSINESS
@@ -16,8 +17,11 @@ from integrations.garage_voice_agent import (
     handle_voice_start,
 )
 
+from dashboard_api import dashboard_api
+
 app = Flask(__name__)
 
+app.register_blueprint(dashboard_api)
 
 # =========================================================
 # Health check
@@ -1609,6 +1613,11 @@ def campaign_opt_out():
             }
         ), 500
 
+@app.route("/dashboard")
+def dashboard():
+    return render_template("dashboard.html")
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
+    

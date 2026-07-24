@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    >
+
+    <meta
+        name="description"
+        content="TrimTech Garage AI business dashboard"
+    >
+
+    <title>TrimTech Garage AI Dashboard</title>
+
+   <link rel="stylesheet"
+      href="{{ url_for('static', filename='dashboard.css') }}">
+>
+</head>
+
+<body>
+    <div class="dashboard-shell">
+        <aside
+            id="dashboardSidebar"
+            class="sidebar"
+            aria-label="Dashboard navigation"
+        >
+            <div class="sidebar-brand">
+                <div class="brand-icon" aria-hidden="true">🔧</div>
+
+                <div class="brand-copy">
+                    <h1>TrimTech Garage</h1>
+                    <p>AI Business Dashboard</p>
+                </div>
+            </div>
+
+            <nav class="sidebar-navigation">
+                <p class="navigation-label">Business</p>
+
+                <ul class="navigation-list">
+                    <li>
+                        <a
+                            href="#overview"
+                            class="navigation-link active"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">▦</span>
+                            <span>Overview</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a
+                            href="#bookings"
+                            class="navigation-link"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">📅</span>
+                            <span>Bookings</span>
+
+                            <span
+                                id="navigationBookingCount"
+                                class="navigation-badge"
+                            >
+                                0
+                            </span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a
+                            href="#customers"
+                            class="navigation-link"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">👥</span>
+                            <span>Customers</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a
+                            href="#reminders"
+                            class="navigation-link"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">🔔</span>
+                            <span>Reminders</span>
+
+                            <span
+                                id="navigationReminderCount"
+                                class="navigation-badge"
+                            >
+                                0
+                            </span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a
+                            href="#reports"
+                            class="navigation-link"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">📊</span>
+                            <span>Reports</span>
+                        </a>
+                    </li>
+                </ul>
+
+                <p
+                    class="navigation-label"
+                    style="margin-top: 26px;"
+                >
+                    System
+                </p>
+
+                <ul class="navigation-list">
+                    <li>
+                        <a
+                            href="#ai-activity"
+                            class="navigation-link"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">🤖</span>
+                            <span>AI Activity</span>
+                        </a>
+                    </li>
+
+                    <li>
+                        <a
+                            href="#system-health"
+                            class="navigation-link"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">⚙️</span>
+                            <span>System Health</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="ai-status-card">
+                    <div class="ai-status-header">
+                        <span
+                            id="sidebarStatusPulse"
+                            class="status-pulse"
+                        ></span>
+
+                        <span id="sidebarStatusText">
+                            Garage AI online
+                        </span>
+                    </div>
+
+                    <p id="sidebarStatusDetail">
+                        Vapi voice assistant and booking services are connected.
+                    </p>
+                </div>
+            </div>
+        </aside>
+
+        <div
+            id="mobileOverlay"
+            class="mobile-overlay"
+            aria-hidden="true"
+        ></div>
+
+        <main class="main-area">
+            <header class="top-header">
+                <div class="header-left">
+                    <button
+                        id="menuButton"
+                        class="menu-button"
+                        type="button"
+                        aria-label="Open dashboard menu"
+                        aria-expanded="false"
+                    >
+                        ☰
+                    </button>
+
+                    <div class="header-title">
+                        <h2>Garage Performance</h2>
+                        <p id="headerDate">
+                            Loading today’s overview...
+                        </p>
+                    </div>
+                </div>
+
+                <div class="header-actions">
+                    <button
+                        id="refreshDashboardButton"
+                        class="header-action-button"
+                        type="button"
+                    >
+                        <span
+                            class="refresh-icon"
+                            aria-hidden="true"
+                        >
+                            ↻
+                        </span>
+
+                        <span class="header-action-label">
+                            Refresh
+                        </span>
+                    </button>
+
+                    <button
+                        id="runRemindersButton"
+                        class="header-action-button primary"
+                        type="button"
+                    >
+                        <span aria-hidden="true">🔔</span>
+
+                        <span class="header-action-label">
+                            Run reminders
+                        </span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="dashboard-content">
+                <section
+                    id="overview"
+                    class="welcome-panel"
+                >
+                    <div class="welcome-copy">
+                        <div class="welcome-eyebrow">
+                            <span class="status-pulse"></span>
+                            Live business overview
+                        </div>
+
+                        <h3>
+                            Welcome back to TrimTech Garage.
+                        </h3>
+
+                        <p>
+                            Track bookings, customers, vehicle reminders and
+                            garage performance from one professional dashboard.
+                        </p>
+                    </div>
+
+                    <div class="welcome-summary">
+                        <div class="welcome-summary-label">
+                            Next appointment
+                        </div>
+
+                        <div
+                            id="nextAppointmentTime"
+                            class="welcome-summary-value"
+                        >
+                            —
+                        </div>
+
+                        <div
+                            id="nextAppointmentDetail"
+                            class="welcome-summary-detail"
+                        >
+                            No upcoming booking loaded
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="metric-grid"
+                    aria-label="Garage statistics"
+                >
+                    <article class="metric-card blue">
+                        <div class="metric-top">
+                            <span class="metric-label">
+                                Today’s bookings
+                            </span>
+
+                            <span class="metric-icon">📅</span>
+                        </div>
+
+                        <div
+                            id="todayBookingsMetric"
+                            class="metric-value"
+                        >
+                            0
+                        </div>
+
+                        <div class="metric-footer">
+                            <span
+                                id="todayBookingsChange"
+                                class="metric-change positive"
+                            >
+                                Live
+                            </span>
+
+                            <span>appointments today</span>
+                        </div>
+                    </article>
+
+                    <article class="metric-card green">
+                        <div class="metric-top">
+                            <span class="metric-label">
+                                Upcoming bookings
+                            </span>
+
+                            <span class="metric-icon">🗓️</span>
+                        </div>
+
+                        <div
+                            id="upcomingBookingsMetric"
+                            class="metric-value"
+                        >
+                            0
+                        </div>
+
+                        <div class="metric-footer">
+                            <span class="metric-change positive">
+                                Confirmed
+                            </span>
+
+                            <span>future appointments</span>
+                        </div>
+                    </article>
+
+                    <article class="metric-card orange">
+                        <div class="metric-top">
+                            <span class="metric-label">
+                                Reminders due
+                            </span>
+
+                            <span class="metric-icon">🔔</span>
+                        </div>
+
+                        <div
+                            id="remindersDueMetric"
+                            class="metric-value"
+                        >
+                            0
+                        </div>
+
+                        <div class="metric-footer">
+                            <span
+                                id="reminderMetricStatus"
+                                class="metric-change warning"
+                            >
+                                Ready
+                            </span>
+
+                            <span>MOT and service reminders</span>
+                        </div>
+                    </article>
+
+                    <article class="metric-card purple">
+                        <div class="metric-top">
+                            <span class="metric-label">
+                                Estimated revenue
+                            </span>
+
+                            <span class="metric-icon">£</span>
+                        </div>
+
+                        <div
+                            id="revenueMetric"
+                            class="metric-value"
+                        >
+                            £0
+                        </div>
+
+                        <div class="metric-footer">
+                            <span
+                                id="revenuePeriod"
+                                class="metric-change positive"
+                            >
+                                This month
+                            </span>
+
+                            <span>from recorded bookings</span>
+                        </div>
+                    </article>
+                </section>
+
+                <section
+                    id="reports"
+                    class="dashboard-grid"
+                >
+                    <article class="panel">
+                        <header class="panel-header">
+                            <div class="panel-title">
+                                <h3>Booking activity</h3>
+                                <p>Appointments across the last seven days</p>
+                            </div>
+
+                            <button
+                                id="bookingChartPeriod"
+                                class="panel-action"
+                                type="button"
+                            >
+                                Last 7 days
+                            </button>
+                        </header>
+
+                        <div class="panel-body">
+                            <div class="chart-summary">
+                                <div>
+                                    <div class="chart-total-label">
+                                        Total appointments
+                                    </div>
+
+                                    <div
+                                        id="chartTotalBookings"
+                                        class="chart-total-value"
+                                    >
+                                        0
+                                    </div>
+                                </div>
+
+                                <div class="chart-legend">
+                                    <span class="legend-item">
+                                        <span class="legend-dot"></span>
+                                        Bookings
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div
+                                id="bookingChart"
+                                class="booking-chart"
+                                aria-label="Seven-day booking chart"
+                            >
+                                <div class="chart-y-axis">
+                                    <span>10</span>
+                                    <span>8</span>
+                                    <span>6</span>
+                                    <span>4</span>
+                                    <span>2</span>
+                                    <span>0</span>
+                                </div>
+
+                                <div class="chart-bars-area">
+                                    <div class="chart-grid-lines">
+                                        <span class="chart-grid-line"></span>
+                                        <span class="chart-grid-line"></span>
+                                        <span class="chart-grid-line"></span>
+                                        <span class="chart-grid-line"></span>
+                                        <span class="chart-grid-line"></span>
+                                        <span class="chart-grid-line"></span>
+                                    </div>
+
+                                    <div
+                                        class="chart-column"
+                                        data-chart-column
+                                    >
+                                        <div class="chart-bar-track">
+                                            <div
+                                                class="chart-bar"
+                                                style="height: 5%;"
+                                                data-value="0 bookings"
+                                            ></div>
+                                        </div>
+                                        <span class="chart-day">Mon</span>
+                                    </div>
+
+                                    <div
+                                        class="chart-column"
+                                        data-chart-column
+                                    >
+                                        <div class="chart-bar-track">
+                                            <div
+                                                class="chart-bar"
+                                                style="height: 5%;"
+                                                data-value="0 bookings"
+                                            ></div>
+                                        </div>
+                                        <span class="chart-day">Tue</span>
+                                    </div>
+
+                                    <div
+                                        class="chart-column"
+                                        data-chart-column
+                                    >
+                                        <div class="chart-bar-track">
+                                            <div
+                                                class="chart-bar"
+                                                style="height: 5%;"
+                                                data-value="0 bookings"
+                                            ></div>
+                                        </div>
+                                        <span class="chart-day">Wed</span>
+                                    </div>
+
+                                    <div
+                                        class="chart-column"
+                                        data-chart-column
+                                    >
+                                        <div class="chart-bar-track">
+                                            <div
+                                                class="chart-bar"
+                                                style="height: 5%;"
+                                                data-value="0 bookings"
+                                            ></div>
+                                        </div>
+                                        <span class="chart-day">Thu</span>
+                                    </div>
+
+                                    <div
+                                        class="chart-column"
+                                        data-chart-column
+                                    >
+                                        <div class="chart-bar-track">
+                                            <div
+                                                class="chart-bar"
+                                                style="height: 5%;"
+                                                data-value="0 bookings"
+                                            ></div>
+                                        </div>
+                                        <span class="chart-day">Fri</span>
+                                    </div>
+
+                                    <div
+                                        class="chart-column"
+                                        data-chart-column
+                                    >
+                                        <div class="chart-bar-track">
+                                            <div
+                                                class="chart-bar"
+                                                style="height: 5%;"
+                                                data-value="0 bookings"
+                                            ></div>
+                                        </div>
+                                        <span class="chart-day">Sat</span>
+                                    </div>
+
+                                    <div
+                                        class="chart-column"
+                                        data-chart-column
+                                    >
+                                        <div class="chart-bar-track">
+                                            <div
+                                                class="chart-bar"
+                                                style="height: 5%;"
+                                                data-value="0 bookings"
+                                            ></div>
+                                        </div>
+                                        <span class="chart-day">Sun</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article class="panel">
+                        <header class="panel-header">
+                            <div class="panel-title">
+                                <h3>Service performance</h3>
+                                <p>Most requested garage services</p>
+                            </div>
+                        </header>
+
+                        <div class="panel-body">
+                            <div
+                                id="servicePerformanceList"
+                                class="service-list"
+                            >
+                                <div class="service-row">
+                                    <div class="service-row-top">
+                                        <div class="service-name">
+                                            <span class="service-icon">✅</span>
+                                            MOT
+                                        </div>
+
+                                        <span class="service-number">
+                                            0 bookings
+                                        </span>
+                                    </div>
+
+                                    <div class="service-progress">
+                                        <div
+                                            class="service-progress-bar"
+                                            style="width: 0%;"
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <div class="service-row">
+                                    <div class="service-row-top">
+                                        <div class="service-name">
+                                            <span class="service-icon">🔧</span>
+                                            Full Service
+                                        </div>
+
+                                        <span class="service-number">
+                                            0 bookings
+                                        </span>
+                                    </div>
+
+                                    <div class="service-progress">
+                                        <div
+                                            class="service-progress-bar"
+                                            style="width: 0%;"
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <div class="service-row">
+                                    <div class="service-row-top">
+                                        <div class="service-name">
+                                            <span class="service-icon">🔍</span>
+                                            Diagnostic
+                                        </div>
+
+                                        <span class="service-number">
+                                            0 bookings
+                                        </span>
+                                    </div>
+
+                                    <div class="service-progress">
+                                        <div
+                                            class="service-progress-bar"
+                                            style="width: 0%;"
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <div class="service-row">
+                                    <div class="service-row-top">
+                                        <div class="service-name">
+                                            <span class="service-icon">🛢️</span>
+                                            Oil Change
+                                        </div>
+
+                                        <span class="service-number">
+                                            0 bookings
+                                        </span>
+                                    </div>
+
+                                    <div class="service-progress">
+                                        <div
+                                            class="service-progress-bar"
+                                            style="width: 0%;"
+                                        ></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+
+                <section
+                    id="bookings"
+                    class="panel"
+                    style="margin-bottom: 24px;"
+                >
+                    <header class="panel-header">
+                        <div class="panel-title">
+                            <h3>Upcoming appointments</h3>
+                            <p>
+                                Live bookings captured by your Garage AI
+                                receptionist
+                            </p>
+                        </div>
+
+                        <button
+                            id="viewAllBookingsButton"
+                            class="panel-action"
+                            type="button"
+                        >
+                            View all
+                        </button>
+                    </header>
+
+                    <div class="table-wrapper">
+                        <table class="booking-table">
+                            <thead>
+                                <tr>
+                                    <th>Customer</th>
+                                    <th>Vehicle</th>
+                                    <th>Service</th>
+                                    <th>Date and time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+
+                            <tbody id="upcomingBookingsTableBody">
+                                <tr>
+                                    <td colspan="5">
+                                        <div class="empty-state">
+                                            <div class="empty-state-icon">
+                                                📅
+                                            </div>
+
+                                            <h4>No appointments loaded</h4>
+
+                                            <p>
+                                                Upcoming garage bookings will
+                                                appear here.
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="dashboard-grid equal">
+                    <article
+                        id="reminders"
+                        class="panel"
+                    >
+                        <header class="panel-header">
+                            <div class="panel-title">
+                                <h3>Reminder system</h3>
+                                <p>MOT and vehicle service follow-ups</p>
+                            </div>
+
+                            <span
+                                id="reminderSystemBadge"
+                                class="status-badge confirmed"
+                            >
+                                Active
+                            </span>
+                        </header>
+
+                        <div class="panel-body">
+                            <div
+                                id="reminderHealthList"
+                                class="reminder-health"
+                            >
+                                <div class="health-row">
+                                    <div class="health-icon success">
+                                        ✓
+                                    </div>
+
+                                    <div class="health-copy">
+                                        <h4>Reminder scheduler</h4>
+                                        <p id="schedulerLastRun">
+                                            Waiting for health information
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        id="schedulerStatus"
+                                        class="health-value"
+                                    >
+                                        Ready
+                                    </div>
+                                </div>
+
+                                <div class="health-row">
+                                    <div class="health-icon warning">
+                                        🔔
+                                    </div>
+
+                                    <div class="health-copy">
+                                        <h4>Reminders waiting</h4>
+                                        <p>
+                                            Customers due an MOT or service
+                                            notification
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        id="remindersWaitingValue"
+                                        class="health-value"
+                                    >
+                                        0
+                                    </div>
+                                </div>
+
+                                <div class="health-row">
+                                    <div class="health-icon success">
+                                        ✉️
+                                    </div>
+
+                                    <div class="health-copy">
+                                        <h4>Reminders sent</h4>
+                                        <p id="remindersSentDetail">
+                                            Successfully processed this month
+                                        </p>
+                                    </div>
+
+                                    <div
+                                        id="remindersSentValue"
+                                        class="health-value"
+                                    >
+                                        0
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article
+                        id="ai-activity"
+                        class="panel"
+                    >
+                        <header class="panel-header">
+                            <div class="panel-title">
+                                <h3>Recent AI activity</h3>
+                                <p>
+                                    Calls, bookings and customer actions
+                                </p>
+                            </div>
+                        </header>
+
+                        <div class="panel-body">
+                            <div
+                                id="aiActivityList"
+                                class="activity-list"
+                            >
+                                <div class="activity-item">
+                                    <div class="activity-icon">🤖</div>
+
+                                    <div class="activity-copy">
+                                        <h4>
+                                            Garage AI is ready
+                                        </h4>
+
+                                        <p>
+                                            New voice activity will appear
+                                            here.
+                                        </p>
+
+                                        <span class="activity-time">
+                                            Live system
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+
+                <section
+                    id="customers"
+                    class="panel"
+                    style="margin-bottom: 24px;"
+                >
+                    <header class="panel-header">
+                        <div class="panel-title">
+                            <h3>Customer insights</h3>
+                            <p>
+                                Customer history and vehicle records
+                            </p>
+                        </div>
+
+                        <span
+                            id="totalCustomersLabel"
+                            class="panel-action"
+                        >
+                            0 customers
+                        </span>
+                    </header>
+
+                    <div class="panel-body">
+                        <div class="quick-actions">
+                            <button
+                                class="quick-action"
+                                type="button"
+                                data-quick-action="bookings"
+                            >
+                                <span class="quick-action-icon">📅</span>
+
+                                <span>
+                                    <h4>Review bookings</h4>
+                                    <p>
+                                        Check all upcoming garage appointments.
+                                    </p>
+                                </span>
+                            </button>
+
+                            <button
+                                class="quick-action"
+                                type="button"
+                                data-quick-action="reminders"
+                            >
+                                <span class="quick-action-icon">🔔</span>
+
+                                <span>
+                                    <h4>Run reminders</h4>
+                                    <p>
+                                        Process MOT and service notifications.
+                                    </p>
+                                </span>
+                            </button>
+
+                            <button
+                                class="quick-action"
+                                type="button"
+                                data-quick-action="customers"
+                            >
+                                <span class="quick-action-icon">🚗</span>
+
+                                <span>
+                                    <h4>Vehicle history</h4>
+                                    <p>
+                                        Review customer vehicles and visits.
+                                    </p>
+                                </span>
+                            </button>
+
+                            <button
+                                class="quick-action"
+                                type="button"
+                                data-quick-action="refresh"
+                            >
+                                <span class="quick-action-icon">↻</span>
+
+                                <span>
+                                    <h4>Refresh dashboard</h4>
+                                    <p>
+                                        Load the latest business information.
+                                    </p>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    id="system-health"
+                    class="panel"
+                >
+                    <header class="panel-header">
+                        <div class="panel-title">
+                            <h3>System connections</h3>
+                            <p>
+                                Live status of the Garage AI services
+                            </p>
+                        </div>
+
+                        <span
+                            id="overallSystemStatus"
+                            class="status-badge confirmed"
+                        >
+                            Operational
+                        </span>
+                    </header>
+
+                    <div class="panel-body">
+                        <div class="quick-actions">
+                            <div class="quick-action">
+                                <span class="quick-action-icon">📞</span>
+
+                                <span>
+                                    <h4>Vapi voice agent</h4>
+                                    <p id="vapiConnectionStatus">
+                                        Ready for inbound calls
+                                    </p>
+                                </span>
+                            </div>
+
+                            <div class="quick-action">
+                                <span class="quick-action-icon">📅</span>
+
+                                <span>
+                                    <h4>Google Calendar</h4>
+                                    <p id="calendarConnectionStatus">
+                                        Booking calendar connected
+                                    </p>
+                                </span>
+                            </div>
+
+                            <div class="quick-action">
+                                <span class="quick-action-icon">🚘</span>
+
+                                <span>
+                                    <h4>DVLA lookup</h4>
+                                    <p id="dvlaConnectionStatus">
+                                        Vehicle lookup available
+                                    </p>
+                                </span>
+                            </div>
+
+                            <div class="quick-action">
+                                <span class="quick-action-icon">🧠</span>
+
+                                <span>
+                                    <h4>Garage AI backend</h4>
+                                    <p id="backendConnectionStatus">
+                                        Flask service online
+                                    </p>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    
+    <div
+        id="toastContainer"
+        class="toast-container"
+        aria-live="polite"
+        aria-atomic="true"
+    ></div>
+
+    <script
+    src="{{ url_for('static', filename='dashboard.js') }}"
+    defer
+></script>
+   
+</body>
+</html> 
