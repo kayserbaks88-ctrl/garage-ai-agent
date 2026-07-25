@@ -4,7 +4,7 @@ import hmac
 import importlib
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 from flask import Flask, jsonify, request, render_template
@@ -18,9 +18,54 @@ from integrations.garage_voice_agent import (
 )
 
 from dashboard_api import dashboard_api
+from dashboard_auth import (
+    dashboard_auth,
+    dashboard_login_required,
+    is_dashboard_authenticated,
+)
 
 app = Flask(__name__)
 
+# =========================================================
+# Secure dashboard session configuration
+# =========================================================
+
+_flask_secret_key = (
+    os.getenv("FLASK_SECRET_KEY", "").strip()
+    or os.getenv("SECRET_KEY", "").strip()
+)
+
+if not _flask_secret_key:
+    raise RuntimeError(
+        "FLASK_SECRET_KEY is missing. Add a long random value in Render "
+        "before starting the service."
+    )
+
+app.config.update(
+    SECRET_KEY=_flask_secret_key,
+    PERMANENT_SESSION_LIFETIME=timedelta(hours=8),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
+
+
+@dashboard_api.before_request
+def protect_dashboard_api_blueprint():
+    """Require a valid dashboard login for every dashboard API route."""
+    if not is_dashboard_authenticated():
+        return jsonify(
+            {
+                "success": False,
+                "error": "authentication_required",
+                "message": "Please log in to access the dashboard.",
+            }
+        ), 401
+
+    return None
+
+
+app.register_blueprint(dashboard_auth)
 app.register_blueprint(dashboard_api)
 
 # =========================================================
@@ -1614,10 +1659,10 @@ def campaign_opt_out():
         ), 500
 
 @app.route("/dashboard")
+@dashboard_login_required
 def dashboard():
     return render_template("dashboard.html")
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))
     app.run(host="0.0.0.0", port=port)
-    
