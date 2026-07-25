@@ -8,6 +8,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify
+from dashboard_auth import dashboard_api_login_required
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -675,7 +676,7 @@ def reminder_health() -> dict[str, Any]:
         }
 
     try:
-        from integrations.vehicle_reminders import get_reminder_summary
+        from integrations.mot_reminders import get_reminder_summary
 
         summary = get_reminder_summary()
 
@@ -867,6 +868,7 @@ def build_dashboard_data() -> dict[str, Any]:
 
 
 @dashboard_api.get("/api/dashboard-data")
+@dashboard_api_login_required
 def dashboard_data():
     try:
         data = build_dashboard_data()
@@ -897,6 +899,7 @@ def dashboard_data():
 
 
 @dashboard_api.get("/api/dashboard-health")
+@dashboard_api_login_required
 def dashboard_health():
     calendar_id = get_calendar_id()
 
