@@ -27,7 +27,7 @@
 
 const API_ENDPOINTS = {
     dashboard: "/api/dashboard-data",
-    runReminders: "/internal/run-reminders"
+    runReminders: "/api/run-reminders"
 };
 
 
