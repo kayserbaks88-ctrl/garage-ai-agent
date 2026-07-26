@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from integrations.garage_calendar import (
     _calendar_id,
@@ -21,6 +22,12 @@ REMINDER_WINDOW_MINUTES = 10
 
 # Send the customer follow-up two hours after the appointment ends.
 FOLLOW_UP_DELAY_HOURS = 2
+
+HEALTH_MARKER_KEY = "trimtech_system_record"
+HEALTH_MARKER_VALUE = "reminder_health"
+HEALTH_EVENT_SUMMARY = "[TrimTech System] Reminder Health"
+HEALTH_EVENT_DATE = "2099-01-01"
+HEALTH_EVENT_END_DATE = "2099-01-02"
 
 
 def _parse_calendar_datetime(raw_value: str) -> datetime | None:
@@ -117,6 +124,128 @@ def _get_relevant_events(
     )
 
     return result.get("items", [])
+
+
+
+def _find_health_event() -> dict | None:
+    service = _get_calendar_service()
+    result = (
+        service.events()
+        .list(
+            calendarId=_calendar_id(),
+            privateExtendedProperty=(
+                f"{HEALTH_MARKER_KEY}={HEALTH_MARKER_VALUE}"
+            ),
+            singleEvents=True,
+            maxResults=1,
+            showDeleted=False,
+        )
+        .execute()
+    )
+    items = result.get("items") or []
+    return items[0] if items else None
+
+
+def _create_health_event() -> dict:
+    service = _get_calendar_service()
+    body = {
+        "summary": HEALTH_EVENT_SUMMARY,
+        "description": (
+            "System record used by the TrimTech Garage dashboard. "
+            "Do not delete."
+        ),
+        "start": {"date": HEALTH_EVENT_DATE},
+        "end": {"date": HEALTH_EVENT_END_DATE},
+        "transparency": "transparent",
+        "visibility": "private",
+        "extendedProperties": {
+            "private": {
+                HEALTH_MARKER_KEY: HEALTH_MARKER_VALUE,
+                "status": "ready",
+                "last_run": "",
+                "last_successful_run": "",
+                "events_checked": "0",
+                "sent_count": "0",
+                "error_count": "0",
+            }
+        },
+    }
+    return (
+        service.events()
+        .insert(calendarId=_calendar_id(), body=body)
+        .execute()
+    )
+
+
+def _get_or_create_health_event() -> dict:
+    return _find_health_event() or _create_health_event()
+
+
+def _save_reminder_health(
+    summary: dict[str, Any],
+    *,
+    successful: bool,
+) -> None:
+    try:
+        service = _get_calendar_service()
+        event = _get_or_create_health_event()
+        private = {
+            **_event_private_data(event),
+            HEALTH_MARKER_KEY: HEALTH_MARKER_VALUE,
+            "status": "healthy" if successful else "error",
+            "last_run": str(summary.get("checked_at") or ""),
+            "events_checked": str(int(summary.get("events_checked") or 0)),
+            "sent_count": str(int(summary.get("sent_count") or 0)),
+            "error_count": str(int(summary.get("error_count") or 0)),
+        }
+        if successful:
+            private["last_successful_run"] = str(
+                summary.get("checked_at") or ""
+            )
+        (
+            service.events()
+            .patch(
+                calendarId=_calendar_id(),
+                eventId=event["id"],
+                body={"extendedProperties": {"private": private}},
+            )
+            .execute()
+        )
+    except Exception as error:
+        print("REMINDER HEALTH SAVE ERROR:", repr(error))
+
+
+def get_reminder_health() -> dict[str, Any]:
+    default_result = {
+        "enabled": True,
+        "due": 0,
+        "sent_this_month": 0,
+        "last_run": None,
+        "last_successful_run": None,
+        "events_checked": 0,
+        "sent_count": 0,
+        "error_count": 0,
+        "status": "ready",
+        "period": "this month",
+    }
+    try:
+        event = _find_health_event()
+        if not event:
+            return default_result
+        private = _event_private_data(event)
+        return {
+            **default_result,
+            "last_run": private.get("last_run") or None,
+            "last_successful_run": private.get("last_successful_run") or None,
+            "events_checked": int(private.get("events_checked") or 0),
+            "sent_count": int(private.get("sent_count") or 0),
+            "sent_this_month": int(private.get("sent_count") or 0),
+            "error_count": int(private.get("error_count") or 0),
+            "status": private.get("status") or "ready",
+        }
+    except Exception as error:
+        print("REMINDER HEALTH READ ERROR:", repr(error))
+        return {**default_result, "status": "error"}
 
 
 def _mark_reminder_sent(
@@ -442,6 +571,11 @@ def process_reminders(
         "error_count": len(errors),
         "errors": errors,
     }
+
+    _save_reminder_health(
+        summary,
+        successful=(len(errors) == 0),
+    )
 
     print("REMINDER CHECK COMPLETE:", summary)
 
