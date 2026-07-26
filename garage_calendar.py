@@ -7,7 +7,11 @@ from datetime import date, datetime, time, timedelta
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
-from garage_config import GARAGE_CALENDAR_ID, SERVICES, TIMEZONE
+from integrations.garage_config import (
+    GARAGE_CALENDAR_ID,
+    SERVICES,
+    TIMEZONE,
+)
 
 
 
