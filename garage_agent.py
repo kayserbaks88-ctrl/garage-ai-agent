@@ -17,8 +17,6 @@ from integrations.garage_config import (
     SERVICE_ALIASES,
     TIMEZONE,
 )
-from garage_config import SERVICES, SERVICE_ALIASES, TIMEZONE
-
 
 DVLA_API_KEY = os.getenv("DVLA_API_KEY")
 
