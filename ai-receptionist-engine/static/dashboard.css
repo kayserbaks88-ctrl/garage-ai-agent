@@ -1809,3 +1809,453 @@ div.quick-action:hover {
         transition-duration: 0.01ms !important;
     }
 }
+/* =========================================================
+   25. DASHBOARD V1.1 INTERACTIVE COMPONENTS
+   Customer CRM, vehicle CRM, booking tools, drawers and modal.
+   ========================================================= */
+
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.interactive-card {
+    cursor: pointer;
+}
+
+.interactive-card:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.24);
+    outline-offset: 3px;
+}
+
+.secondary-button {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 0 14px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: border-color var(--transition), background var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+
+.secondary-button:hover {
+    border-color: #bfdbfe;
+    background: var(--primary-soft);
+    color: var(--primary-dark);
+    box-shadow: var(--shadow-small);
+    transform: translateY(-1px);
+}
+
+.secondary-button.compact {
+    min-height: 34px;
+    padding: 0 11px;
+    border-radius: 9px;
+    font-size: 11px;
+}
+
+/* Booking search and filters */
+.booking-toolbar,
+.crm-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.booking-search {
+    position: relative;
+    flex: 1;
+    max-width: 440px;
+}
+
+.booking-search-icon {
+    position: absolute;
+    top: 50%;
+    left: 13px;
+    color: var(--text-muted);
+    font-size: 14px;
+    pointer-events: none;
+    transform: translateY(-50%);
+}
+
+.booking-search input,
+.crm-search-input,
+.booking-filters select {
+    height: 42px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 12px;
+    transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
+}
+
+.booking-search input {
+    width: 100%;
+    padding: 0 14px 0 39px;
+}
+
+.crm-search-input {
+    width: min(360px, 100%);
+    padding: 0 14px;
+}
+
+.booking-filters {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.booking-filters select {
+    min-width: 135px;
+    padding: 0 34px 0 12px;
+    cursor: pointer;
+}
+
+.booking-search input:focus,
+.crm-search-input:focus,
+.booking-filters select:focus {
+    outline: 0;
+    border-color: var(--primary-light);
+    background: #ffffff;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.10);
+}
+
+/* Customer CRM */
+.crm-heading {
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 850;
+    letter-spacing: -0.02em;
+}
+
+.crm-subheading {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.crm-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+}
+
+.customer-directory {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    padding: 20px;
+}
+
+.customer-directory-card {
+    min-width: 0;
+    padding: 17px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    cursor: pointer;
+    transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+}
+
+.customer-directory-card:hover {
+    border-color: #bfdbfe;
+    box-shadow: var(--shadow-medium);
+    transform: translateY(-2px);
+}
+
+/* Drawer overlay and panels */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 79;
+    visibility: hidden;
+    background: rgba(15, 23, 42, 0.52);
+    backdrop-filter: blur(4px);
+    opacity: 0;
+    transition: opacity 0.22s ease, visibility 0.22s ease;
+}
+
+.drawer-overlay.visible,
+.drawer-overlay.open {
+    visibility: visible;
+    opacity: 1;
+}
+
+.detail-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 80;
+    width: min(460px, 92vw);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    box-shadow: -24px 0 60px rgba(15, 23, 42, 0.18);
+    transform: translateX(105%);
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.detail-drawer.open,
+.detail-drawer.visible,
+.detail-drawer[aria-hidden="false"] {
+    transform: translateX(0);
+}
+
+.detail-drawer.wide {
+    width: min(590px, 94vw);
+}
+
+.detail-drawer-header {
+    min-height: 82px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 21px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.96);
+}
+
+.detail-drawer-header h3,
+.dashboard-modal-header h3 {
+    margin-top: 4px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 850;
+    letter-spacing: -0.03em;
+}
+
+.detail-drawer-eyebrow {
+    color: var(--primary);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+}
+
+.drawer-close-button {
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    font-size: 19px;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), transform var(--transition);
+}
+
+.drawer-close-button:hover {
+    background: var(--danger-soft);
+    color: var(--danger);
+    transform: rotate(4deg);
+}
+
+.detail-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 21px;
+    background: #f8fafc;
+}
+
+.drawer-loading-state {
+    min-height: 240px;
+    display: grid;
+    place-items: center;
+    padding: 30px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+/* Reminder centre */
+.reminder-centre-summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.reminder-centre-summary > * {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--surface);
+    box-shadow: var(--shadow-small);
+}
+
+.reminder-queue-list {
+    display: grid;
+    gap: 11px;
+}
+
+.reminder-queue-item {
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--surface);
+}
+
+/* Booking details modal */
+.dashboard-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    visibility: hidden;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(15, 23, 42, 0.58);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.dashboard-modal.open,
+.dashboard-modal.visible,
+.dashboard-modal[aria-hidden="false"] {
+    visibility: visible;
+    opacity: 1;
+}
+
+.dashboard-modal-card {
+    width: min(620px, 100%);
+    max-height: min(760px, calc(100vh - 40px));
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    background: var(--surface);
+    box-shadow: 0 30px 80px rgba(15, 23, 42, 0.30);
+    transform: translateY(18px) scale(0.98);
+    transition: transform 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dashboard-modal.open .dashboard-modal-card,
+.dashboard-modal.visible .dashboard-modal-card,
+.dashboard-modal[aria-hidden="false"] .dashboard-modal-card {
+    transform: translateY(0) scale(1);
+}
+
+.dashboard-modal-header {
+    min-height: 78px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 21px;
+    border-bottom: 1px solid var(--border);
+}
+
+.dashboard-modal-body {
+    max-height: calc(100vh - 150px);
+    overflow-y: auto;
+    padding: 22px;
+    background: var(--surface-soft);
+}
+
+body.drawer-open,
+body.modal-open {
+    overflow: hidden;
+}
+
+/* =========================================================
+   26. V1.1 RESPONSIVE COMPONENTS
+   ========================================================= */
+
+@media (max-width: 980px) {
+    .customer-directory {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .booking-toolbar,
+    .crm-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+        padding: 14px 16px;
+    }
+
+    .booking-search,
+    .crm-search-input {
+        width: 100%;
+        max-width: none;
+    }
+
+    .booking-filters,
+    .crm-toolbar-actions {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .booking-filters select,
+    .crm-toolbar-actions .secondary-button {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .customer-directory {
+        grid-template-columns: 1fr;
+        padding: 16px;
+    }
+
+    .detail-drawer,
+    .detail-drawer.wide {
+        width: 100%;
+    }
+
+    .detail-drawer-header,
+    .dashboard-modal-header {
+        padding: 16px;
+    }
+
+    .detail-drawer-body,
+    .dashboard-modal-body {
+        padding: 16px;
+    }
+
+    .reminder-centre-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-modal {
+        align-items: end;
+        padding: 0;
+    }
+
+    .dashboard-modal-card {
+        width: 100%;
+        max-height: 92vh;
+        border-radius: 20px 20px 0 0;
+    }
+}
+
+@media (max-width: 420px) {
+    .booking-filters,
+    .crm-toolbar-actions {
+        grid-template-columns: 1fr;
+    }
+}

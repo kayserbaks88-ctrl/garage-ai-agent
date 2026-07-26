@@ -2,38 +2,14 @@
 
 /* =========================================================
    TRIMTECH GARAGE AI DASHBOARD
-   File: static/js/dashboard.js
-
-   This file controls:
-   - Mobile navigation
-   - Dashboard refresh
-   - Booking statistics
-   - Upcoming appointment table
-   - Seven-day booking chart
-   - Service performance
-   - Reminder health
-   - Recent AI activity
-   - System connection status
-   - Toast messages
-   ========================================================= */
-
-
-/* =========================================================
-   1. API ENDPOINTS
-
-   We will create these Flask routes in the backend file later.
-   The dashboard will remain usable before those routes exist.
+   File: static/dashboard.js
+   Version: 1.1-customer-crm
    ========================================================= */
 
 const API_ENDPOINTS = {
     dashboard: "/api/dashboard-data",
     runReminders: "/api/run-reminders"
 };
-
-
-/* =========================================================
-   2. SERVICE AND ACTIVITY ICONS
-   ========================================================= */
 
 const SERVICE_ICONS = {
     mot: "✅",
@@ -61,14 +37,6 @@ const ACTIVITY_ICONS = {
     ai: "🤖"
 };
 
-
-/* =========================================================
-   3. DEFAULT DASHBOARD DATA
-
-   These values allow the page to load safely before the
-   Flask dashboard API has been connected.
-   ========================================================= */
-
 function getDefaultDashboardData() {
     return {
         summary: {
@@ -76,11 +44,12 @@ function getDefaultDashboardData() {
             upcoming_bookings: 0,
             reminders_due: 0,
             estimated_revenue: 0,
-            total_customers: 0
+            total_customers: 0,
+            today_change: null,
+            revenue_period: "Estimated from upcoming work"
         },
 
         next_appointment: null,
-
         booking_activity: [],
 
         service_performance: [
@@ -103,13 +72,17 @@ function getDefaultDashboardData() {
         ],
 
         upcoming_appointments: [],
+        customers: [],
 
         reminders: {
             enabled: true,
             due: 0,
+            waiting: 0,
             sent_this_month: 0,
+            failed: 0,
             last_run: null,
-            status: "ready"
+            status: "ready",
+            queue: []
         },
 
         ai_activity: [],
@@ -124,287 +97,213 @@ function getDefaultDashboardData() {
     };
 }
 
-
-/* =========================================================
-   4. DASHBOARD STATE
-   ========================================================= */
-
 const dashboardState = {
     data: getDefaultDashboardData(),
     loading: false,
-    remindersRunning: false
+    remindersRunning: false,
+    bookingQuery: "",
+    bookingService: "",
+    bookingStatus: "",
+    customerQuery: "",
+    selectedBooking: null,
+    selectedCustomer: null,
+    selectedVehicle: null
 };
 
+const el = {};
 
-/* =========================================================
-   5. PAGE ELEMENTS
-   ========================================================= */
+function loadElements() {
+    const ids = [
+        "dashboardSidebar",
+        "mobileOverlay",
+        "menuButton",
+        "refreshDashboardButton",
+        "runRemindersButton",
+        "headerDate",
+        "todayBookingsMetric",
+        "todayBookingsChange",
+        "upcomingBookingsMetric",
+        "remindersDueMetric",
+        "reminderMetricStatus",
+        "revenueMetric",
+        "revenuePeriod",
+        "navigationBookingCount",
+        "navigationReminderCount",
+        "nextAppointmentTime",
+        "nextAppointmentDetail",
+        "bookingChartPeriod",
+        "chartTotalBookings",
+        "servicePerformanceList",
+        "upcomingBookingsTableBody",
+        "bookingSearchInput",
+        "bookingServiceFilter",
+        "bookingStatusFilter",
+        "clearBookingFiltersButton",
+        "reminderSystemBadge",
+        "schedulerLastRun",
+        "schedulerStatus",
+        "remindersWaitingValue",
+        "remindersSentValue",
+        "remindersSentDetail",
+        "aiActivityList",
+        "totalCustomersLabel",
+        "customerSearchInput",
+        "customerDirectory",
+        "overallSystemStatus",
+        "sidebarStatusPulse",
+        "sidebarStatusText",
+        "sidebarStatusDetail",
+        "vapiConnectionStatus",
+        "calendarConnectionStatus",
+        "dvlaConnectionStatus",
+        "backendConnectionStatus",
+        "toastContainer",
+        "viewAllBookingsButton",
+        "drawerOverlay",
+        "customerDrawer",
+        "customerDrawerTitle",
+        "customerDrawerBody",
+        "vehicleDrawer",
+        "vehicleDrawerTitle",
+        "vehicleDrawerBody",
+        "reminderDrawer",
+        "reminderDrawerTitle",
+        "reminderCentreWaiting",
+        "reminderCentreSent",
+        "reminderCentreFailed",
+        "reminderQueueList",
+        "bookingDetailsModal",
+        "bookingDetailsTitle",
+        "closeBookingDetailsButton",
+        "bookingDetailsBody"
+    ];
 
-const dashboardElements = {};
-
-function loadDashboardElements() {
-    dashboardElements.sidebar =
-        document.getElementById("dashboardSidebar");
-
-    dashboardElements.mobileOverlay =
-        document.getElementById("mobileOverlay");
-
-    dashboardElements.menuButton =
-        document.getElementById("menuButton");
-
-    dashboardElements.refreshButton =
-        document.getElementById("refreshDashboardButton");
-
-    dashboardElements.runRemindersButton =
-        document.getElementById("runRemindersButton");
-
-    dashboardElements.headerDate =
-        document.getElementById("headerDate");
-
-    dashboardElements.todayBookings =
-        document.getElementById("todayBookingsMetric");
-
-    dashboardElements.upcomingBookings =
-        document.getElementById("upcomingBookingsMetric");
-
-    dashboardElements.remindersDue =
-        document.getElementById("remindersDueMetric");
-
-    dashboardElements.revenue =
-        document.getElementById("revenueMetric");
-
-    dashboardElements.navigationBookingCount =
-        document.getElementById("navigationBookingCount");
-
-    dashboardElements.navigationReminderCount =
-        document.getElementById("navigationReminderCount");
-
-    dashboardElements.nextAppointmentTime =
-        document.getElementById("nextAppointmentTime");
-
-    dashboardElements.nextAppointmentDetail =
-        document.getElementById("nextAppointmentDetail");
-
-    dashboardElements.chartTotalBookings =
-        document.getElementById("chartTotalBookings");
-
-    dashboardElements.servicePerformanceList =
-        document.getElementById("servicePerformanceList");
-
-    dashboardElements.bookingsTableBody =
-        document.getElementById("upcomingBookingsTableBody");
-
-    dashboardElements.reminderSystemBadge =
-        document.getElementById("reminderSystemBadge");
-
-    dashboardElements.schedulerLastRun =
-        document.getElementById("schedulerLastRun");
-
-    dashboardElements.schedulerStatus =
-        document.getElementById("schedulerStatus");
-
-    dashboardElements.remindersWaiting =
-        document.getElementById("remindersWaitingValue");
-
-    dashboardElements.remindersSent =
-        document.getElementById("remindersSentValue");
-
-    dashboardElements.remindersSentDetail =
-        document.getElementById("remindersSentDetail");
-
-    dashboardElements.aiActivityList =
-        document.getElementById("aiActivityList");
-
-    dashboardElements.totalCustomers =
-        document.getElementById("totalCustomersLabel");
-
-    dashboardElements.overallSystemStatus =
-        document.getElementById("overallSystemStatus");
-
-    dashboardElements.sidebarStatusText =
-        document.getElementById("sidebarStatusText");
-
-    dashboardElements.sidebarStatusDetail =
-        document.getElementById("sidebarStatusDetail");
-
-    dashboardElements.toastContainer =
-        document.getElementById("toastContainer");
-
-    dashboardElements.viewAllBookingsButton =
-        document.getElementById("viewAllBookingsButton");
-
-    dashboardElements.reminderMetricStatus =
-        document.getElementById("reminderMetricStatus");
-
-    dashboardElements.vapiConnectionStatus =
-        document.getElementById("vapiConnectionStatus");
-
-    dashboardElements.calendarConnectionStatus =
-        document.getElementById("calendarConnectionStatus");
-
-    dashboardElements.dvlaConnectionStatus =
-        document.getElementById("dvlaConnectionStatus");
-
-    dashboardElements.backendConnectionStatus =
-        document.getElementById("backendConnectionStatus");
+    ids.forEach((id) => {
+        el[id] = document.getElementById(id);
+    });
 }
 
-
-/* =========================================================
-   6. START DASHBOARD
-   ========================================================= */
-
-document.addEventListener("DOMContentLoaded", initialiseDashboard);
+document.addEventListener(
+    "DOMContentLoaded",
+    initialiseDashboard
+);
 
 function initialiseDashboard() {
-    loadDashboardElements();
+    loadElements();
     updateHeaderDate();
-    bindDashboardEvents();
+    bindEvents();
 
-    const initialData = getInitialDashboardData();
+    dashboardState.data = normaliseDashboardData(
+        window.TRIMTECH_DASHBOARD_DATA || {}
+    );
 
-    dashboardState.data = normaliseDashboardData(initialData);
-    renderDashboard(dashboardState.data);
+    renderDashboard();
 
     refreshDashboard({
         silent: true
     });
 }
 
-
-/* =========================================================
-   7. INITIAL SERVER DATA
-
-   A later Flask route can optionally create:
-
-   window.TRIMTECH_DASHBOARD_DATA = {...};
-
-   The dashboard also works without it.
-   ========================================================= */
-
-function getInitialDashboardData() {
-    const serverData = window.TRIMTECH_DASHBOARD_DATA;
-
-    if (
-        serverData &&
-        typeof serverData === "object" &&
-        !Array.isArray(serverData)
-    ) {
-        return serverData;
-    }
-
-    return getDefaultDashboardData();
-}
-
-
-/* =========================================================
-   8. NORMALISE API DATA
-   ========================================================= */
-
-function normaliseDashboardData(rawData) {
+function normaliseDashboardData(raw) {
     const defaults = getDefaultDashboardData();
 
-    if (
-        !rawData ||
-        typeof rawData !== "object" ||
-        Array.isArray(rawData)
-    ) {
-        return defaults;
-    }
+    const data =
+        raw &&
+        typeof raw === "object" &&
+        !Array.isArray(raw)
+            ? raw
+            : {};
 
     return {
         summary: {
             ...defaults.summary,
-            ...(rawData.summary || {})
+            ...(data.summary || {})
         },
 
         next_appointment:
-            rawData.next_appointment ||
+            data.next_appointment ||
             defaults.next_appointment,
 
         booking_activity:
-            Array.isArray(rawData.booking_activity)
-                ? rawData.booking_activity
-                : defaults.booking_activity,
+            Array.isArray(data.booking_activity)
+                ? data.booking_activity
+                : [],
 
         service_performance:
-            Array.isArray(rawData.service_performance) &&
-            rawData.service_performance.length > 0
-                ? rawData.service_performance
+            Array.isArray(data.service_performance) &&
+            data.service_performance.length
+                ? data.service_performance
                 : defaults.service_performance,
 
         upcoming_appointments:
-            Array.isArray(rawData.upcoming_appointments)
-                ? rawData.upcoming_appointments
-                : defaults.upcoming_appointments,
+            Array.isArray(data.upcoming_appointments)
+                ? data.upcoming_appointments
+                : [],
+
+        customers:
+            Array.isArray(data.customers)
+                ? data.customers
+                : [],
 
         reminders: {
             ...defaults.reminders,
-            ...(rawData.reminders || {})
+            ...(data.reminders || {})
         },
 
         ai_activity:
-            Array.isArray(rawData.ai_activity)
-                ? rawData.ai_activity
-                : defaults.ai_activity,
+            Array.isArray(data.ai_activity)
+                ? data.ai_activity
+                : [],
 
         systems: {
             ...defaults.systems,
-            ...(rawData.systems || {})
+            ...(data.systems || {})
         }
     };
 }
 
+function bindEvents() {
+    document
+        .querySelectorAll("[data-navigation-link]")
+        .forEach((link) => {
+            link.addEventListener("click", () => {
+                document
+                    .querySelectorAll(
+                        "[data-navigation-link]"
+                    )
+                    .forEach((item) => {
+                        item.classList.remove("active");
+                    });
 
-/* =========================================================
-   9. EVENT LISTENERS
-   ========================================================= */
-
-function bindDashboardEvents() {
-    const navigationLinks =
-        document.querySelectorAll("[data-navigation-link]");
-
-    navigationLinks.forEach((link) => {
-        link.addEventListener("click", () => {
-            setActiveNavigationLink(link);
-            closeMobileSidebar();
+                link.classList.add("active");
+                closeMobileSidebar();
+            });
         });
-    });
 
-    if (dashboardElements.menuButton) {
-        dashboardElements.menuButton.addEventListener(
-            "click",
-            toggleMobileSidebar
-        );
-    }
+    el.menuButton?.addEventListener(
+        "click",
+        toggleMobileSidebar
+    );
 
-    if (dashboardElements.mobileOverlay) {
-        dashboardElements.mobileOverlay.addEventListener(
-            "click",
-            closeMobileSidebar
-        );
-    }
+    el.mobileOverlay?.addEventListener(
+        "click",
+        closeMobileSidebar
+    );
 
-    if (dashboardElements.refreshButton) {
-        dashboardElements.refreshButton.addEventListener(
-            "click",
-            () => refreshDashboard()
-        );
-    }
+    el.refreshDashboardButton?.addEventListener(
+        "click",
+        () => refreshDashboard()
+    );
 
-    if (dashboardElements.runRemindersButton) {
-        dashboardElements.runRemindersButton.addEventListener(
-            "click",
-            runReminders
-        );
-    }
+    el.runRemindersButton?.addEventListener(
+        "click",
+        runReminders
+    );
 
-    if (dashboardElements.viewAllBookingsButton) {
-        dashboardElements.viewAllBookingsButton.addEventListener(
-            "click",
-            () => scrollToSection("bookings")
-        );
-    }
+    el.viewAllBookingsButton?.addEventListener(
+        "click",
+        () => scrollToSection("bookings")
+    );
 
     document
         .querySelectorAll("[data-quick-action]")
@@ -416,142 +315,284 @@ function bindDashboardEvents() {
             });
         });
 
+    document
+        .querySelectorAll("[data-dashboard-action]")
+        .forEach((button) => {
+            button.addEventListener("click", () => {
+                handleDashboardAction(
+                    button.dataset.dashboardAction
+                );
+            });
+        });
+
+    el.bookingSearchInput?.addEventListener(
+        "input",
+        (event) => {
+            dashboardState.bookingQuery =
+                event.target.value
+                    .trim()
+                    .toLowerCase();
+
+            renderUpcomingAppointments();
+        }
+    );
+
+    el.bookingServiceFilter?.addEventListener(
+        "change",
+        (event) => {
+            dashboardState.bookingService =
+                event.target.value
+                    .trim()
+                    .toLowerCase();
+
+            renderUpcomingAppointments();
+        }
+    );
+
+    el.bookingStatusFilter?.addEventListener(
+        "change",
+        (event) => {
+            dashboardState.bookingStatus =
+                event.target.value
+                    .trim()
+                    .toLowerCase();
+
+            renderUpcomingAppointments();
+        }
+    );
+
+    el.clearBookingFiltersButton?.addEventListener(
+        "click",
+        clearBookingFilters
+    );
+
+    el.customerSearchInput?.addEventListener(
+        "input",
+        (event) => {
+            dashboardState.customerQuery =
+                event.target.value
+                    .trim()
+                    .toLowerCase();
+
+            renderCustomerDirectory();
+        }
+    );
+
+    document
+        .querySelectorAll("[data-close-drawer]")
+        .forEach((button) => {
+            button.addEventListener(
+                "click",
+                closeAllDrawers
+            );
+        });
+
+    el.drawerOverlay?.addEventListener(
+        "click",
+        closeAllDrawers
+    );
+
+    el.closeBookingDetailsButton?.addEventListener(
+        "click",
+        closeBookingModal
+    );
+
+    el.bookingDetailsModal?.addEventListener(
+        "click",
+        (event) => {
+            if (event.target === el.bookingDetailsModal) {
+                closeBookingModal();
+            }
+        }
+    );
+
+    document.addEventListener(
+        "click",
+        handleDelegatedClick
+    );
+
+    document.addEventListener(
+        "keydown",
+        (event) => {
+            if (event.key === "Escape") {
+                closeMobileSidebar();
+                closeAllDrawers();
+                closeBookingModal();
+            }
+        }
+    );
+
     window.addEventListener("resize", () => {
         if (window.innerWidth > 980) {
             closeMobileSidebar();
         }
     });
-
-    document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape") {
-            closeMobileSidebar();
-        }
-    });
 }
 
+function handleDelegatedClick(event) {
+    const bookingButton =
+        event.target.closest("[data-booking-index]");
 
-/* =========================================================
-   10. SIDEBAR CONTROLS
-   ========================================================= */
+    if (bookingButton) {
+        const booking = filteredBookings()[
+            Number(bookingButton.dataset.bookingIndex)
+        ];
 
-function toggleMobileSidebar() {
-    if (
-        !dashboardElements.sidebar ||
-        !dashboardElements.mobileOverlay
-    ) {
+        if (booking) {
+            openBookingModal(booking);
+        }
+
         return;
     }
 
-    const isOpen =
-        dashboardElements.sidebar.classList.toggle("open");
+    const customerButton =
+        event.target.closest("[data-customer-key]");
 
-    dashboardElements.mobileOverlay.classList.toggle(
+    if (customerButton) {
+        const customer = getCustomerRecords().find(
+            (item) =>
+                customerKey(item) ===
+                customerButton.dataset.customerKey
+        );
+
+        if (customer) {
+            openCustomerDrawer(customer);
+        }
+
+        return;
+    }
+
+    const vehicleButton =
+        event.target.closest("[data-vehicle-reg]");
+
+    if (vehicleButton) {
+        const vehicle = findVehicle(
+            vehicleButton.dataset.vehicleReg
+        );
+
+        if (vehicle) {
+            openVehicleDrawer(vehicle);
+        }
+    }
+}
+
+function toggleMobileSidebar() {
+    const open =
+        el.dashboardSidebar?.classList.toggle("open") ||
+        false;
+
+    el.mobileOverlay?.classList.toggle(
         "visible",
-        isOpen
+        open
     );
 
     document.body.classList.toggle(
         "sidebar-open",
-        isOpen
+        open
     );
 
-    dashboardElements.menuButton?.setAttribute(
+    el.menuButton?.setAttribute(
         "aria-expanded",
-        String(isOpen)
+        String(open)
     );
 }
 
 function closeMobileSidebar() {
-    dashboardElements.sidebar?.classList.remove("open");
-    dashboardElements.mobileOverlay?.classList.remove("visible");
+    el.dashboardSidebar?.classList.remove("open");
+    el.mobileOverlay?.classList.remove("visible");
     document.body.classList.remove("sidebar-open");
 
-    dashboardElements.menuButton?.setAttribute(
+    el.menuButton?.setAttribute(
         "aria-expanded",
         "false"
     );
 }
 
-function setActiveNavigationLink(selectedLink) {
-    document
-        .querySelectorAll("[data-navigation-link]")
-        .forEach((link) => {
-            link.classList.remove("active");
-        });
-
-    selectedLink.classList.add("active");
-}
-
-
-/* =========================================================
-   11. QUICK ACTIONS
-   ========================================================= */
-
 function handleQuickAction(action) {
-    switch (action) {
-        case "refresh":
-            refreshDashboard();
-            break;
+    if (action === "refresh") {
+        return refreshDashboard();
+    }
 
-        case "reminders":
-            runReminders();
-            break;
+    if (action === "reminders") {
+        return runReminders();
+    }
 
-        case "bookings":
-            scrollToSection("bookings");
-            break;
+    if (action === "bookings") {
+        return scrollToSection("bookings");
+    }
 
-        case "customers":
-            scrollToSection("customers");
-            break;
-
-        default:
-            showToast(
-                "Action unavailable",
-                "This dashboard action has not been connected yet.",
-                "info"
-            );
+    if (action === "customers") {
+        return scrollToSection("customers");
     }
 }
 
-function scrollToSection(sectionId) {
-    const section = document.getElementById(sectionId);
-
-    if (!section) {
-        return;
+function handleDashboardAction(action) {
+    if (action === "reminder-centre") {
+        return openReminderDrawer();
     }
 
-    section.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-    });
+    if (action === "today-bookings") {
+        dashboardState.bookingQuery =
+            localDateKey(new Date());
+
+        if (el.bookingSearchInput) {
+            el.bookingSearchInput.value =
+                dashboardState.bookingQuery;
+        }
+
+        scrollToSection("bookings");
+        return renderUpcomingAppointments();
+    }
+
+        if (action === "upcoming-bookings") {
+        return scrollToSection("bookings");
+    }
+
+    if (action === "revenue-report") {
+        return scrollToSection("reports");
+    }
 }
 
+function scrollToSection(id) {
+    document
+        .getElementById(id)
+        ?.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+}
 
-/* =========================================================
-   12. HEADER DATE
-   ========================================================= */
+function clearBookingFilters() {
+    dashboardState.bookingQuery = "";
+    dashboardState.bookingService = "";
+    dashboardState.bookingStatus = "";
+
+    if (el.bookingSearchInput) {
+        el.bookingSearchInput.value = "";
+    }
+
+    if (el.bookingServiceFilter) {
+        el.bookingServiceFilter.value = "";
+    }
+
+    if (el.bookingStatusFilter) {
+        el.bookingStatusFilter.value = "";
+    }
+
+    renderUpcomingAppointments();
+}
 
 function updateHeaderDate() {
-    if (!dashboardElements.headerDate) {
-        return;
-    }
-
-    const now = new Date();
-
-    dashboardElements.headerDate.textContent =
+    setText(
+        el.headerDate,
         new Intl.DateTimeFormat("en-GB", {
             weekday: "long",
             day: "numeric",
             month: "long",
             year: "numeric"
-        }).format(now);
+        }).format(new Date())
+    );
 }
-
-
-/* =========================================================
-   13. LOAD DASHBOARD DATA
-   ========================================================= */
 
 async function refreshDashboard(options = {}) {
     if (dashboardState.loading) {
@@ -559,19 +600,22 @@ async function refreshDashboard(options = {}) {
     }
 
     dashboardState.loading = true;
+
     setButtonLoading(
-        dashboardElements.refreshButton,
+        el.refreshDashboardButton,
         true
     );
 
     try {
-        const response = await fetch(API_ENDPOINTS.dashboard, {
-            method: "GET",
-            headers: {
-                Accept: "application/json"
-            },
-            cache: "no-store"
-        });
+        const response = await fetch(
+            API_ENDPOINTS.dashboard,
+            {
+                headers: {
+                    Accept: "application/json"
+                },
+                cache: "no-store"
+            }
+        );
 
         if (!response.ok) {
             throw new Error(
@@ -579,17 +623,16 @@ async function refreshDashboard(options = {}) {
             );
         }
 
-        const responseData = await response.json();
-
-        const dashboardData =
-            responseData.data ||
-            responseData.dashboard ||
-            responseData;
+        const json = await response.json();
 
         dashboardState.data =
-            normaliseDashboardData(dashboardData);
+            normaliseDashboardData(
+                json.data ||
+                json.dashboard ||
+                json
+            );
 
-        renderDashboard(dashboardState.data);
+        renderDashboard();
 
         if (!options.silent) {
             showToast(
@@ -604,10 +647,6 @@ async function refreshDashboard(options = {}) {
             error
         );
 
-        /*
-         * The dashboard should not show an error when the backend
-         * route has not been created yet during development.
-         */
         if (
             !options.silent &&
             !String(error.message).includes("404")
@@ -622,16 +661,11 @@ async function refreshDashboard(options = {}) {
         dashboardState.loading = false;
 
         setButtonLoading(
-            dashboardElements.refreshButton,
+            el.refreshDashboardButton,
             false
         );
     }
 }
-
-
-/* =========================================================
-   14. RUN REMINDERS
-   ========================================================= */
 
 async function runReminders() {
     if (dashboardState.remindersRunning) {
@@ -641,7 +675,7 @@ async function runReminders() {
     dashboardState.remindersRunning = true;
 
     setButtonLoading(
-        dashboardElements.runRemindersButton,
+        el.runRemindersButton,
         true
     );
 
@@ -661,7 +695,9 @@ async function runReminders() {
         );
 
         const result =
-            await response.json().catch(() => ({}));
+            await response
+                .json()
+                .catch(() => ({}));
 
         if (!response.ok) {
             throw new Error(
@@ -690,11 +726,6 @@ async function runReminders() {
             silent: true
         });
     } catch (error) {
-        console.error(
-            "Reminder processing failed:",
-            error
-        );
-
         showToast(
             "Reminders not processed",
             error.message ||
@@ -705,315 +736,378 @@ async function runReminders() {
         dashboardState.remindersRunning = false;
 
         setButtonLoading(
-            dashboardElements.runRemindersButton,
+            el.runRemindersButton,
             false
         );
     }
 }
 
-
-/* =========================================================
-   15. MAIN RENDER FUNCTION
-   ========================================================= */
-
-function renderDashboard(data) {
-    renderSummary(data.summary);
-    renderNextAppointment(data.next_appointment);
-    renderBookingChart(data.booking_activity);
-    renderServicePerformance(data.service_performance);
-    renderUpcomingAppointments(
-        data.upcoming_appointments
-    );
-    renderReminderHealth(data.reminders);
-    renderAIActivity(data.ai_activity);
-    renderSystemHealth(data.systems);
+function renderDashboard() {
+    renderSummary();
+    renderNextAppointment();
+    renderBookingChart();
+    renderServicePerformance();
+    renderUpcomingAppointments();
+    renderReminderHealth();
+    renderAIActivity();
+    renderCustomerDirectory();
+    renderSystemHealth();
 }
 
+function renderSummary() {
+    const summary =
+        dashboardState.data.summary;
 
-/* =========================================================
-   16. DASHBOARD SUMMARY CARDS
-   ========================================================= */
-
-function renderSummary(summary) {
-    const todayBookings = safeNumber(
+    const today = safeNumber(
         summary.today_bookings
     );
 
-    const upcomingBookings = safeNumber(
+    const upcoming = safeNumber(
         summary.upcoming_bookings
     );
 
     const remindersDue = safeNumber(
-        summary.reminders_due
+        summary.reminders_due ??
+        dashboardState.data.reminders.due
     );
 
-    const totalCustomers = safeNumber(
-        summary.total_customers
-    );
-
-    setText(
-        dashboardElements.todayBookings,
-        formatNumber(todayBookings)
+    const customerTotal = safeNumber(
+        summary.total_customers ||
+        getCustomerRecords().length
     );
 
     setText(
-        dashboardElements.upcomingBookings,
-        formatNumber(upcomingBookings)
+        el.todayBookingsMetric,
+        formatNumber(today)
     );
 
     setText(
-        dashboardElements.remindersDue,
+        el.upcomingBookingsMetric,
+        formatNumber(upcoming)
+    );
+
+    setText(
+        el.remindersDueMetric,
         formatNumber(remindersDue)
     );
 
     setText(
-        dashboardElements.revenue,
-        formatCurrency(summary.estimated_revenue)
+        el.revenueMetric,
+        formatCurrency(
+            summary.estimated_revenue
+        )
     );
 
     setText(
-        dashboardElements.navigationBookingCount,
-        formatNumber(upcomingBookings)
+        el.navigationBookingCount,
+        formatNumber(upcoming)
     );
 
     setText(
-        dashboardElements.navigationReminderCount,
+        el.navigationReminderCount,
         formatNumber(remindersDue)
     );
 
     setText(
-        dashboardElements.totalCustomers,
-        `${formatNumber(totalCustomers)} customer${
-            totalCustomers === 1 ? "" : "s"
+        el.totalCustomersLabel,
+        `${formatNumber(customerTotal)} customer${
+            customerTotal === 1 ? "" : "s"
         }`
     );
 
-    if (dashboardElements.reminderMetricStatus) {
-        dashboardElements.reminderMetricStatus.textContent =
-            remindersDue > 0 ? "Action needed" : "Up to date";
+    setText(
+        el.revenuePeriod,
+        summary.revenue_period ||
+        "Estimated from upcoming work"
+    );
 
-        dashboardElements.reminderMetricStatus.className =
+    if (el.todayBookingsChange) {
+        const change =
+            summary.today_change;
+
+        el.todayBookingsChange.textContent =
+            change == null
+                ? "Live total"
+                : `${
+                    safeNumber(change) >= 0
+                        ? "+"
+                        : ""
+                }${safeNumber(change)}%`;
+
+        el.todayBookingsChange.className =
+            `metric-change ${
+                safeNumber(change) < 0
+                    ? "negative"
+                    : "positive"
+            }`;
+    }
+
+    if (el.reminderMetricStatus) {
+        el.reminderMetricStatus.textContent =
             remindersDue > 0
-                ? "metric-change warning"
-                : "metric-change positive";
+                ? "Action needed"
+                : "Up to date";
+
+        el.reminderMetricStatus.className =
+            `metric-change ${
+                remindersDue > 0
+                    ? "warning"
+                    : "positive"
+            }`;
     }
 }
 
+function renderNextAppointment() {
+    const appointment =
+        dashboardState.data.next_appointment ||
+        dashboardState.data
+            .upcoming_appointments[0];
 
-/* =========================================================
-   17. NEXT APPOINTMENT
-   ========================================================= */
-
-function renderNextAppointment(appointment) {
     if (!appointment) {
         setText(
-            dashboardElements.nextAppointmentTime,
+            el.nextAppointmentTime,
             "—"
         );
 
         setText(
-            dashboardElements.nextAppointmentDetail,
+            el.nextAppointmentDetail,
             "No upcoming booking loaded"
         );
 
         return;
     }
 
-    const dateValue =
-        appointment.start ||
-        appointment.datetime ||
-        appointment.date_time ||
-        appointment.date;
-
-    const appointmentDate = parseDate(dateValue);
-
-    const customer =
-        appointment.customer_name ||
-        appointment.name ||
-        "Customer";
-
-    const service =
-        appointment.service ||
-        appointment.service_name ||
-        "Garage appointment";
-
-    setText(
-        dashboardElements.nextAppointmentTime,
-        appointmentDate
-            ? formatTime(appointmentDate)
-            : appointment.time || "Upcoming"
+    const date = parseDate(
+        bookingDateValue(appointment)
     );
 
     setText(
-        dashboardElements.nextAppointmentDetail,
-        `${customer} · ${service}`
+        el.nextAppointmentTime,
+        date
+            ? formatTime(date)
+            : appointment.time ||
+              "Upcoming"
+    );
+
+    setText(
+        el.nextAppointmentDetail,
+        `${bookingCustomer(appointment)} · ${
+            bookingService(appointment)
+        }`
     );
 }
 
-
-/* =========================================================
-   18. SEVEN-DAY BOOKING CHART
-   ========================================================= */
-
-function renderBookingChart(activity) {
-    const chartColumns = Array.from(
+function renderBookingChart() {
+    const columns = Array.from(
         document.querySelectorAll(
             "[data-chart-column]"
         )
     );
 
-    const values = buildSevenDayActivity(activity);
+    const values =
+        buildSevenDayActivity(
+            dashboardState.data
+                .booking_activity
+        );
 
     const maximumValue = Math.max(
         1,
-        ...values.map((item) => item.value)
+        ...values.map(
+            (item) => item.value
+        )
     );
 
-    const totalBookings = values.reduce(
-        (total, item) => total + item.value,
+    const total = values.reduce(
+        (sum, item) =>
+            sum + item.value,
         0
     );
 
     setText(
-        dashboardElements.chartTotalBookings,
-        formatNumber(totalBookings)
+        el.chartTotalBookings,
+        formatNumber(total)
     );
 
-    chartColumns.forEach((column, index) => {
-        const item = values[index] || {
-            label: "",
-            value: 0
-        };
+    setText(
+        el.bookingChartPeriod,
+        "Last 7 days"
+    );
 
-        const bar =
-            column.querySelector(".chart-bar");
+    columns.forEach(
+        (column, index) => {
+            const item =
+                values[index] || {
+                    label: "",
+                    value: 0
+                };
 
-        const label =
-            column.querySelector(".chart-day");
-
-        if (!bar || !label) {
-            return;
-        }
-
-        const height =
-            item.value === 0
-                ? 5
-                : Math.max(
-                    10,
-                    Math.round(
-                        (item.value / maximumValue) * 100
-                    )
+            const bar =
+                column.querySelector(
+                    ".chart-bar"
                 );
 
-        bar.style.height = `${height}%`;
+            const label =
+                column.querySelector(
+                    ".chart-day"
+                );
 
-        bar.dataset.value =
-            `${formatNumber(item.value)} booking${
-                item.value === 1 ? "" : "s"
-            }`;
+            if (!bar || !label) {
+                return;
+            }
 
-        label.textContent = item.label;
-    });
+            const height =
+                item.value
+                    ? Math.max(
+                        10,
+                        Math.round(
+                            (
+                                item.value /
+                                maximumValue
+                            ) * 100
+                        )
+                    )
+                    : 5;
+
+            bar.style.height =
+                `${height}%`;
+
+            bar.dataset.value =
+                `${formatNumber(
+                    item.value
+                )} booking${
+                    item.value === 1
+                        ? ""
+                        : "s"
+                }`;
+
+            label.textContent =
+                item.label;
+        }
+    );
 }
 
 function buildSevenDayActivity(activity) {
-    const dayFormatter =
-        new Intl.DateTimeFormat("en-GB", {
-            weekday: "short"
-        });
+    const formatter =
+        new Intl.DateTimeFormat(
+            "en-GB",
+            {
+                weekday: "short"
+            }
+        );
 
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+
+    today.setHours(
+        0,
+        0,
+        0,
+        0
+    );
 
     const days = [];
 
-    for (let offset = 6; offset >= 0; offset -= 1) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - offset);
+    for (
+        let offset = 6;
+        offset >= 0;
+        offset -= 1
+    ) {
+        const date =
+            new Date(today);
+
+        date.setDate(
+            today.getDate() -
+            offset
+        );
 
         days.push({
-            date,
             key: localDateKey(date),
-            label: dayFormatter
+            label: formatter
                 .format(date)
                 .replace(".", ""),
             value: 0
         });
     }
 
-    if (!Array.isArray(activity)) {
-        return days;
-    }
+    const items =
+        Array.isArray(activity)
+            ? activity
+            : [];
 
-    activity.forEach((item, index) => {
-        if (typeof item === "number") {
-            if (days[index]) {
-                days[index].value = safeNumber(item);
+    items.forEach(
+        (item, index) => {
+            if (
+                typeof item ===
+                "number"
+            ) {
+                if (days[index]) {
+                    days[index].value =
+                        safeNumber(item);
+                }
+
+                return;
             }
 
-            return;
-        }
+            if (
+                !item ||
+                typeof item !==
+                "object"
+            ) {
+                return;
+            }
 
-        if (
-            !item ||
-            typeof item !== "object"
-        ) {
-            return;
-        }
+            const value =
+                safeNumber(
+                    item.value ??
+                    item.bookings ??
+                    item.count
+                );
 
-        const value = safeNumber(
-            item.value ??
-            item.bookings ??
-            item.count
-        );
-
-        const itemDate = parseDate(
-            item.date ||
-            item.day_date ||
-            item.datetime
-        );
-
-        if (itemDate) {
-            const matchingDay = days.find(
-                (day) =>
-                    day.key === localDateKey(itemDate)
+            const date = parseDate(
+                item.date ||
+                item.day_date ||
+                item.datetime
             );
 
-            if (matchingDay) {
-                matchingDay.value = value;
+            const match =
+                date
+                    ? days.find(
+                        (day) =>
+                            day.key ===
+                            localDateKey(
+                                date
+                            )
+                    )
+                    : days[index];
+
+            if (match) {
+                match.value = value;
+
+                if (
+                    item.label ||
+                    item.day
+                ) {
+                    match.label =
+                        item.label ||
+                        item.day;
+                }
             }
-
-            return;
         }
-
-        if (days[index]) {
-            days[index].value = value;
-
-            if (item.label || item.day) {
-                days[index].label =
-                    item.label || item.day;
-            }
-        }
-    });
+    );
 
     return days;
 }
 
-
-/* =========================================================
-   19. SERVICE PERFORMANCE
-   ========================================================= */
-
-function renderServicePerformance(services) {
-    if (!dashboardElements.servicePerformanceList) {
+function renderServicePerformance() {
+    if (!el.servicePerformanceList) {
         return;
     }
 
-    if (
-        !Array.isArray(services) ||
-        services.length === 0
-    ) {
-        dashboardElements.servicePerformanceList.innerHTML =
+    const services =
+        dashboardState.data
+            .service_performance;
+
+    if (!services.length) {
+        el.servicePerformanceList.innerHTML =
             createEmptyState(
                 "🔧",
                 "No service data",
@@ -1025,16 +1119,17 @@ function renderServicePerformance(services) {
 
     const maximumBookings = Math.max(
         1,
-        ...services.map((service) =>
-            safeNumber(
-                service.bookings ??
-                service.count ??
-                service.value
-            )
+        ...services.map(
+            (service) =>
+                safeNumber(
+                    service.bookings ??
+                    service.count ??
+                    service.value
+                )
         )
     );
 
-    dashboardElements.servicePerformanceList.innerHTML =
+    el.servicePerformanceList.innerHTML =
         services
             .slice(0, 6)
             .map((service) => {
@@ -1043,15 +1138,20 @@ function renderServicePerformance(services) {
                     service.service ||
                     "Garage Service";
 
-                const bookings = safeNumber(
-                    service.bookings ??
-                    service.count ??
-                    service.value
-                );
+                const bookings =
+                    safeNumber(
+                        service.bookings ??
+                        service.count ??
+                        service.value
+                    );
 
-                const percentage = Math.round(
-                    (bookings / maximumBookings) * 100
-                );
+                const percentage =
+                    Math.round(
+                        (
+                            bookings /
+                            maximumBookings
+                        ) * 100
+                    );
 
                 return `
                     <div class="service-row">
@@ -1066,7 +1166,11 @@ function renderServicePerformance(services) {
 
                             <span class="service-number">
                                 ${formatNumber(bookings)}
-                                booking${bookings === 1 ? "" : "s"}
+                                booking${
+                                    bookings === 1
+                                        ? ""
+                                        : "s"
+                                }
                             </span>
                         </div>
 
@@ -1082,29 +1186,73 @@ function renderServicePerformance(services) {
             .join("");
 }
 
+function filteredBookings() {
+    return dashboardState.data
+        .upcoming_appointments
+        .filter((booking) => {
+            const bookingDate =
+                parseDate(
+                    bookingDateValue(
+                        booking
+                    )
+                );
 
-/* =========================================================
-   20. UPCOMING APPOINTMENTS TABLE
-   ========================================================= */
+            const haystack = [
+                bookingCustomer(booking),
+                bookingPhone(booking),
+                bookingRegistration(booking),
+                bookingService(booking),
+                bookingStatus(booking),
+                localDateKey(bookingDate)
+            ]
+                .join(" ")
+                .toLowerCase();
 
-function renderUpcomingAppointments(appointments) {
-    if (!dashboardElements.bookingsTableBody) {
+            const queryMatch =
+                !dashboardState.bookingQuery ||
+                haystack.includes(
+                    dashboardState.bookingQuery
+                );
+
+            const serviceMatch =
+                !dashboardState.bookingService ||
+                bookingService(booking)
+                    .toLowerCase()
+                    .includes(
+                        dashboardState.bookingService
+                    );
+
+            const statusMatch =
+                !dashboardState.bookingStatus ||
+                bookingStatus(booking)
+                    .includes(
+                        dashboardState.bookingStatus
+                    );
+
+            return (
+                queryMatch &&
+                serviceMatch &&
+                statusMatch
+            );
+        });
+}
+
+function renderUpcomingAppointments() {
+    if (!el.upcomingBookingsTableBody) {
         return;
     }
 
-    const upcomingAppointments =
-        Array.isArray(appointments)
-            ? appointments.slice(0, 8)
-            : [];
+    const bookings =
+        filteredBookings();
 
-    if (upcomingAppointments.length === 0) {
-        dashboardElements.bookingsTableBody.innerHTML = `
+    if (!bookings.length) {
+        el.upcomingBookingsTableBody.innerHTML = `
             <tr>
                 <td colspan="5">
                     ${createEmptyState(
                         "📅",
-                        "No upcoming appointments",
-                        "New bookings made by the Garage AI will appear here."
+                        "No matching appointments",
+                        "Try clearing your search or filters."
                     )}
                 </td>
             </tr>
@@ -1113,186 +1261,252 @@ function renderUpcomingAppointments(appointments) {
         return;
     }
 
-    dashboardElements.bookingsTableBody.innerHTML =
-        upcomingAppointments
-            .map(createAppointmentRow)
+    el.upcomingBookingsTableBody.innerHTML =
+        bookings
+            .map((booking, index) => {
+                const customer =
+                    bookingCustomer(
+                        booking
+                    );
+
+                const phone =
+                    bookingPhone(
+                        booking
+                    );
+
+                const registration =
+                    bookingRegistration(
+                        booking
+                    );
+
+                const service =
+                    bookingService(
+                        booking
+                    );
+
+                const status =
+                    bookingStatus(
+                        booking
+                    );
+
+                const date =
+                    parseDate(
+                        bookingDateValue(
+                            booking
+                        )
+                    );
+
+                const dateText =
+                    date
+                        ? formatAppointmentDate(
+                            date
+                        )
+                        : booking.formatted_date ||
+                          booking.time ||
+                          "Date unavailable";
+
+                const key =
+                    customerKey({
+                        name: customer,
+                        phone
+                    });
+
+                return `
+                    <tr
+                        class="booking-row"
+                        data-booking-index="${index}"
+                    >
+                        <td>
+                            <button
+                                class="table-link customer-cell"
+                                type="button"
+                                data-customer-key="${escapeAttribute(
+                                    key
+                                )}"
+                            >
+                                <span class="customer-avatar">
+                                    ${getCustomerInitials(
+                                        customer
+                                    )}
+                                </span>
+
+                                <span>
+                                    <span class="customer-name">
+                                        ${escapeHtml(
+                                            customer
+                                        )}
+                                    </span>
+
+                                    <span class="customer-phone">
+                                        ${escapeHtml(
+                                            phone
+                                        )}
+                                    </span>
+                                </span>
+                            </button>
+                        </td>
+
+                        <td>
+                            <button
+                                class="table-link"
+                                type="button"
+                                data-vehicle-reg="${escapeAttribute(
+                                    registration
+                                )}"
+                            >
+                                <span class="vehicle-registration">
+                                    ${escapeHtml(
+                                        registration.toUpperCase()
+                                    )}
+                                </span>
+                            </button>
+                        </td>
+
+                        <td>
+                            <button
+                                class="table-link booking-detail-link"
+                                type="button"
+                                data-booking-index="${index}"
+                            >
+                                ${escapeHtml(service)}
+                            </button>
+                        </td>
+
+                        <td>
+                            <button
+                                class="table-link booking-detail-link"
+                                type="button"
+                                data-booking-index="${index}"
+                            >
+                                ${escapeHtml(dateText)}
+                            </button>
+                        </td>
+
+                        <td>
+                            <button
+                                class="table-link"
+                                type="button"
+                                data-booking-index="${index}"
+                            >
+                                <span class="status-badge ${getStatusClass(
+                                    status
+                                )}">
+                                    ${escapeHtml(
+                                        capitalise(status)
+                                    )}
+                                </span>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            })
             .join("");
 }
 
-function createAppointmentRow(appointment) {
-    const customer =
-        appointment.customer_name ||
-        appointment.name ||
-        "Customer";
+function renderReminderHealth() {
+    const reminders =
+        dashboardState.data.reminders;
 
-    const phone =
-        appointment.phone ||
-        appointment.customer_phone ||
-        "Phone not recorded";
+    const enabled =
+        reminders.enabled !== false;
 
-    const registration =
-        appointment.vehicle_reg ||
-        appointment.registration ||
-        appointment.reg ||
-        "—";
+    const due =
+        safeNumber(
+            reminders.due ??
+            reminders.waiting
+        );
 
-    const service =
-        appointment.service ||
-        appointment.service_name ||
-        "Garage appointment";
+    const sent =
+        safeNumber(
+            reminders.sent_this_month ??
+            reminders.sent
+        );
 
-    const dateValue =
-        appointment.start ||
-        appointment.datetime ||
-        appointment.date_time ||
-        appointment.date;
+    const status =
+        String(
+            reminders.status ||
+            (
+                enabled
+                    ? "ready"
+                    : "disabled"
+            )
+        ).toLowerCase();
 
-    const parsedDate = parseDate(dateValue);
+    if (el.reminderSystemBadge) {
+        el.reminderSystemBadge.textContent =
+            enabled
+                ? "Active"
+                : "Disabled";
 
-    const dateText = parsedDate
-        ? formatAppointmentDate(parsedDate)
-        : appointment.formatted_date ||
-          appointment.time ||
-          "Date unavailable";
-
-    const status = String(
-        appointment.status || "confirmed"
-    ).toLowerCase();
-
-    return `
-        <tr>
-            <td>
-                <div class="customer-cell">
-                    <div class="customer-avatar">
-                        ${getCustomerInitials(customer)}
-                    </div>
-
-                    <div>
-                        <div class="customer-name">
-                            ${escapeHtml(customer)}
-                        </div>
-
-                        <div class="customer-phone">
-                            ${escapeHtml(phone)}
-                        </div>
-                    </div>
-                </div>
-            </td>
-
-            <td>
-                <span class="vehicle-registration">
-                    ${escapeHtml(
-                        String(registration).toUpperCase()
-                    )}
-                </span>
-            </td>
-
-            <td>
-                ${escapeHtml(service)}
-            </td>
-
-            <td>
-                ${escapeHtml(dateText)}
-            </td>
-
-            <td>
-                <span class="status-badge ${getStatusClass(status)}">
-                    ${escapeHtml(capitalise(status))}
-                </span>
-            </td>
-        </tr>
-    `;
-}
-
-
-/* =========================================================
-   21. REMINDER HEALTH
-   ========================================================= */
-
-function renderReminderHealth(reminders) {
-    const enabled = reminders.enabled !== false;
-
-    const remindersDue = safeNumber(
-        reminders.due ??
-        reminders.waiting
-    );
-
-    const remindersSent = safeNumber(
-        reminders.sent_this_month ??
-        reminders.sent
-    );
-
-    const status = String(
-        reminders.status ||
-        (enabled ? "ready" : "disabled")
-    ).toLowerCase();
-
-    if (dashboardElements.reminderSystemBadge) {
-        dashboardElements.reminderSystemBadge.textContent =
-            enabled ? "Active" : "Disabled";
-
-        dashboardElements.reminderSystemBadge.className =
+        el.reminderSystemBadge.className =
             `status-badge ${
-                enabled ? "confirmed" : "cancelled"
+                enabled
+                    ? "confirmed"
+                    : "cancelled"
             }`;
     }
 
     setText(
-        dashboardElements.schedulerStatus,
+        el.schedulerStatus,
         capitalise(status)
     );
 
     setText(
-        dashboardElements.remindersWaiting,
-        formatNumber(remindersDue)
+        el.remindersWaitingValue,
+        formatNumber(due)
     );
 
     setText(
-        dashboardElements.remindersSent,
-        formatNumber(remindersSent)
+        el.remindersSentValue,
+        formatNumber(sent)
     );
 
     setText(
-        dashboardElements.remindersSentDetail,
+        el.remindersSentDetail,
         `Successfully processed ${
-            reminders.period || "this month"
+            reminders.period ||
+            "this month"
         }`
     );
 
-    const lastRun = parseDate(reminders.last_run);
+    const lastRun =
+        parseDate(
+            reminders.last_run
+        );
 
     setText(
-        dashboardElements.schedulerLastRun,
+        el.schedulerLastRun,
         lastRun
-            ? `Last run ${formatRelativeTime(lastRun)}`
+            ? `Last run ${formatRelativeTime(
+                lastRun
+            )}`
             : "No reminder run recorded yet"
     );
 }
 
-
-/* =========================================================
-   22. RECENT AI ACTIVITY
-   ========================================================= */
-
-function renderAIActivity(activity) {
-    if (!dashboardElements.aiActivityList) {
+function renderAIActivity() {
+    if (!el.aiActivityList) {
         return;
     }
 
-    if (
-        !Array.isArray(activity) ||
-        activity.length === 0
-    ) {
-        dashboardElements.aiActivityList.innerHTML = `
+    const activity =
+        dashboardState.data.ai_activity;
+
+    if (!activity.length) {
+        el.aiActivityList.innerHTML = `
             <div class="activity-item">
-                <div class="activity-icon">🤖</div>
+                <div class="activity-icon">
+                    🤖
+                </div>
 
                 <div class="activity-copy">
-                    <h4>Garage AI is ready</h4>
+                    <h4>
+                        Garage AI is ready
+                    </h4>
 
                     <p>
-                        New calls, bookings and customer actions
-                        will appear here.
+                        New calls, bookings and customer
+                        actions will appear here.
                     </p>
 
                     <span class="activity-time">
@@ -1305,13 +1519,15 @@ function renderAIActivity(activity) {
         return;
     }
 
-    dashboardElements.aiActivityList.innerHTML =
+    el.aiActivityList.innerHTML =
         activity
             .slice(0, 6)
             .map((item) => {
-                const type = String(
-                    item.type || "ai"
-                ).toLowerCase();
+                const type =
+                    String(
+                        item.type ||
+                        "ai"
+                    ).toLowerCase();
 
                 const title =
                     item.title ||
@@ -1323,28 +1539,35 @@ function renderAIActivity(activity) {
                     item.description ||
                     "";
 
-                const activityDate = parseDate(
-                    item.created_at ||
-                    item.timestamp ||
-                    item.time
-                );
+                const date =
+                    parseDate(
+                        item.created_at ||
+                        item.timestamp ||
+                        item.time
+                    );
 
                 return `
                     <div class="activity-item">
                         <div class="activity-icon">
-                            ${getActivityIcon(type)}
+                            ${getActivityIcon(
+                                type
+                            )}
                         </div>
 
                         <div class="activity-copy">
                             <h4>
-                                ${escapeHtml(title)}
+                                ${escapeHtml(
+                                    title
+                                )}
                             </h4>
 
                             ${
                                 detail
                                     ? `
                                         <p>
-                                            ${escapeHtml(detail)}
+                                            ${escapeHtml(
+                                                detail
+                                            )}
                                         </p>
                                     `
                                     : ""
@@ -1352,10 +1575,10 @@ function renderAIActivity(activity) {
 
                             <span class="activity-time">
                                 ${
-                                    activityDate
+                                    date
                                         ? escapeHtml(
                                             formatRelativeTime(
-                                                activityDate
+                                                date
                                             )
                                         )
                                         : "Recently"
@@ -1368,109 +1591,1130 @@ function renderAIActivity(activity) {
             .join("");
 }
 
+function getCustomerRecords() {
+    if (
+        dashboardState.data
+            .customers.length
+    ) {
+        return dashboardState.data
+            .customers;
+    }
 
-/* =========================================================
-   23. SYSTEM HEALTH
-   ========================================================= */
+    const customerMap =
+        new Map();
 
-function renderSystemHealth(systems) {
-    const overall = String(
-        systems.overall || "operational"
-    ).toLowerCase();
+    dashboardState.data
+        .upcoming_appointments
+        .forEach((booking) => {
+            const customer = {
+                name:
+                    bookingCustomer(
+                        booking
+                    ),
 
-    const isOperational = isConnectedStatus(overall);
+                phone:
+                    bookingPhone(
+                        booking
+                    ),
 
-    if (dashboardElements.overallSystemStatus) {
-        dashboardElements.overallSystemStatus.textContent =
+                email:
+                    booking.email ||
+                    booking.customer_email ||
+                    "",
+
+                vehicles: [],
+                bookings: []
+            };
+
+            const key =
+                customerKey(
+                    customer
+                );
+
+            const current =
+                customerMap.get(key) ||
+                customer;
+
+            current.bookings.push(
+                booking
+            );
+
+            const registration =
+                bookingRegistration(
+                    booking
+                );
+
+            const vehicleExists =
+                current.vehicles.some(
+                    (vehicle) =>
+                        bookingRegistration(
+                            vehicle
+                        ) ===
+                        registration
+                );
+
+            if (
+                registration !== "—" &&
+                !vehicleExists
+            ) {
+                current.vehicles.push({
+                    ...booking,
+                    registration
+                });
+            }
+
+            customerMap.set(
+                key,
+                current
+            );
+        });
+
+    return Array.from(
+        customerMap.values()
+    );
+}
+
+function renderCustomerDirectory() {
+    if (!el.customerDirectory) {
+        return;
+    }
+
+    const query =
+        dashboardState.customerQuery;
+
+    const customers =
+        getCustomerRecords()
+            .filter((customer) => {
+                const vehicles =
+                    Array.isArray(
+                        customer.vehicles
+                    )
+                        ? customer.vehicles
+                        : [];
+
+                const vehicleRegistrations =
+                    vehicles.map(
+                        bookingRegistration
+                    );
+
+                const haystack = [
+                    customer.name,
+                    customer.phone,
+                    customer.email,
+                    ...vehicleRegistrations
+                ]
+                    .join(" ")
+                    .toLowerCase();
+
+                return (
+                    !query ||
+                    haystack.includes(query)
+                );
+            });
+
+    if (!customers.length) {
+        el.customerDirectory.innerHTML =
+            createEmptyState(
+                "👥",
+                "No customers found",
+                query
+                    ? "Try a different customer or vehicle search."
+                    : "Customer profiles will appear after bookings are loaded.",
+                true
+            );
+
+        return;
+    }
+
+    el.customerDirectory.innerHTML =
+        customers
+            .slice(0, 12)
+            .map((customer) => {
+                const name =
+                    customer.name ||
+                    customer.customer_name ||
+                    "Customer";
+
+                const phone =
+                    customer.phone ||
+                    customer.customer_phone ||
+                    "Phone not recorded";
+
+                const vehicles =
+                    Array.isArray(
+                        customer.vehicles
+                    )
+                        ? customer.vehicles
+                        : [];
+
+                const bookings =
+                    Array.isArray(
+                        customer.bookings
+                    )
+                        ? customer.bookings
+                        : [];
+
+                const key =
+                    customerKey({
+                        name,
+                        phone
+                    });
+
+                return `
+                    <button
+                        class="customer-directory-card"
+                        type="button"
+                        data-customer-key="${escapeAttribute(
+                            key
+                        )}"
+                    >
+                        <span class="customer-directory-avatar">
+                            ${getCustomerInitials(
+                                name
+                            )}
+                        </span>
+
+                        <span class="customer-directory-copy">
+                            <strong>
+                                ${escapeHtml(name)}
+                            </strong>
+
+                            <small>
+                                ${escapeHtml(phone)}
+                            </small>
+
+                            <span>
+                                ${vehicles.length}
+                                vehicle${
+                                    vehicles.length === 1
+                                        ? ""
+                                        : "s"
+                                }
+                                ·
+                                ${bookings.length}
+                                booking${
+                                    bookings.length === 1
+                                        ? ""
+                                        : "s"
+                                }
+                            </span>
+                        </span>
+
+                        <span class="customer-directory-arrow">
+                            ›
+                        </span>
+                    </button>
+                `;
+            })
+            .join("");
+}
+
+function renderSystemHealth() {
+    const systems =
+        dashboardState.data.systems;
+
+    const overall =
+        String(
+            systems.overall ||
+            "operational"
+        ).toLowerCase();
+
+    const healthy =
+        isConnectedStatus(
+            overall
+        );
+
+    if (el.overallSystemStatus) {
+        el.overallSystemStatus.textContent =
             capitalise(overall);
 
-        dashboardElements.overallSystemStatus.className =
+        el.overallSystemStatus.className =
             `status-badge ${
-                isOperational
+                healthy
                     ? "confirmed"
                     : "pending"
             }`;
     }
 
     setText(
-        dashboardElements.vapiConnectionStatus,
-        getConnectionText(
+        el.vapiConnectionStatus,
+        connectionText(
             systems.vapi,
             "Ready for inbound calls"
         )
     );
 
     setText(
-        dashboardElements.calendarConnectionStatus,
-        getConnectionText(
+        el.calendarConnectionStatus,
+        connectionText(
             systems.calendar,
             "Booking calendar connected"
         )
     );
 
     setText(
-        dashboardElements.dvlaConnectionStatus,
-        getConnectionText(
+        el.dvlaConnectionStatus,
+        connectionText(
             systems.dvla,
             "Vehicle lookup available"
         )
     );
 
     setText(
-        dashboardElements.backendConnectionStatus,
-        getConnectionText(
+        el.backendConnectionStatus,
+        connectionText(
             systems.backend,
             "Flask service online"
         )
     );
 
     setText(
-        dashboardElements.sidebarStatusText,
-        isOperational
+        el.sidebarStatusText,
+        healthy
             ? "Garage AI online"
             : "Garage AI needs attention"
     );
 
     setText(
-        dashboardElements.sidebarStatusDetail,
-        isOperational
+        el.sidebarStatusDetail,
+        healthy
             ? "Voice, calendar and reminder services are operational."
             : "One or more dashboard services reported an issue."
     );
+
+    el.sidebarStatusPulse?.classList.toggle(
+        "warning",
+        !healthy
+    );
 }
 
+function openCustomerDrawer(customer) {
+    dashboardState.selectedCustomer =
+        customer;
 
-/* =========================================================
-   24. BUTTON LOADING STATE
-   ========================================================= */
+    if (!el.customerDrawer) {
+        return;
+    }
 
-function setButtonLoading(button, loading) {
+    const name =
+        customer.name ||
+        customer.customer_name ||
+        "Customer";
+
+    const phone =
+        customer.phone ||
+        customer.customer_phone ||
+        "Phone not recorded";
+
+    const email =
+        customer.email ||
+        customer.customer_email ||
+        "Email not recorded";
+
+    const vehicles =
+        Array.isArray(customer.vehicles)
+            ? customer.vehicles
+            : [];
+
+    const bookings =
+        Array.isArray(customer.bookings)
+            ? customer.bookings
+            : [];
+
+    setText(
+        el.customerDrawerTitle,
+        name
+    );
+
+    if (el.customerDrawerBody) {
+        el.customerDrawerBody.innerHTML = `
+            <div class="drawer-profile-header">
+                <div class="drawer-profile-avatar">
+                    ${getCustomerInitials(name)}
+                </div>
+
+                <div>
+                    <h3>
+                        ${escapeHtml(name)}
+                    </h3>
+
+                    <p>
+                        ${escapeHtml(phone)}
+                    </p>
+                </div>
+            </div>
+
+            <div class="drawer-detail-grid">
+                ${drawerDetail(
+                    "Phone",
+                    phone
+                )}
+
+                ${drawerDetail(
+                    "Email",
+                    email
+                )}
+
+                ${drawerDetail(
+                    "Vehicles",
+                    formatNumber(
+                        vehicles.length
+                    )
+                )}
+
+                ${drawerDetail(
+                    "Bookings",
+                    formatNumber(
+                        bookings.length
+                    )
+                )}
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Vehicles
+                    </h4>
+                </div>
+
+                ${
+                    vehicles.length
+                        ? vehicles
+                            .map((vehicle) => {
+                                const registration =
+                                    bookingRegistration(
+                                        vehicle
+                                    );
+
+                                const vehicleName =
+                                    vehicle.vehicle_name ||
+                                    vehicle.make_model ||
+                                    [
+                                        vehicle.make,
+                                        vehicle.model
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" ") ||
+                                    "Vehicle";
+
+                                return `
+                                    <button
+                                        class="drawer-list-item"
+                                        type="button"
+                                        data-vehicle-reg="${escapeAttribute(
+                                            registration
+                                        )}"
+                                    >
+                                        <span>
+                                            <strong>
+                                                ${escapeHtml(
+                                                    vehicleName
+                                                )}
+                                            </strong>
+
+                                            <small>
+                                                ${escapeHtml(
+                                                    registration
+                                                )}
+                                            </small>
+                                        </span>
+
+                                        <span>
+                                            ›
+                                        </span>
+                                    </button>
+                                `;
+                            })
+                            .join("")
+                        : createEmptyState(
+                            "🚗",
+                            "No vehicles recorded",
+                            "Vehicle information will appear after a DVLA lookup.",
+                            true
+                        )
+                }
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Booking history
+                    </h4>
+                </div>
+
+                ${
+                    bookings.length
+                        ? bookings
+                            .slice(0, 8)
+                            .map((booking) => {
+                                const date =
+                                    parseDate(
+                                        bookingDateValue(
+                                            booking
+                                        )
+                                    );
+
+                                return `
+                                    <div class="drawer-list-item static">
+                                        <span>
+                                            <strong>
+                                                ${escapeHtml(
+                                                    bookingService(
+                                                        booking
+                                                    )
+                                                )}
+                                            </strong>
+
+                                            <small>
+                                                ${
+                                                    date
+                                                        ? escapeHtml(
+                                                            formatAppointmentDate(
+                                                                date
+                                                            )
+                                                        )
+                                                        : "Date unavailable"
+                                                }
+                                            </small>
+                                        </span>
+
+                                        <span class="status-badge ${getStatusClass(
+                                            bookingStatus(
+                                                booking
+                                            )
+                                        )}">
+                                            ${escapeHtml(
+                                                capitalise(
+                                                    bookingStatus(
+                                                        booking
+                                                    )
+                                                )
+                                            )}
+                                        </span>
+                                    </div>
+                                `;
+                            })
+                            .join("")
+                        : createEmptyState(
+                            "📅",
+                            "No bookings recorded",
+                            "Booking history will appear here.",
+                            true
+                        )
+                }
+            </div>
+        `;
+    }
+
+    openDrawer(
+        el.customerDrawer
+    );
+}
+
+function findVehicle(registration) {
+    const normalisedRegistration =
+        String(registration || "")
+            .trim()
+            .toUpperCase();
+
+    for (
+        const customer of getCustomerRecords()
+    ) {
+        const vehicles =
+            Array.isArray(customer.vehicles)
+                ? customer.vehicles
+                : [];
+
+        const vehicle =
+            vehicles.find(
+                (item) =>
+                    bookingRegistration(item)
+                        .toUpperCase() ===
+                    normalisedRegistration
+            );
+
+        if (vehicle) {
+            return {
+                ...vehicle,
+                customer_name:
+                    customer.name ||
+                    customer.customer_name,
+                customer_phone:
+                    customer.phone ||
+                    customer.customer_phone
+            };
+        }
+    }
+
+    return dashboardState.data
+        .upcoming_appointments
+        .find(
+            (booking) =>
+                bookingRegistration(booking)
+                    .toUpperCase() ===
+                normalisedRegistration
+        );
+}
+
+function openVehicleDrawer(vehicle) {
+    dashboardState.selectedVehicle =
+        vehicle;
+
+    if (!el.vehicleDrawer) {
+        return;
+    }
+
+    const registration =
+        bookingRegistration(vehicle);
+
+    const make =
+        vehicle.make ||
+        vehicle.vehicle_make ||
+        "Unknown";
+
+    const model =
+        vehicle.model ||
+        vehicle.vehicle_model ||
+        "Unknown";
+
+    const colour =
+        vehicle.colour ||
+        vehicle.color ||
+        "Unknown";
+
+    const year =
+        vehicle.year ||
+        vehicle.manufacture_year ||
+        "Unknown";
+
+    const fuel =
+        vehicle.fuel_type ||
+        vehicle.fuel ||
+        "Unknown";
+
+    const motStatus =
+        vehicle.mot_status ||
+        vehicle.motStatus ||
+        "Not loaded";
+
+    const customer =
+        vehicle.customer_name ||
+        vehicle.name ||
+        "Customer";
+
+    setText(
+        el.vehicleDrawerTitle,
+        registration
+    );
+
+    if (el.vehicleDrawerBody) {
+        el.vehicleDrawerBody.innerHTML = `
+            <div class="vehicle-drawer-hero">
+                <div class="vehicle-drawer-icon">
+                    🚗
+                </div>
+
+                <div>
+                    <span class="vehicle-registration">
+                        ${escapeHtml(
+                            registration
+                        )}
+                    </span>
+
+                    <h3>
+                        ${escapeHtml(
+                            `${make} ${model}`
+                        )}
+                    </h3>
+
+                    <p>
+                        Owned by
+                        ${escapeHtml(customer)}
+                    </p>
+                </div>
+            </div>
+
+            <div class="drawer-detail-grid">
+                ${drawerDetail(
+                    "Make",
+                    make
+                )}
+
+                ${drawerDetail(
+                    "Model",
+                    model
+                )}
+
+                ${drawerDetail(
+                    "Year",
+                    year
+                )}
+
+                ${drawerDetail(
+                    "Colour",
+                    colour
+                )}
+
+                ${drawerDetail(
+                    "Fuel",
+                    fuel
+                )}
+
+                ${drawerDetail(
+                    "MOT status",
+                    motStatus
+                )}
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Vehicle record
+                    </h4>
+                </div>
+
+                <div class="drawer-note">
+                    Vehicle information is supplied from
+                    the booking and DVLA lookup data currently
+                    available to the dashboard.
+                </div>
+            </div>
+        `;
+    }
+
+    openDrawer(
+        el.vehicleDrawer
+    );
+}
+
+function openReminderDrawer() {
+    const reminders =
+        dashboardState.data.reminders;
+
+    const queue =
+        Array.isArray(reminders.queue)
+            ? reminders.queue
+            : [];
+
+    setText(
+        el.reminderCentreWaiting,
+        formatNumber(
+            reminders.waiting ??
+            reminders.due
+        )
+    );
+
+    setText(
+        el.reminderCentreSent,
+        formatNumber(
+            reminders.sent_this_month ??
+            reminders.sent
+        )
+    );
+
+    setText(
+        el.reminderCentreFailed,
+        formatNumber(
+            reminders.failed
+        )
+    );
+
+    if (el.reminderQueueList) {
+        el.reminderQueueList.innerHTML =
+            queue.length
+                ? queue
+                    .slice(0, 12)
+                    .map((reminder) => {
+                        const customer =
+                            reminder.customer_name ||
+                            reminder.name ||
+                            "Customer";
+
+                        const service =
+                            reminder.service ||
+                            reminder.service_name ||
+                            "Garage appointment";
+
+                        const date =
+                            parseDate(
+                                reminder.send_at ||
+                                reminder.datetime ||
+                                reminder.date
+                            );
+
+                        const status =
+                            String(
+                                reminder.status ||
+                                "pending"
+                            ).toLowerCase();
+
+                        return `
+                            <div class="reminder-queue-item">
+                                <div class="reminder-queue-icon">
+                                    🔔
+                                </div>
+
+                                <div class="reminder-queue-copy">
+                                    <strong>
+                                        ${escapeHtml(
+                                            customer
+                                        )}
+                                    </strong>
+
+                                    <span>
+                                        ${escapeHtml(
+                                            service
+                                        )}
+                                    </span>
+
+                                    <small>
+                                        ${
+                                            date
+                                                ? escapeHtml(
+                                                    formatAppointmentDate(
+                                                        date
+                                                    )
+                                                )
+                                                : "Scheduled reminder"
+                                        }
+                                    </small>
+                                </div>
+
+                                <span class="status-badge ${getStatusClass(
+                                    status
+                                )}">
+                                    ${escapeHtml(
+                                        capitalise(status)
+                                    )}
+                                </span>
+                            </div>
+                        `;
+                    })
+                    .join("")
+                : createEmptyState(
+                    "🔔",
+                    "Reminder queue is clear",
+                    "Upcoming reminders will appear here.",
+                    true
+                );
+    }
+
+    openDrawer(
+        el.reminderDrawer
+    );
+}
+
+function openDrawer(drawer) {
+    closeAllDrawers();
+
+    drawer?.classList.add("open");
+    drawer?.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+    el.drawerOverlay?.classList.add(
+        "visible"
+    );
+
+    document.body.classList.add(
+        "drawer-open"
+    );
+}
+
+function closeAllDrawers() {
+    [
+        el.customerDrawer,
+        el.vehicleDrawer,
+        el.reminderDrawer
+    ].forEach((drawer) => {
+        drawer?.classList.remove("open");
+        drawer?.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+    });
+
+    el.drawerOverlay?.classList.remove(
+        "visible"
+    );
+
+    document.body.classList.remove(
+        "drawer-open"
+    );
+}
+
+function openBookingModal(booking) {
+    dashboardState.selectedBooking =
+        booking;
+
+    if (!el.bookingDetailsModal) {
+        return;
+    }
+
+    const customer =
+        bookingCustomer(booking);
+
+    const phone =
+        bookingPhone(booking);
+
+    const registration =
+        bookingRegistration(booking);
+
+    const service =
+        bookingService(booking);
+
+    const status =
+        bookingStatus(booking);
+
+    const date =
+        parseDate(
+            bookingDateValue(booking)
+        );
+
+    setText(
+        el.bookingDetailsTitle,
+        `${service} booking`
+    );
+
+    if (el.bookingDetailsBody) {
+        el.bookingDetailsBody.innerHTML = `
+            <div class="booking-modal-summary">
+                <div class="booking-modal-icon">
+                    📅
+                </div>
+
+                <div>
+                    <h3>
+                        ${escapeHtml(customer)}
+                    </h3>
+
+                    <p>
+                        ${escapeHtml(service)}
+                    </p>
+                </div>
+
+                <span class="status-badge ${getStatusClass(
+                    status
+                )}">
+                    ${escapeHtml(
+                        capitalise(status)
+                    )}
+                </span>
+            </div>
+
+            <div class="drawer-detail-grid">
+                ${drawerDetail(
+                    "Customer",
+                    customer
+                )}
+
+                ${drawerDetail(
+                    "Phone",
+                    phone
+                )}
+
+                ${drawerDetail(
+                    "Vehicle",
+                    registration
+                )}
+
+                ${drawerDetail(
+                    "Service",
+                    service
+                )}
+
+                ${drawerDetail(
+                    "Date and time",
+                    date
+                        ? formatAppointmentDate(
+                            date
+                        )
+                        : "Date unavailable"
+                )}
+
+                ${drawerDetail(
+                    "Status",
+                    capitalise(status)
+                )}
+            </div>
+
+            ${
+                booking.notes ||
+                booking.description
+                    ? `
+                        <div class="drawer-section">
+                            <div class="drawer-section-header">
+                                <h4>
+                                    Booking notes
+                                </h4>
+                            </div>
+
+                            <div class="drawer-note">
+                                ${escapeHtml(
+                                    booking.notes ||
+                                    booking.description
+                                )}
+                            </div>
+                        </div>
+                    `
+                    : ""
+            }
+        `;
+    }
+
+    el.bookingDetailsModal.classList.add(
+        "visible"
+    );
+
+    el.bookingDetailsModal.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+    document.body.classList.add(
+        "modal-open"
+    );
+}
+
+function closeBookingModal() {
+    el.bookingDetailsModal?.classList.remove(
+        "visible"
+    );
+
+    el.bookingDetailsModal?.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+
+    dashboardState.selectedBooking =
+        null;
+}
+
+function bookingCustomer(booking) {
+    return String(
+        booking.customer_name ||
+        booking.name ||
+        "Customer"
+    ).trim();
+}
+
+function bookingPhone(booking) {
+    return String(
+        booking.phone ||
+        booking.customer_phone ||
+        "Phone not recorded"
+    ).trim();
+}
+
+function bookingRegistration(booking) {
+    return String(
+        booking.vehicle_reg ||
+        booking.registration ||
+        booking.reg ||
+        "—"
+    )
+        .trim()
+        .toUpperCase();
+}
+
+function bookingService(booking) {
+    return String(
+        booking.service ||
+        booking.service_name ||
+        "Garage appointment"
+    ).trim();
+}
+
+function bookingStatus(booking) {
+    return String(
+        booking.status ||
+        "confirmed"
+    )
+        .trim()
+        .toLowerCase();
+}
+
+function bookingDateValue(booking) {
+    return (
+        booking.start ||
+        booking.datetime ||
+        booking.date_time ||
+        booking.date ||
+        null
+    );
+}
+
+function customerKey(customer) {
+    return [
+        customer.name ||
+        customer.customer_name ||
+        "",
+        customer.phone ||
+        customer.customer_phone ||
+        ""
+    ]
+        .join("|")
+        .trim()
+        .toLowerCase();
+}
+
+function drawerDetail(label, value) {
+    return `
+        <div class="drawer-detail-card">
+            <span>
+                ${escapeHtml(label)}
+            </span>
+
+            <strong>
+                ${escapeHtml(
+                    String(
+                        value ??
+                        "Not recorded"
+                    )
+                )}
+            </strong>
+        </div>
+    `;
+}
+
+function setButtonLoading(
+    button,
+    loading
+) {
     if (!button) {
         return;
     }
 
-    button.classList.toggle("loading", loading);
-    button.disabled = loading;
+    button.disabled =
+        loading;
+
+    button.classList.toggle(
+        "loading",
+        loading
+    );
+
     button.setAttribute(
         "aria-busy",
         String(loading)
     );
 }
 
-
-/* =========================================================
-   25. TOAST NOTIFICATIONS
-   ========================================================= */
-
-function showToast(title, message, type = "info") {
-    if (!dashboardElements.toastContainer) {
+function showToast(
+    title,
+    message,
+    type = "info"
+) {
+    if (!el.toastContainer) {
         return;
     }
 
-    const toast = document.createElement("div");
-
-    toast.className = `toast ${type}`;
-    toast.setAttribute("role", "status");
+    const toast =
+        document.createElement("div");
 
     const icon =
         type === "success"
@@ -1479,89 +2723,133 @@ function showToast(title, message, type = "info") {
                 ? "!"
                 : "i";
 
+    toast.className =
+        `toast ${type}`;
+
+    toast.setAttribute(
+        "role",
+        "status"
+    );
+
     toast.innerHTML = `
         <div class="toast-icon">
             ${icon}
         </div>
 
         <div class="toast-copy">
-            <h4>${escapeHtml(title)}</h4>
-            <p>${escapeHtml(message)}</p>
+            <h4>
+                ${escapeHtml(title)}
+            </h4>
+
+            <p>
+                ${escapeHtml(message)}
+            </p>
         </div>
     `;
 
-    dashboardElements.toastContainer.appendChild(toast);
+    el.toastContainer.appendChild(
+        toast
+    );
 
     window.setTimeout(() => {
         toast.style.opacity = "0";
-        toast.style.transform = "translateY(10px)";
+        toast.style.transform =
+            "translateY(10px)";
 
-        window.setTimeout(() => {
-            toast.remove();
-        }, 250);
+        window.setTimeout(
+            () => toast.remove(),
+            250
+        );
     }, 4200);
 }
 
-
-/* =========================================================
-   26. DISPLAY HELPERS
-   ========================================================= */
-
-function createEmptyState(icon, title, message) {
+function createEmptyState(
+    icon,
+    title,
+    message,
+    compact = false
+) {
     return `
-        <div class="empty-state">
+        <div class="empty-state ${
+            compact
+                ? "compact"
+                : ""
+        }">
             <div class="empty-state-icon">
                 ${icon}
             </div>
 
-            <h4>${escapeHtml(title)}</h4>
-            <p>${escapeHtml(message)}</p>
+            <h4>
+                ${escapeHtml(title)}
+            </h4>
+
+            <p>
+                ${escapeHtml(message)}
+            </p>
         </div>
     `;
 }
 
 function setText(element, value) {
     if (element) {
-        element.textContent = String(value ?? "");
+        element.textContent =
+            String(value ?? "");
     }
 }
 
-function getServiceIcon(serviceName) {
-    const normalisedName = String(serviceName)
-        .trim()
-        .toLowerCase();
+function getServiceIcon(name) {
+    const value =
+        String(name)
+            .trim()
+            .toLowerCase();
 
-    if (SERVICE_ICONS[normalisedName]) {
-        return SERVICE_ICONS[normalisedName];
+    if (SERVICE_ICONS[value]) {
+        return SERVICE_ICONS[value];
     }
 
-    const matchingService =
-        Object.entries(SERVICE_ICONS).find(
-            ([serviceKey]) =>
-                normalisedName.includes(serviceKey)
+    const match =
+        Object.entries(
+            SERVICE_ICONS
+        ).find(
+            ([key]) =>
+                value.includes(key)
         );
 
-    return matchingService
-        ? matchingService[1]
+    return match
+        ? match[1]
         : "🔧";
 }
 
 function getActivityIcon(type) {
-    return ACTIVITY_ICONS[type] || "🤖";
+    return (
+        ACTIVITY_ICONS[type] ||
+        "🤖"
+    );
 }
 
 function getStatusClass(status) {
-    if (status.includes("cancel")) {
+    const value =
+        String(status)
+            .toLowerCase();
+
+    if (
+        value.includes("cancel") ||
+        value.includes("fail")
+    ) {
         return "cancelled";
     }
 
-    if (status.includes("complete")) {
+    if (
+        value.includes("complete") ||
+        value.includes("sent")
+    ) {
         return "completed";
     }
 
     if (
-        status.includes("pending") ||
-        status.includes("provisional")
+        value.includes("pending") ||
+        value.includes("waiting") ||
+        value.includes("provisional")
     ) {
         return "pending";
     }
@@ -1570,32 +2858,28 @@ function getStatusClass(status) {
 }
 
 function getCustomerInitials(name) {
-    const words = String(name)
-        .trim()
-        .split(/\s+/)
-        .filter(Boolean);
+    const words =
+        String(name)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
 
-    if (words.length === 0) {
+    if (!words.length) {
         return "CU";
     }
 
     return words
         .slice(0, 2)
-        .map((word) =>
-            word.charAt(0).toUpperCase()
+        .map(
+            (word) =>
+                word
+                    .charAt(0)
+                    .toUpperCase()
         )
         .join("");
 }
 
-
-/* =========================================================
-   27. SYSTEM STATUS HELPERS
-   ========================================================= */
-
 function isConnectedStatus(status) {
-    const normalisedStatus =
-        String(status || "").toLowerCase();
-
     return [
         "operational",
         "online",
@@ -1604,15 +2888,25 @@ function isConnectedStatus(status) {
         "ready",
         "active",
         "true"
-    ].includes(normalisedStatus);
+    ].includes(
+        String(status || "")
+            .toLowerCase()
+    );
 }
 
-function getConnectionText(value, connectedText) {
-    const status = String(
-        value || "connected"
-    ).toLowerCase();
+function connectionText(
+    value,
+    connectedText
+) {
+    const status =
+        String(
+            value ||
+            "connected"
+        ).toLowerCase();
 
-    if (isConnectedStatus(status)) {
+    if (
+        isConnectedStatus(status)
+    ) {
         return connectedText;
     }
 
@@ -1625,50 +2919,53 @@ function getConnectionText(value, connectedText) {
             "false"
         ].includes(status)
     ) {
-        return `${capitalise(status)} — check configuration`;
+        return `${capitalise(
+            status
+        )} — check configuration`;
     }
 
     return capitalise(status);
 }
 
-
-/* =========================================================
-   28. NUMBER AND CURRENCY HELPERS
-   ========================================================= */
-
 function safeNumber(value) {
-    const parsedValue = Number(value);
+    const number =
+        Number(value);
 
-    return Number.isFinite(parsedValue)
-        ? parsedValue
+    return Number.isFinite(number)
+        ? number
         : 0;
 }
 
 function formatNumber(value) {
-    return new Intl.NumberFormat("en-GB").format(
+    return new Intl.NumberFormat(
+        "en-GB"
+    ).format(
         safeNumber(value)
     );
 }
 
 function formatCurrency(value) {
-    const amount = Number(value);
+    const amount =
+        Number(value);
 
     if (!Number.isFinite(amount)) {
         return "£0";
     }
 
-    return new Intl.NumberFormat("en-GB", {
-        style: "currency",
-        currency: "GBP",
-        maximumFractionDigits:
-            Number.isInteger(amount) ? 0 : 2
-    }).format(amount);
+    return new Intl.NumberFormat(
+        "en-GB",
+        {
+            style: "currency",
+            currency: "GBP",
+            maximumFractionDigits:
+                Number.isInteger(
+                    amount
+                )
+                    ? 0
+                    : 2
+        }
+    ).format(amount);
 }
-
-
-/* =========================================================
-   29. DATE AND TIME HELPERS
-   ========================================================= */
 
 function parseDate(value) {
     if (!value) {
@@ -1680,98 +2977,141 @@ function parseDate(value) {
             ? value
             : new Date(value);
 
-    return Number.isNaN(date.getTime())
+    return Number.isNaN(
+        date.getTime()
+    )
         ? null
         : date;
 }
 
 function formatTime(date) {
-    return new Intl.DateTimeFormat("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-    })
+    return new Intl.DateTimeFormat(
+        "en-GB",
+        {
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+        }
+    )
         .format(date)
         .replace("am", "AM")
         .replace("pm", "PM");
 }
 
 function formatAppointmentDate(date) {
-    return new Intl.DateTimeFormat("en-GB", {
-        weekday: "short",
-        day: "numeric",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-    })
+    return new Intl.DateTimeFormat(
+        "en-GB",
+        {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+        }
+    )
         .format(date)
         .replace("am", "AM")
         .replace("pm", "PM");
 }
 
 function formatRelativeTime(date) {
-    const differenceMilliseconds =
-        date.getTime() - Date.now();
+    const difference =
+        date.getTime() -
+        Date.now();
 
-    const differenceMinutes = Math.round(
-        differenceMilliseconds / 60000
-    );
+    const absolute =
+        Math.abs(difference);
 
-    const relativeFormatter =
-        new Intl.RelativeTimeFormat("en-GB", {
-            numeric: "auto"
-        });
+    const formatter =
+        new Intl.RelativeTimeFormat(
+            "en-GB",
+            {
+                numeric: "auto"
+            }
+        );
 
-    if (Math.abs(differenceMinutes) < 60) {
-        return relativeFormatter.format(
-            differenceMinutes,
+    if (
+        absolute <
+        60 * 1000
+    ) {
+        return formatter.format(
+            Math.round(
+                difference / 1000
+            ),
+            "second"
+        );
+    }
+
+    if (
+        absolute <
+        60 * 60 * 1000
+    ) {
+        return formatter.format(
+            Math.round(
+                difference /
+                (60 * 1000)
+            ),
             "minute"
         );
     }
 
-    const differenceHours = Math.round(
-        differenceMinutes / 60
-    );
-
-    if (Math.abs(differenceHours) < 24) {
-        return relativeFormatter.format(
-            differenceHours,
+    if (
+        absolute <
+        24 * 60 * 60 * 1000
+    ) {
+        return formatter.format(
+            Math.round(
+                difference /
+                (
+                    60 *
+                    60 *
+                    1000
+                )
+            ),
             "hour"
         );
     }
 
-    const differenceDays = Math.round(
-        differenceHours / 24
-    );
-
-    return relativeFormatter.format(
-        differenceDays,
+    return formatter.format(
+        Math.round(
+            difference /
+            (
+                24 *
+                60 *
+                60 *
+                1000
+            )
+        ),
         "day"
     );
 }
 
 function localDateKey(date) {
-    const year = date.getFullYear();
+    if (!(date instanceof Date)) {
+        return "";
+    }
 
-    const month = String(
-        date.getMonth() + 1
-    ).padStart(2, "0");
+    const year =
+        date.getFullYear();
 
-    const day = String(
-        date.getDate()
-    ).padStart(2, "0");
+    const month =
+        String(
+            date.getMonth() + 1
+        ).padStart(2, "0");
+
+    const day =
+        String(
+            date.getDate()
+        ).padStart(2, "0");
 
     return `${year}-${month}-${day}`;
 }
 
-
-/* =========================================================
-   30. TEXT SAFETY HELPERS
-   ========================================================= */
-
 function capitalise(value) {
-    const text = String(value || "").trim();
+    const text =
+        String(value || "")
+            .trim();
 
     if (!text) {
         return "";
@@ -1785,9 +3125,30 @@ function capitalise(value) {
 
 function escapeHtml(value) {
     return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+        .replace(
+            /</g,
+            "&lt;"
+        )
+        .replace(
+            />/g,
+            "&gt;"
+        )
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+}
+
+function escapeAttribute(value) {
+    return escapeHtml(
+        String(value ?? "")
+    );
 }
