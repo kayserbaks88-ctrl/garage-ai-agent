@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify
 from dashboard_auth import dashboard_api_login_required
+from integrations.reminder_scheduler import run_reminder_job
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
@@ -915,3 +916,19 @@ def dashboard_health():
             ).isoformat(),
         }
     )
+
+@dashboard_api.post("/api/run-reminders")
+@dashboard_api_login_required
+def dashboard_run_reminders():
+    """
+    Allow a logged-in garage owner to run the existing reminder job
+    without exposing REMINDER_CRON_SECRET to browser JavaScript.
+
+    The protected /internal/run-reminders endpoint remains available
+    for the automatic external scheduler.
+    """
+    result = run_reminder_job()
+
+    status_code = 200 if result.get("success") else 500
+
+    return jsonify(result), status_code
