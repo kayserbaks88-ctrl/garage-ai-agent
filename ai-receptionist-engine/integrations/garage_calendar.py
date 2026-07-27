@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import date, datetime, time, timedelta
+from integrations.reminder_sender import send_booking_confirmation
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -499,7 +500,56 @@ def create_booking(
         )
         .execute()
     )
+    
+    confirmation_result = None
 
+    if phone:
+        try:
+            confirmation_result = send_booking_confirmation(
+                phone=phone,
+                customer_name=customer_name or "Customer",
+                service_label=str(service_config["label"]),
+                registration=registration,
+                date_text=start_dt.strftime("%A %-d %B"),
+                time_text=start_dt.strftime("%-I:%M %p").lower(),
+            )
+
+            created_private = (
+                (created.get("extendedProperties") or {})
+                .get("private")
+                or private_data.copy()
+            )
+
+            created_private["booking_confirmation_sent"] = (
+                datetime.now(TIMEZONE).isoformat()
+            )
+
+            created_private["booking_confirmation_sid"] = str(
+                confirmation_result.get("sid") or ""
+            )
+
+            service.events().patch(
+                calendarId=_calendar_id(),
+                eventId=created["id"],
+                body={
+                    "extendedProperties": {
+                        "private": created_private,
+                    }
+                },
+            ).execute()
+
+            print(
+                "BOOKING CONFIRMATION SENT:",
+                phone,
+                confirmation_result.get("sid"),
+            )
+
+        except Exception as error:
+            print(
+                "BOOKING CONFIRMATION FAILED:",
+                repr(error),
+            )
+    
     return {
         "id": created.get("id"),
         "link": created.get("htmlLink"),

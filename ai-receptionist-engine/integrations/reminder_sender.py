@@ -229,3 +229,27 @@ def send_follow_up(
             "3": registration,
         },
     )
+
+def send_booking_confirmation(
+    phone: str,
+    customer_name: str,
+    service_label: str,
+    registration: str,
+    date_text: str,
+    time_text: str,
+) -> dict:
+    content_sid = _required_env(
+        "TWILIO_BOOKING_CONFIRMATION_CONTENT_SID"
+    )
+
+    return send_whatsapp_template(
+        phone=phone,
+        content_sid=content_sid,
+        variables={
+            "1": customer_name,
+            "2": service_label,
+            "3": registration,
+            "4": date_text,
+            "5": time_text,
+        },
+    )
