@@ -6,7 +6,32 @@ import os
 from twilio.base.exceptions import TwilioRestException
 from twilio.rest import Client
 
-from integrations.garage_calendar import normalise_phone
+def normalise_phone(phone: str) -> str:
+    """
+    Convert common UK phone formats into +44 format.
+    """
+    value = str(phone or "").strip().lower()
+    value = value.replace("whatsapp:", "")
+
+    digits = "".join(
+        character
+        for character in value
+        if character.isdigit()
+    )
+
+    if not digits:
+        return ""
+
+    if digits.startswith("0044"):
+        return "+44" + digits[4:]
+
+    if digits.startswith("44"):
+        return "+" + digits
+
+    if digits.startswith("0"):
+        return "+44" + digits[1:]
+
+    return "+" + digits
 
 
 def _required_env(name: str) -> str:
