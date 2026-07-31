@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify
 from dashboard_auth import dashboard_api_login_required
+from trimtech.core.registry import get_active_business
 from integrations.reminder_scheduler import run_reminder_job
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -16,33 +17,24 @@ from googleapiclient.discovery import build
 
 dashboard_api = Blueprint("dashboard_api", __name__)
 
-TIMEZONE_NAME = os.getenv("GARAGE_TIMEZONE", "Europe/London")
-TIMEZONE = ZoneInfo(TIMEZONE_NAME)
+BUSINESS = get_active_business()
+TIMEZONE_NAME = BUSINESS.timezone_name
+TIMEZONE = BUSINESS.timezone
 
 GOOGLE_CALENDAR_SCOPES = [
     "https://www.googleapis.com/auth/calendar.readonly"
 ]
 
-SERVICE_PRICES = {
-    "mot": 54.85,
-    "full service": 180.00,
-    "diagnostic": 65.00,
-    "oil change": 75.00,
-}
 
-SERVICE_LABELS = {
-    "mot": "MOT",
-    "full service": "Full Service",
-    "diagnostic": "Diagnostic",
-    "oil change": "Oil Change",
-}
+def business_env_prefix() -> str:
+    return BUSINESS.business_type.upper().replace("-", "_")
 
-SERVICE_ORDER = [
-    "mot",
-    "full service",
-    "diagnostic",
-    "oil change",
-]
+
+def enabled_service_keys() -> list[str]:
+    return [
+        service.key
+        for service in BUSINESS.enabled_services()
+    ]
 
 
 def normalise_text(value: Any) -> str:
@@ -72,45 +64,30 @@ def normalise_phone(value: Any) -> str:
 
 
 def normalise_service(value: Any) -> str:
-    service = normalise_text(value).lower()
+    service = BUSINESS.resolve_service(value)
 
-    aliases = {
-        "mot test": "mot",
-        "m.o.t": "mot",
-        "m.o.t.": "mot",
-        "service": "full service",
-        "full car service": "full service",
-        "car service": "full service",
-        "diagnostics": "diagnostic",
-        "vehicle diagnostic": "diagnostic",
-        "oil": "oil change",
-        "oil and filter": "oil change",
-        "oil & filter": "oil change",
-    }
+    if service:
+        return service.key
 
-    if service in aliases:
-        return aliases[service]
+    fallback = normalise_text(value).lower()
 
-    for known_service in SERVICE_ORDER:
-        if known_service in service:
-            return known_service
-
-    return service or "garage appointment"
+    return fallback or "appointment"
 
 
 def service_label(value: Any) -> str:
-    key = normalise_service(value)
-    return SERVICE_LABELS.get(key, normalise_text(value) or "Garage Appointment")
+    return BUSINESS.service_label(value)
 
 
 def service_price(value: Any) -> float:
-    key = normalise_service(value)
-    return float(SERVICE_PRICES.get(key, 0.0))
+    return float(BUSINESS.service_price(value))
 
 
 def get_calendar_id() -> str:
+    prefix = business_env_prefix()
+
     possible_values = [
-        os.getenv("GARAGE_CALENDAR_ID"),
+        os.getenv(f"{prefix}_CALENDAR_ID"),
+        os.getenv("TRIMTECH_CALENDAR_ID"),
         os.getenv("GOOGLE_CALENDAR_ID"),
         os.getenv("CALENDAR_ID"),
     ]
@@ -290,10 +267,7 @@ def parse_summary_fallback(summary: str) -> dict[str, str]:
     for part in parts:
         part_lower = part.lower()
 
-        if any(
-            service_key in part_lower
-            for service_key in SERVICE_ORDER
-        ):
+        if BUSINESS.resolve_service(part_lower):
             result["service"] = part
             continue
 
@@ -396,7 +370,7 @@ def fetch_calendar_events(
 
     if not calendar_id:
         raise RuntimeError(
-            "GARAGE_CALENDAR_ID is not configured."
+            f"{business_env_prefix()}_CALENDAR_ID is not configured."
         )
 
     calendar_service = get_calendar_service()
@@ -556,18 +530,20 @@ def service_performance(
 
     performance = []
 
-    for service_key in SERVICE_ORDER:
+    configured_service_keys = enabled_service_keys()
+
+    for service in BUSINESS.enabled_services():
         performance.append(
             {
-                "name": SERVICE_LABELS[service_key],
-                "bookings": counter.get(service_key, 0),
+                "name": service.name,
+                "bookings": counter.get(service.key, 0),
             }
         )
 
     extra_services = sorted(
         service_key
         for service_key in counter
-        if service_key not in SERVICE_ORDER
+        if service_key not in configured_service_keys
     )
 
     for service_key in extra_services:
@@ -738,7 +714,7 @@ def recent_ai_activity(
             normalise_text(
                 booking.get("service")
             )
-            or "garage appointment"
+            or str(BUSINESS.metadata.get("booking_label") or "appointment").lower()
         )
 
         vehicle_reg = normalise_text(
@@ -777,14 +753,18 @@ def system_health(
 
     dvla_status = (
         "connected"
-        if normalise_text(os.getenv("DVLA_API_KEY"))
+        if (
+            not BUSINESS.feature_enabled("dvla")
+            or normalise_text(os.getenv("DVLA_API_KEY"))
+        )
         else "not configured"
     )
 
     vapi_status = (
         "connected"
         if (
-            normalise_text(os.getenv("VAPI_API_KEY"))
+            not BUSINESS.feature_enabled("voice_agent")
+            or normalise_text(os.getenv("VAPI_API_KEY"))
             or normalise_text(os.getenv("VAPI_PRIVATE_KEY"))
         )
         else "not configured"
@@ -840,6 +820,26 @@ def build_dashboard_data() -> dict[str, Any]:
     )
 
     return {
+        "business": BUSINESS.to_dict(),
+        "ui": {
+            "dashboard_title": BUSINESS.metadata.get(
+                "dashboard_title",
+                f"{BUSINESS.business_name} Dashboard",
+            ),
+            "booking_label": BUSINESS.metadata.get(
+                "booking_label",
+                "Appointment",
+            ),
+            "customer_label": BUSINESS.metadata.get(
+                "customer_label",
+                "Customer",
+            ),
+            "vehicle_label": BUSINESS.metadata.get(
+                "vehicle_label",
+                "Vehicle",
+            ),
+            "currency_symbol": BUSINESS.currency_symbol,
+        },
         "summary": {
             "today_bookings": len(today_bookings),
             "upcoming_bookings": len(upcoming_bookings),
@@ -863,6 +863,8 @@ def build_dashboard_data() -> dict[str, Any]:
         "meta": {
             "generated_at": now.isoformat(),
             "timezone": TIMEZONE_NAME,
+            "business_id": BUSINESS.business_id,
+            "business_type": BUSINESS.business_type,
             "calendar_error": calendar_error,
         },
     }
@@ -898,6 +900,38 @@ def dashboard_data():
             500,
         )
 
+@dashboard_api.get("/api/business")
+@dashboard_api_login_required
+def dashboard_business():
+    """
+    Returns the active TrimTech business configuration.
+    """
+
+    return jsonify(
+        {
+            "success": True,
+            "business": BUSINESS.to_dict(),
+            "ui": {
+                "dashboard_title": BUSINESS.metadata.get(
+                    "dashboard_title",
+                    BUSINESS.business_name,
+                ),
+                "booking_label": BUSINESS.metadata.get(
+                    "booking_label",
+                    "Appointment",
+                ),
+                "customer_label": BUSINESS.metadata.get(
+                    "customer_label",
+                    "Customer",
+                ),
+                "vehicle_label": BUSINESS.metadata.get(
+                    "vehicle_label",
+                    "Vehicle",
+                ),
+                "currency_symbol": BUSINESS.currency_symbol,
+            },
+        }
+    )
 
 @dashboard_api.get("/api/dashboard-health")
 @dashboard_api_login_required
@@ -907,7 +941,9 @@ def dashboard_health():
     return jsonify(
         {
             "success": True,
-            "service": "TrimTech Garage Dashboard",
+            "service": f"{BUSINESS.business_name} Dashboard",
+            "business_id": BUSINESS.business_id,
+            "business_type": BUSINESS.business_type,
             "status": "online",
             "timezone": TIMEZONE_NAME,
             "calendar_configured": bool(calendar_id),
