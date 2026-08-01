@@ -235,12 +235,12 @@ def latest_available(
     return None
 
 
-def booking_sort_key(booking: dict[str, Any]) -> datetime:
+def booking_sort_key(booking: dict[str, Any]) -> str:
     parsed = parse_datetime(
         booking_datetime_value(booking)
     )
 
-    return parsed or datetime.min
+    return parsed.isoformat() if parsed else ""
 
 
 def booking_is_cancelled(booking: dict[str, Any]) -> bool:
@@ -723,22 +723,28 @@ def build_vehicle_records(
     ]
 
     vehicles.sort(
-        key=lambda vehicle: (
-            (
-                parse_datetime(
-                    (
-                        vehicle.get("next_booking")
-                        or {}
-                    ).get("start")
-                )
-                or datetime.max
-            ),
-            str(
-                vehicle.get("registration")
-                or ""
-            ),
-        )
+    key=lambda vehicle: (
+        (
+            parse_datetime(
+                (
+                    vehicle.get("next_booking")
+                    or {}
+                ).get("start")
+            ).isoformat()
+            if parse_datetime(
+                (
+                    vehicle.get("next_booking")
+                    or {}
+                ).get("start")
+            )
+            else "9999-12-31T23:59:59+00:00"
+        ),
+        str(
+            vehicle.get("registration")
+            or ""
+        ),
     )
+)
 
     return vehicles
 
