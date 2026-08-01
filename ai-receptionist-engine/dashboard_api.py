@@ -1,5 +1,18 @@
 from __future__ import annotations
 
+"""
+TrimTech Garage dashboard API.
+
+This version keeps the existing working dashboard routes and adds:
+
+- One CRM record per customer.
+- One vehicle record per normalised registration.
+- Full booking/service history for each vehicle.
+- Customer revenue and repeat-customer summaries.
+- Revenue totals for today, week, month and year.
+- Analytics suitable for the dashboard.
+"""
+
 import json
 import os
 from collections import Counter
@@ -8,11 +21,21 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from flask import Blueprint, jsonify
-from dashboard_auth import dashboard_api_login_required
-from trimtech.core.registry import get_active_business
-from integrations.reminder_scheduler import run_reminder_job
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+
+from dashboard_auth import dashboard_api_login_required
+from integrations.reminder_scheduler import run_reminder_job
+from trimtech.core.registry import get_active_business
+from trimtech.modules.crm.customer_service import (
+    build_customer_records,
+    customer_summary,
+)
+from trimtech.modules.crm.vehicle_service import (
+    build_vehicle_records,
+    format_registration,
+    normalise_registration,
+)
 
 
 dashboard_api = Blueprint("dashboard_api", __name__)
@@ -44,8 +67,8 @@ def normalise_text(value: Any) -> str:
 def normalise_phone(value: Any) -> str:
     phone = normalise_text(value)
 
-    if phone.startswith("whatsapp:"):
-        phone = phone.removeprefix("whatsapp:")
+    if phone.lower().startswith("whatsapp:"):
+        phone = phone.split(":", 1)[1]
 
     phone = (
         phone.replace(" ", "")
@@ -79,7 +102,10 @@ def service_label(value: Any) -> str:
 
 
 def service_price(value: Any) -> float:
-    return float(BUSINESS.service_price(value))
+    try:
+        return float(BUSINESS.service_price(value))
+    except (TypeError, ValueError, KeyError):
+        return 0.0
 
 
 def get_calendar_id() -> str:
@@ -157,11 +183,15 @@ def iso_utc(value: datetime) -> str:
     )
 
 
-def parse_event_datetime(event_value: dict[str, Any] | None) -> datetime | None:
+def parse_event_datetime(
+    event_value: dict[str, Any] | None,
+) -> datetime | None:
     if not event_value:
         return None
 
-    date_time_value = normalise_text(event_value.get("dateTime"))
+    date_time_value = normalise_text(
+        event_value.get("dateTime")
+    )
 
     if date_time_value:
         try:
@@ -177,7 +207,9 @@ def parse_event_datetime(event_value: dict[str, Any] | None) -> datetime | None:
         except ValueError:
             return None
 
-    date_value = normalise_text(event_value.get("date"))
+    date_value = normalise_text(
+        event_value.get("date")
+    )
 
     if date_value:
         try:
@@ -194,9 +226,16 @@ def parse_event_datetime(event_value: dict[str, Any] | None) -> datetime | None:
     return None
 
 
-def event_private_properties(event: dict[str, Any]) -> dict[str, Any]:
-    extended_properties = event.get("extendedProperties") or {}
-    private_properties = extended_properties.get("private") or {}
+def event_private_properties(
+    event: dict[str, Any],
+) -> dict[str, Any]:
+    extended_properties = (
+        event.get("extendedProperties") or {}
+    )
+
+    private_properties = (
+        extended_properties.get("private") or {}
+    )
 
     return (
         private_properties
@@ -211,15 +250,30 @@ def read_event_field(
     *field_names: str,
 ) -> str:
     for field_name in field_names:
-        value = normalise_text(private_properties.get(field_name))
+        value = normalise_text(
+            private_properties.get(field_name)
+        )
 
         if value:
             return value
 
-    description = normalise_text(event.get("description"))
+    description = normalise_text(
+        event.get("description")
+    )
+
+    wanted = {
+        field_name
+        .strip()
+        .lower()
+        .replace(" ", "_")
+        .replace("-", "_")
+        for field_name in field_names
+    }
 
     for line in description.splitlines():
-        line_key, separator, line_value = line.partition(":")
+        line_key, separator, line_value = (
+            line.partition(":")
+        )
 
         if not separator:
             continue
@@ -231,7 +285,7 @@ def read_event_field(
             .replace("-", "_")
         )
 
-        if normalised_line_key in field_names:
+        if normalised_line_key in wanted:
             value = normalise_text(line_value)
 
             if value:
@@ -240,7 +294,9 @@ def read_event_field(
     return ""
 
 
-def parse_summary_fallback(summary: str) -> dict[str, str]:
+def parse_summary_fallback(
+    summary: str,
+) -> dict[str, str]:
     result = {
         "customer_name": "",
         "service": "",
@@ -252,7 +308,12 @@ def parse_summary_fallback(summary: str) -> dict[str, str]:
     if not clean_summary:
         return result
 
-    separators = [" - ", " | ", " – "]
+    separators = [
+        " - ",
+        " | ",
+        " – ",
+    ]
+
     parts = [clean_summary]
 
     for separator in separators:
@@ -271,15 +332,20 @@ def parse_summary_fallback(summary: str) -> dict[str, str]:
             result["service"] = part
             continue
 
-        compact_part = part.replace(" ", "")
+        registration = normalise_registration(part)
 
         if (
-            5 <= len(compact_part) <= 8
-            and compact_part.isalnum()
-            and any(character.isdigit() for character in compact_part)
-            and any(character.isalpha() for character in compact_part)
+            5 <= len(registration) <= 8
+            and any(
+                character.isdigit()
+                for character in registration
+            )
+            and any(
+                character.isalpha()
+                for character in registration
+            )
         ):
-            result["vehicle_reg"] = compact_part.upper()
+            result["vehicle_reg"] = registration
             continue
 
         if not result["customer_name"]:
@@ -288,28 +354,48 @@ def parse_summary_fallback(summary: str) -> dict[str, str]:
     return result
 
 
-def event_to_booking(event: dict[str, Any]) -> dict[str, Any] | None:
-    if normalise_text(event.get("status")).lower() == "cancelled":
+def event_to_booking(
+    event: dict[str, Any],
+) -> dict[str, Any] | None:
+    if (
+        normalise_text(
+            event.get("status")
+        ).lower()
+        == "cancelled"
+    ):
         return None
 
-    start = parse_event_datetime(event.get("start"))
-    end = parse_event_datetime(event.get("end"))
+    start = parse_event_datetime(
+        event.get("start")
+    )
+
+    end = parse_event_datetime(
+        event.get("end")
+    )
 
     if not start:
         return None
 
-    private_properties = event_private_properties(event)
-    summary_fallback = parse_summary_fallback(
-        normalise_text(event.get("summary"))
+    private_properties = event_private_properties(
+        event
     )
 
-    customer_name = read_event_field(
-        event,
-        private_properties,
-        "customer_name",
-        "name",
-        "customer",
-    ) or summary_fallback["customer_name"]
+    summary_fallback = parse_summary_fallback(
+        normalise_text(
+            event.get("summary")
+        )
+    )
+
+    customer_name = (
+        read_event_field(
+            event,
+            private_properties,
+            "customer_name",
+            "name",
+            "customer",
+        )
+        or summary_fallback["customer_name"]
+    )
 
     phone = read_event_field(
         event,
@@ -320,45 +406,154 @@ def event_to_booking(event: dict[str, Any]) -> dict[str, Any] | None:
         "mobile",
     )
 
-    vehicle_reg = read_event_field(
+    email = read_event_field(
         event,
         private_properties,
-        "vehicle_reg",
-        "registration",
-        "reg",
-        "vehicle_registration",
-    ) or summary_fallback["vehicle_reg"]
+        "email",
+        "customer_email",
+    )
 
-    service = read_event_field(
-        event,
-        private_properties,
-        "service",
-        "service_key",
-        "service_name",
-    ) or summary_fallback["service"]
+    raw_registration = (
+        read_event_field(
+            event,
+            private_properties,
+            "vehicle_reg",
+            "registration",
+            "reg",
+            "vehicle_registration",
+            "number_plate",
+            "plate",
+        )
+        or summary_fallback["vehicle_reg"]
+    )
+
+    registration_key = normalise_registration(
+        raw_registration
+    )
+
+    service = (
+        read_event_field(
+            event,
+            private_properties,
+            "service",
+            "service_key",
+            "service_name",
+        )
+        or summary_fallback["service"]
+    )
 
     service_key = normalise_service(service)
 
-    status = read_event_field(
+    status = (
+        read_event_field(
+            event,
+            private_properties,
+            "booking_status",
+            "status",
+        )
+        or "confirmed"
+    )
+
+    make = read_event_field(
         event,
         private_properties,
-        "booking_status",
-        "status",
-    ) or "confirmed"
+        "make",
+        "vehicle_make",
+    )
+
+    model = read_event_field(
+        event,
+        private_properties,
+        "model",
+        "vehicle_model",
+    )
+
+    colour = read_event_field(
+        event,
+        private_properties,
+        "colour",
+        "color",
+        "vehicle_colour",
+    )
+
+    year = read_event_field(
+        event,
+        private_properties,
+        "year",
+        "manufacture_year",
+        "year_of_manufacture",
+    )
+
+    fuel_type = read_event_field(
+        event,
+        private_properties,
+        "fuel_type",
+        "fuel",
+    )
+
+    mot_status = read_event_field(
+        event,
+        private_properties,
+        "mot_status",
+    )
+
+    mot_expiry_date = read_event_field(
+        event,
+        private_properties,
+        "mot_expiry_date",
+        "mot_expiry",
+    )
 
     return {
-        "event_id": normalise_text(event.get("id")),
-        "customer_name": customer_name or "Customer",
+        "event_id": normalise_text(
+            event.get("id")
+        ),
+        "customer_name": (
+            customer_name or "Customer"
+        ),
         "phone": normalise_phone(phone),
-        "vehicle_reg": vehicle_reg.upper() if vehicle_reg else "—",
-        "service": service_label(service_key),
+        "email": email,
+        "vehicle_reg": (
+            format_registration(
+                registration_key
+            )
+            if registration_key
+            else "—"
+        ),
+        "registration_key": registration_key,
+        "make": make,
+        "model": model,
+        "colour": colour,
+        "year": year,
+        "fuel_type": fuel_type,
+        "mot_status": mot_status,
+        "mot_expiry_date": mot_expiry_date,
+        "service": service_label(
+            service_key
+        ),
         "service_key": service_key,
+        "price": service_price(
+            service_key
+        ),
         "start": start.isoformat(),
-        "end": end.isoformat() if end else None,
+        "end": (
+            end.isoformat()
+            if end
+            else None
+        ),
         "status": status.lower(),
-        "calendar_link": normalise_text(event.get("htmlLink")),
-        "created_at": normalise_text(event.get("created")),
-        "updated_at": normalise_text(event.get("updated")),
+        "notes": normalise_text(
+            event.get("description")
+        ),
+        "calendar_link": normalise_text(
+            event.get("htmlLink")
+        ),
+        "created_at": normalise_text(
+            event.get("created")
+        ),
+        "updated_at": normalise_text(
+            event.get("updated")
+        ),
     }
 
 
@@ -393,12 +588,16 @@ def fetch_calendar_events(
             .execute()
         )
 
-        page_events = response.get("items") or []
+        page_events = (
+            response.get("items") or []
+        )
 
         if isinstance(page_events, list):
             events.extend(page_events)
 
-        page_token = response.get("nextPageToken")
+        page_token = response.get(
+            "nextPageToken"
+        )
 
         if not page_token:
             break
@@ -406,11 +605,28 @@ def fetch_calendar_events(
     return events
 
 
-def load_bookings() -> tuple[list[dict[str, Any]], str | None]:
+def load_bookings() -> tuple[
+    list[dict[str, Any]],
+    str | None,
+]:
     now = datetime.now(TIMEZONE)
 
+    history_days = int(
+        os.getenv(
+            "DASHBOARD_HISTORY_DAYS",
+            "730",
+        )
+    )
+
+    future_days = int(
+        os.getenv(
+            "DASHBOARD_FUTURE_DAYS",
+            "365",
+        )
+    )
+
     range_start = (
-        now - timedelta(days=7)
+        now - timedelta(days=history_days)
     ).replace(
         hour=0,
         minute=0,
@@ -419,7 +635,7 @@ def load_bookings() -> tuple[list[dict[str, Any]], str | None]:
     )
 
     range_end = (
-        now + timedelta(days=90)
+        now + timedelta(days=future_days)
     ).replace(
         hour=23,
         minute=59,
@@ -433,7 +649,9 @@ def load_bookings() -> tuple[list[dict[str, Any]], str | None]:
             range_end,
         )
 
-        bookings = []
+        bookings: list[
+            dict[str, Any]
+        ] = []
 
         for event in raw_events:
             booking = event_to_booking(event)
@@ -442,7 +660,9 @@ def load_bookings() -> tuple[list[dict[str, Any]], str | None]:
                 bookings.append(booking)
 
         bookings.sort(
-            key=lambda item: item.get("start") or ""
+            key=lambda item: (
+                item.get("start") or ""
+            )
         )
 
         return bookings, None
@@ -456,8 +676,12 @@ def load_bookings() -> tuple[list[dict[str, Any]], str | None]:
         return [], str(error)
 
 
-def parse_booking_start(booking: dict[str, Any]) -> datetime | None:
-    value = normalise_text(booking.get("start"))
+def parse_booking_start(
+    booking: dict[str, Any],
+) -> datetime | None:
+    value = normalise_text(
+        booking.get("start")
+    )
 
     if not value:
         return None
@@ -468,12 +692,39 @@ def parse_booking_start(booking: dict[str, Any]) -> datetime | None:
         )
 
         if parsed.tzinfo is None:
-            parsed = parsed.replace(tzinfo=TIMEZONE)
+            parsed = parsed.replace(
+                tzinfo=TIMEZONE
+            )
 
-        return parsed.astimezone(TIMEZONE)
+        return parsed.astimezone(
+            TIMEZONE
+        )
 
     except ValueError:
         return None
+
+
+def is_cancelled(
+    booking: dict[str, Any],
+) -> bool:
+    return "cancel" in normalise_text(
+        booking.get("status")
+    ).lower()
+
+
+def booking_value(
+    booking: dict[str, Any],
+) -> float:
+    try:
+        return float(
+            booking.get("price")
+            or service_price(
+                booking.get("service_key")
+                or booking.get("service")
+            )
+        )
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def booking_activity(
@@ -485,21 +736,28 @@ def booking_activity(
     activity = []
 
     for offset in range(6, -1, -1):
-        target_date = today - timedelta(days=offset)
+        target_date = (
+            today - timedelta(days=offset)
+        )
 
         count = sum(
             1
             for booking in bookings
             if (
                 parse_booking_start(booking)
-                and parse_booking_start(booking).date()
+                and parse_booking_start(
+                    booking
+                ).date()
                 == target_date
+                and not is_cancelled(booking)
             )
         )
 
         activity.append(
             {
-                "date": target_date.isoformat(),
+                "date": (
+                    target_date.isoformat()
+                ),
                 "count": count,
             }
         )
@@ -511,14 +769,23 @@ def service_performance(
     bookings: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
     now = datetime.now(TIMEZONE)
-    thirty_days_ago = now - timedelta(days=30)
+
+    thirty_days_ago = (
+        now - timedelta(days=30)
+    )
 
     counter: Counter[str] = Counter()
 
     for booking in bookings:
-        start = parse_booking_start(booking)
+        start = parse_booking_start(
+            booking
+        )
 
-        if not start or start < thirty_days_ago:
+        if (
+            not start
+            or start < thirty_days_ago
+            or is_cancelled(booking)
+        ):
             continue
 
         service_key = normalise_service(
@@ -530,105 +797,354 @@ def service_performance(
 
     performance = []
 
-    configured_service_keys = enabled_service_keys()
+    configured_service_keys = (
+        enabled_service_keys()
+    )
 
     for service in BUSINESS.enabled_services():
         performance.append(
             {
                 "name": service.name,
-                "bookings": counter.get(service.key, 0),
+                "bookings": counter.get(
+                    service.key,
+                    0,
+                ),
             }
         )
 
     extra_services = sorted(
         service_key
         for service_key in counter
-        if service_key not in configured_service_keys
+        if service_key
+        not in configured_service_keys
     )
 
     for service_key in extra_services:
         performance.append(
             {
-                "name": service_label(service_key),
-                "bookings": counter[service_key],
+                "name": service_label(
+                    service_key
+                ),
+                "bookings": counter[
+                    service_key
+                ],
             }
         )
 
     return performance
 
 
-def estimated_monthly_revenue(
+def revenue_summary(
     bookings: list[dict[str, Any]],
-) -> float:
+) -> dict[str, Any]:
     now = datetime.now(TIMEZONE)
-
-    total = 0.0
-
-    for booking in bookings:
-        start = parse_booking_start(booking)
-
-        if not start:
-            continue
-
-        if (
-            start.year != now.year
-            or start.month != now.month
-        ):
-            continue
-
-        if normalise_text(
-            booking.get("status")
-        ).lower() == "cancelled":
-            continue
-
-        total += service_price(
-            booking.get("service_key")
-            or booking.get("service")
+    today = now.date()
+    week_start = (
+        today
+        - timedelta(
+            days=today.weekday()
         )
+    )
 
-    return round(total, 2)
+    year_start = datetime(
+        now.year,
+        1,
+        1,
+        tzinfo=TIMEZONE,
+    )
 
+    active = [
+        booking
+        for booking in bookings
+        if not is_cancelled(booking)
+    ]
 
-def unique_customer_count(
-    bookings: list[dict[str, Any]],
-) -> int:
-    customer_keys: set[str] = set()
+    def total_for(
+        predicate,
+    ) -> float:
+        total = 0.0
 
-    for booking in bookings:
-        phone = normalise_phone(booking.get("phone"))
-
-        if phone:
-            customer_keys.add(f"phone:{phone}")
-            continue
-
-        customer_name = normalise_text(
-            booking.get("customer_name")
-        ).lower()
-
-        vehicle_reg = normalise_text(
-            booking.get("vehicle_reg")
-        ).replace(" ", "").upper()
-
-        if customer_name or vehicle_reg:
-            customer_keys.add(
-                f"name:{customer_name}|reg:{vehicle_reg}"
+        for booking in active:
+            start = parse_booking_start(
+                booking
             )
 
-    return len(customer_keys)
+            if (
+                start
+                and predicate(start)
+            ):
+                total += booking_value(
+                    booking
+                )
+
+        return round(total, 2)
+
+    today_total = total_for(
+        lambda value: (
+            value.date() == today
+        )
+    )
+
+    week_total = total_for(
+        lambda value: (
+            week_start
+            <= value.date()
+            <= today
+        )
+    )
+
+    month_total = total_for(
+        lambda value: (
+            value.year == now.year
+            and value.month == now.month
+        )
+    )
+
+    year_total = total_for(
+        lambda value: (
+            value >= year_start
+            and value <= now
+        )
+    )
+
+    lifetime_total = round(
+        sum(
+            booking_value(booking)
+            for booking in active
+            if (
+                parse_booking_start(
+                    booking
+                )
+                and parse_booking_start(
+                    booking
+                )
+                <= now
+            )
+        ),
+        2,
+    )
+
+    completed_count = sum(
+        1
+        for booking in active
+        if (
+            parse_booking_start(
+                booking
+            )
+            and parse_booking_start(
+                booking
+            )
+            <= now
+        )
+    )
+
+    future_pipeline = round(
+        sum(
+            booking_value(booking)
+            for booking in active
+            if (
+                parse_booking_start(
+                    booking
+                )
+                and parse_booking_start(
+                    booking
+                )
+                > now
+            )
+        ),
+        2,
+    )
+
+    monthly_breakdown = []
+
+    for month_offset in range(5, -1, -1):
+        target_month = (
+            now.month - month_offset
+        )
+
+        target_year = now.year
+
+        while target_month <= 0:
+            target_month += 12
+            target_year -= 1
+
+        total = total_for(
+            lambda value,
+            target_year=target_year,
+            target_month=target_month: (
+                value.year == target_year
+                and value.month == target_month
+            )
+        )
+
+        label = datetime(
+            target_year,
+            target_month,
+            1,
+            tzinfo=TIMEZONE,
+        ).strftime("%b")
+
+        monthly_breakdown.append(
+            {
+                "year": target_year,
+                "month": target_month,
+                "label": label,
+                "revenue": total,
+            }
+        )
+
+    return {
+        "today": today_total,
+        "this_week": week_total,
+        "this_month": month_total,
+        "this_year": year_total,
+        "lifetime": lifetime_total,
+        "future_pipeline": future_pipeline,
+        "average_booking_value": round(
+            (
+                lifetime_total
+                / completed_count
+            )
+            if completed_count
+            else 0.0,
+            2,
+        ),
+        "completed_booking_count": (
+            completed_count
+        ),
+        "monthly_breakdown": (
+            monthly_breakdown
+        ),
+    }
+
+
+def analytics_summary(
+    bookings: list[dict[str, Any]],
+    customers: list[dict[str, Any]],
+    vehicles: list[dict[str, Any]],
+) -> dict[str, Any]:
+    total_bookings = len(bookings)
+
+    cancelled = sum(
+        1
+        for booking in bookings
+        if is_cancelled(booking)
+    )
+
+    active_bookings = (
+        total_bookings - cancelled
+    )
+
+    service_counter = Counter(
+        normalise_text(
+            booking.get("service")
+        )
+        for booking in bookings
+        if not is_cancelled(booking)
+    )
+
+    popular_service = (
+        service_counter.most_common(1)[0][0]
+        if service_counter
+        else ""
+    )
+
+    vehicle_visit_leader = max(
+        vehicles,
+        key=lambda vehicle: int(
+            vehicle.get(
+                "booking_count"
+            )
+            or 0
+        ),
+        default=None,
+    )
+
+    repeat_customers = sum(
+        1
+        for customer in customers
+        if int(
+            customer.get(
+                "completed_visit_count"
+            )
+            or 0
+        )
+        >= 2
+    )
+
+    return {
+        "total_bookings": total_bookings,
+        "active_bookings": active_bookings,
+        "cancelled_bookings": cancelled,
+        "cancellation_rate": round(
+            (
+                cancelled
+                / total_bookings
+                * 100
+            )
+            if total_bookings
+            else 0.0,
+            1,
+        ),
+        "total_customers": len(
+            customers
+        ),
+        "repeat_customers": (
+            repeat_customers
+        ),
+        "repeat_customer_rate": round(
+            (
+                repeat_customers
+                / len(customers)
+                * 100
+            )
+            if customers
+            else 0.0,
+            1,
+        ),
+        "total_vehicles": len(
+            vehicles
+        ),
+        "popular_service": (
+            popular_service
+        ),
+        "most_visited_vehicle": (
+            {
+                "registration": (
+                    vehicle_visit_leader.get(
+                        "registration"
+                    )
+                ),
+                "booking_count": int(
+                    vehicle_visit_leader.get(
+                        "booking_count"
+                    )
+                    or 0
+                ),
+            }
+            if vehicle_visit_leader
+            else None
+        ),
+    }
 
 
 def reminder_health() -> dict[str, Any]:
     default_result = {
         "enabled": True,
         "due": 0,
+        "waiting": 0,
         "sent_this_month": 0,
+        "failed": 0,
         "last_run": None,
         "status": "ready",
         "period": "this month",
+        "queue": [],
     }
 
     try:
-        from integrations.reminder_service import get_reminder_health
+        from integrations.reminder_service import (
+            get_reminder_health,
+        )
 
         health = get_reminder_health()
 
@@ -653,7 +1169,9 @@ def reminder_health() -> dict[str, Any]:
         }
 
     try:
-        from integrations.mot_reminders import get_reminder_summary
+        from integrations.mot_reminders import (
+            get_reminder_summary,
+        )
 
         summary = get_reminder_summary()
 
@@ -662,16 +1180,38 @@ def reminder_health() -> dict[str, Any]:
                 **default_result,
                 "due": int(
                     summary.get("due")
-                    or summary.get("reminders_due")
+                    or summary.get(
+                        "reminders_due"
+                    )
+                    or 0
+                ),
+                "waiting": int(
+                    summary.get("waiting")
+                    or summary.get("due")
                     or 0
                 ),
                 "sent_this_month": int(
-                    summary.get("sent_this_month")
+                    summary.get(
+                        "sent_this_month"
+                    )
                     or summary.get("sent")
                     or 0
                 ),
-                "last_run": summary.get("last_run"),
-                "status": summary.get("status") or "ready",
+                "failed": int(
+                    summary.get("failed")
+                    or 0
+                ),
+                "last_run": summary.get(
+                    "last_run"
+                ),
+                "status": (
+                    summary.get("status")
+                    or "ready"
+                ),
+                "queue": (
+                    summary.get("queue")
+                    or []
+                ),
             }
 
     except ImportError:
@@ -702,10 +1242,12 @@ def recent_ai_activity(
         reverse=True,
     )
 
-    for booking in recent_bookings[:6]:
+    for booking in recent_bookings[:10]:
         customer_name = (
             normalise_text(
-                booking.get("customer_name")
+                booking.get(
+                    "customer_name"
+                )
             )
             or "Customer"
         )
@@ -714,7 +1256,12 @@ def recent_ai_activity(
             normalise_text(
                 booking.get("service")
             )
-            or str(BUSINESS.metadata.get("booking_label") or "appointment").lower()
+            or str(
+                BUSINESS.metadata.get(
+                    "booking_label"
+                )
+                or "appointment"
+            ).lower()
         )
 
         vehicle_reg = normalise_text(
@@ -723,17 +1270,31 @@ def recent_ai_activity(
 
         detail_parts = [service]
 
-        if vehicle_reg and vehicle_reg != "—":
-            detail_parts.append(vehicle_reg)
+        if (
+            vehicle_reg
+            and vehicle_reg != "—"
+        ):
+            detail_parts.append(
+                vehicle_reg
+            )
 
         activity.append(
             {
                 "type": "booking",
-                "title": f"Booking recorded for {customer_name}",
-                "detail": " · ".join(detail_parts),
+                "title": (
+                    f"Booking recorded for "
+                    f"{customer_name}"
+                ),
+                "detail": " · ".join(
+                    detail_parts
+                ),
                 "created_at": (
-                    booking.get("created_at")
-                    or booking.get("updated_at")
+                    booking.get(
+                        "created_at"
+                    )
+                    or booking.get(
+                        "updated_at"
+                    )
                     or booking.get("start")
                 ),
             }
@@ -754,8 +1315,12 @@ def system_health(
     dvla_status = (
         "connected"
         if (
-            not BUSINESS.feature_enabled("dvla")
-            or normalise_text(os.getenv("DVLA_API_KEY"))
+            not BUSINESS.feature_enabled(
+                "dvla"
+            )
+            or normalise_text(
+                os.getenv("DVLA_API_KEY")
+            )
         )
         else "not configured"
     )
@@ -763,9 +1328,17 @@ def system_health(
     vapi_status = (
         "connected"
         if (
-            not BUSINESS.feature_enabled("voice_agent")
-            or normalise_text(os.getenv("VAPI_API_KEY"))
-            or normalise_text(os.getenv("VAPI_PRIVATE_KEY"))
+            not BUSINESS.feature_enabled(
+                "voice_agent"
+            )
+            or normalise_text(
+                os.getenv("VAPI_API_KEY")
+            )
+            or normalise_text(
+                os.getenv(
+                    "VAPI_PRIVATE_KEY"
+                )
+            )
         )
         else "not configured"
     )
@@ -789,26 +1362,68 @@ def build_dashboard_data() -> dict[str, Any]:
     now = datetime.now(TIMEZONE)
     today = now.date()
 
-    bookings, calendar_error = load_bookings()
+    bookings, calendar_error = (
+        load_bookings()
+    )
 
     today_bookings = []
 
     upcoming_bookings = []
 
     for booking in bookings:
-        start = parse_booking_start(booking)
+        start = parse_booking_start(
+            booking
+        )
 
         if not start:
             continue
 
-        if start.date() == today:
-            today_bookings.append(booking)
+        if (
+            start.date() == today
+            and not is_cancelled(booking)
+        ):
+            today_bookings.append(
+                booking
+            )
 
-        if start >= now:
-            upcoming_bookings.append(booking)
+        if (
+            start >= now
+            and not is_cancelled(booking)
+        ):
+            upcoming_bookings.append(
+                booking
+            )
 
     upcoming_bookings.sort(
-        key=lambda item: item.get("start") or ""
+        key=lambda item: (
+            item.get("start") or ""
+        )
+    )
+
+    customers = build_customer_records(
+        bookings,
+        now=now,
+        service_price_resolver=service_price,
+    )
+
+    vehicles = build_vehicle_records(
+        bookings,
+        now=now,
+        service_price_resolver=service_price,
+    )
+
+    customer_totals = customer_summary(
+        customers
+    )
+
+    revenue = revenue_summary(
+        bookings
+    )
+
+    analytics = analytics_summary(
+        bookings,
+        customers,
+        vehicles,
     )
 
     reminders = reminder_health()
@@ -822,55 +1437,115 @@ def build_dashboard_data() -> dict[str, Any]:
     return {
         "business": BUSINESS.to_dict(),
         "ui": {
-            "dashboard_title": BUSINESS.metadata.get(
-                "dashboard_title",
-                f"{BUSINESS.business_name} Dashboard",
+            "dashboard_title": (
+                BUSINESS.metadata.get(
+                    "dashboard_title",
+                    (
+                        f"{BUSINESS.business_name} "
+                        "Dashboard"
+                    ),
+                )
             ),
-            "booking_label": BUSINESS.metadata.get(
-                "booking_label",
-                "Appointment",
+            "booking_label": (
+                BUSINESS.metadata.get(
+                    "booking_label",
+                    "Appointment",
+                )
             ),
-            "customer_label": BUSINESS.metadata.get(
-                "customer_label",
-                "Customer",
+            "customer_label": (
+                BUSINESS.metadata.get(
+                    "customer_label",
+                    "Customer",
+                )
             ),
-            "vehicle_label": BUSINESS.metadata.get(
-                "vehicle_label",
-                "Vehicle",
+            "vehicle_label": (
+                BUSINESS.metadata.get(
+                    "vehicle_label",
+                    "Vehicle",
+                )
             ),
-            "currency_symbol": BUSINESS.currency_symbol,
+            "currency_symbol": (
+                BUSINESS.currency_symbol
+            ),
         },
         "summary": {
-            "today_bookings": len(today_bookings),
-            "upcoming_bookings": len(upcoming_bookings),
+            "today_bookings": len(
+                today_bookings
+            ),
+            "upcoming_bookings": len(
+                upcoming_bookings
+            ),
             "reminders_due": int(
                 reminders.get("due") or 0
             ),
-            "estimated_revenue": estimated_monthly_revenue(
-                bookings
+            "estimated_revenue": (
+                revenue["this_month"]
             ),
-            "total_customers": unique_customer_count(
-                bookings
+            "total_customers": len(
+                customers
+            ),
+            "total_vehicles": len(
+                vehicles
+            ),
+            "repeat_customers": (
+                customer_totals[
+                    "repeat_customers"
+                ]
+            ),
+            "revenue_period": (
+                "This month"
             ),
         },
-        "next_appointment": next_appointment,
-        "booking_activity": booking_activity(bookings),
-        "service_performance": service_performance(bookings),
-        "upcoming_appointments": upcoming_bookings[:20],
+        "next_appointment": (
+            next_appointment
+        ),
+        "booking_activity": (
+            booking_activity(bookings)
+        ),
+        "service_performance": (
+            service_performance(bookings)
+        ),
+        "upcoming_appointments": (
+            upcoming_bookings[:100]
+        ),
+        "customers": customers,
+        "vehicles": vehicles,
+        "customer_summary": (
+            customer_totals
+        ),
+        "revenue": revenue,
+        "analytics": analytics,
         "reminders": reminders,
-        "ai_activity": recent_ai_activity(bookings),
-        "systems": system_health(calendar_error),
+        "ai_activity": (
+            recent_ai_activity(bookings)
+        ),
+        "systems": (
+            system_health(calendar_error)
+        ),
         "meta": {
-            "generated_at": now.isoformat(),
+            "generated_at": (
+                now.isoformat()
+            ),
             "timezone": TIMEZONE_NAME,
-            "business_id": BUSINESS.business_id,
-            "business_type": BUSINESS.business_type,
-            "calendar_error": calendar_error,
+            "business_id": (
+                BUSINESS.business_id
+            ),
+            "business_type": (
+                BUSINESS.business_type
+            ),
+            "calendar_error": (
+                calendar_error
+            ),
+            "history_booking_count": len(
+                bookings
+            ),
         },
     }
 
 
-@dashboard_api.get("/api/dashboard-data")
+@dashboard_api.get(
+    "/api/dashboard-data"
+)
 @dashboard_api_login_required
 def dashboard_data():
     try:
@@ -893,47 +1568,61 @@ def dashboard_data():
             jsonify(
                 {
                     "success": False,
-                    "error": "dashboard_data_failed",
+                    "error": (
+                        "dashboard_data_failed"
+                    ),
                     "message": str(error),
                 }
             ),
             500,
         )
 
-@dashboard_api.get("/api/business")
+
+@dashboard_api.get(
+    "/api/business"
+)
 @dashboard_api_login_required
 def dashboard_business():
-    """
-    Returns the active TrimTech business configuration.
-    """
-
     return jsonify(
         {
             "success": True,
             "business": BUSINESS.to_dict(),
             "ui": {
-                "dashboard_title": BUSINESS.metadata.get(
-                    "dashboard_title",
-                    BUSINESS.business_name,
+                "dashboard_title": (
+                    BUSINESS.metadata.get(
+                        "dashboard_title",
+                        BUSINESS.business_name,
+                    )
                 ),
-                "booking_label": BUSINESS.metadata.get(
-                    "booking_label",
-                    "Appointment",
+                "booking_label": (
+                    BUSINESS.metadata.get(
+                        "booking_label",
+                        "Appointment",
+                    )
                 ),
-                "customer_label": BUSINESS.metadata.get(
-                    "customer_label",
-                    "Customer",
+                "customer_label": (
+                    BUSINESS.metadata.get(
+                        "customer_label",
+                        "Customer",
+                    )
                 ),
-                "vehicle_label": BUSINESS.metadata.get(
-                    "vehicle_label",
-                    "Vehicle",
+                "vehicle_label": (
+                    BUSINESS.metadata.get(
+                        "vehicle_label",
+                        "Vehicle",
+                    )
                 ),
-                "currency_symbol": BUSINESS.currency_symbol,
+                "currency_symbol": (
+                    BUSINESS.currency_symbol
+                ),
             },
         }
     )
 
-@dashboard_api.get("/api/dashboard-health")
+
+@dashboard_api.get(
+    "/api/dashboard-health"
+)
 @dashboard_api_login_required
 def dashboard_health():
     calendar_id = get_calendar_id()
@@ -941,30 +1630,41 @@ def dashboard_health():
     return jsonify(
         {
             "success": True,
-            "service": f"{BUSINESS.business_name} Dashboard",
-            "business_id": BUSINESS.business_id,
-            "business_type": BUSINESS.business_type,
+            "service": (
+                f"{BUSINESS.business_name} "
+                "Dashboard"
+            ),
+            "business_id": (
+                BUSINESS.business_id
+            ),
+            "business_type": (
+                BUSINESS.business_type
+            ),
             "status": "online",
             "timezone": TIMEZONE_NAME,
-            "calendar_configured": bool(calendar_id),
-            "generated_at": datetime.now(
-                TIMEZONE
-            ).isoformat(),
+            "calendar_configured": bool(
+                calendar_id
+            ),
+            "generated_at": (
+                datetime.now(
+                    TIMEZONE
+                ).isoformat()
+            ),
         }
     )
 
-@dashboard_api.post("/api/run-reminders")
+
+@dashboard_api.post(
+    "/api/run-reminders"
+)
 @dashboard_api_login_required
 def dashboard_run_reminders():
-    """
-    Allow a logged-in garage owner to run the existing reminder job
-    without exposing REMINDER_CRON_SECRET to browser JavaScript.
-
-    The protected /internal/run-reminders endpoint remains available
-    for the automatic external scheduler.
-    """
     result = run_reminder_job()
 
-    status_code = 200 if result.get("success") else 500
+    status_code = (
+        200
+        if result.get("success")
+        else 500
+    )
 
     return jsonify(result), status_code
