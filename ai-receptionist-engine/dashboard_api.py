@@ -23,9 +23,10 @@ from zoneinfo import ZoneInfo
 from flask import Blueprint, jsonify
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from trimtech.modules.reminders.service import get_reminder_health
 
 from dashboard_auth import dashboard_api_login_required
-from integrations.reminder_scheduler import run_reminder_job
+from trimtech.integrations.reminder_scheduler import process_reminders
 from trimtech.core.registry import get_active_business
 from trimtech.modules.crm.customer_service import (
     build_customer_records,
@@ -1142,9 +1143,16 @@ def reminder_health() -> dict[str, Any]:
     }
 
     try:
-        from integrations.reminder_service import (
-            get_reminder_health,
-        )
+        health = get_reminder_health()
+
+        if isinstance(health, dict):
+            return {
+               **default_result,
+               **health,
+            }
+
+    except ImportError:
+        pass
 
         health = get_reminder_health()
 
@@ -1168,52 +1176,7 @@ def reminder_health() -> dict[str, Any]:
             "status": "error",
         }
 
-    try:
-        from integrations.mot_reminders import (
-            get_reminder_summary,
-        )
-
-        summary = get_reminder_summary()
-
-        if isinstance(summary, dict):
-            return {
-                **default_result,
-                "due": int(
-                    summary.get("due")
-                    or summary.get(
-                        "reminders_due"
-                    )
-                    or 0
-                ),
-                "waiting": int(
-                    summary.get("waiting")
-                    or summary.get("due")
-                    or 0
-                ),
-                "sent_this_month": int(
-                    summary.get(
-                        "sent_this_month"
-                    )
-                    or summary.get("sent")
-                    or 0
-                ),
-                "failed": int(
-                    summary.get("failed")
-                    or 0
-                ),
-                "last_run": summary.get(
-                    "last_run"
-                ),
-                "status": (
-                    summary.get("status")
-                    or "ready"
-                ),
-                "queue": (
-                    summary.get("queue")
-                    or []
-                ),
-            }
-
+    
     except ImportError:
         pass
 
@@ -1659,7 +1622,7 @@ def dashboard_health():
 )
 @dashboard_api_login_required
 def dashboard_run_reminders():
-    result = run_reminder_job()
+    result = process_reminders()
 
     status_code = (
         200
