@@ -2259,3 +2259,481 @@ body.modal-open {
         grid-template-columns: 1fr;
     }
 }
+
+/* =========================================================
+   27. DASHBOARD V1.2 BUSINESS CENTRES
+   Vehicle Centre, Revenue Centre, history and system polish.
+   ========================================================= */
+
+.vehicle-directory {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
+    padding: 20px;
+}
+
+.vehicle-directory-card {
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+    padding: 16px;
+    border: 1px solid var(--border);
+    border-radius: 15px;
+    background: var(--surface);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    box-shadow: var(--shadow-small);
+    transition:
+        transform var(--transition),
+        border-color var(--transition),
+        box-shadow var(--transition);
+}
+
+.vehicle-directory-card:hover {
+    border-color: var(--primary-light);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-medium);
+}
+
+.vehicle-directory-icon {
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: var(--primary-soft);
+    font-size: 20px;
+}
+
+.vehicle-directory-copy {
+    min-width: 0;
+    flex: 1;
+    display: grid;
+    gap: 4px;
+}
+
+.vehicle-directory-copy span,
+.vehicle-directory-copy small {
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.45;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.vehicle-directory-registration {
+    display: inline-flex;
+    width: fit-content;
+    padding: 4px 8px;
+    border: 1px solid #111827;
+    border-radius: 5px;
+    background: #facc15;
+    color: #111827;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+}
+
+.vehicle-directory-arrow {
+    flex-shrink: 0;
+    align-self: center;
+    color: var(--text-muted);
+    font-size: 22px;
+}
+
+.vehicle-drawer-hero,
+.drawer-profile-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 18px;
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+    box-shadow: var(--shadow-small);
+}
+
+.vehicle-drawer-icon,
+.drawer-profile-avatar {
+    width: 52px;
+    height: 52px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 15px;
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-size: 22px;
+    font-weight: 900;
+}
+
+.vehicle-drawer-hero h3,
+.drawer-profile-header h3 {
+    margin-top: 6px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 850;
+}
+
+.vehicle-drawer-hero p,
+.drawer-profile-header p {
+    margin-top: 3px;
+    color: var(--text-secondary);
+    font-size: 12px;
+}
+
+.drawer-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+}
+
+.drawer-detail-card {
+    min-width: 0;
+    padding: 14px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--surface);
+}
+
+.drawer-detail-card span {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.drawer-detail-card strong {
+    display: block;
+    margin-top: 6px;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+.drawer-section {
+    margin-top: 20px;
+}
+
+.drawer-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 11px;
+}
+
+.drawer-section-header h4 {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 850;
+}
+
+.drawer-section-header span {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.drawer-list-button,
+.drawer-history-item {
+    width: 100%;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 10px;
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 13px;
+    background: var(--surface);
+}
+
+.drawer-list-button {
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    transition:
+        border-color var(--transition),
+        transform var(--transition);
+}
+
+.drawer-list-button:hover {
+    border-color: var(--primary-light);
+    transform: translateX(2px);
+}
+
+.drawer-list-icon,
+.drawer-history-icon,
+.reminder-queue-icon {
+    width: 38px;
+    height: 38px;
+    flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: var(--surface-soft);
+    font-size: 17px;
+}
+
+.drawer-list-copy,
+.drawer-history-copy,
+.reminder-queue-copy {
+    min-width: 0;
+    flex: 1;
+}
+
+.drawer-list-copy {
+    display: grid;
+    gap: 4px;
+}
+
+.drawer-list-copy small,
+.drawer-history-copy p,
+.drawer-history-copy small,
+.reminder-queue-copy span,
+.reminder-queue-copy small {
+    color: var(--text-secondary);
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.drawer-list-arrow {
+    align-self: center;
+    color: var(--text-muted);
+    font-size: 20px;
+}
+
+.drawer-history-heading,
+.reminder-queue-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.drawer-note {
+    margin-top: 14px;
+    padding: 13px 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface-soft);
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.55;
+}
+
+.reminder-queue-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.reminder-centre-detail-grid {
+    margin-bottom: 14px;
+}
+
+.revenue-centre-modal-card {
+    width: min(840px, 100%);
+}
+
+.revenue-centre-summary {
+    display: grid;
+    grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.4fr);
+    gap: 16px;
+}
+
+.revenue-centre-highlight {
+    min-height: 180px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 22px;
+    border-radius: 18px;
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(96, 165, 250, 0.36),
+            transparent 38%
+        ),
+        linear-gradient(
+            135deg,
+            #0f172a,
+            #1e3a8a
+        );
+    color: #ffffff;
+}
+
+.revenue-centre-highlight span {
+    color: #bfdbfe;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.revenue-centre-highlight strong {
+    margin-top: 10px;
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+}
+
+.revenue-centre-highlight small {
+    margin-top: 8px;
+    color: #cbd5e1;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.revenue-centre-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 11px;
+}
+
+.revenue-centre-stat {
+    padding: 15px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+}
+
+.revenue-centre-stat span {
+    display: block;
+    color: var(--text-secondary);
+    font-size: 11px;
+}
+
+.revenue-centre-stat strong {
+    display: block;
+    margin-top: 7px;
+    color: var(--text);
+    font-size: 18px;
+    font-weight: 850;
+}
+
+.revenue-month-list {
+    display: grid;
+    gap: 12px;
+}
+
+.revenue-month-row {
+    display: grid;
+    grid-template-columns: 52px minmax(0, 1fr) 92px;
+    align-items: center;
+    gap: 11px;
+}
+
+.revenue-month-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+}
+
+.revenue-month-track {
+    height: 9px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--border);
+}
+
+.revenue-month-bar {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(
+        90deg,
+        var(--primary),
+        var(--purple)
+    );
+}
+
+.revenue-month-row strong {
+    color: var(--text);
+    font-size: 12px;
+    text-align: right;
+}
+
+.system-generated-at {
+    margin-top: 16px;
+    color: var(--text-secondary);
+    font-size: 11px;
+    text-align: right;
+}
+
+.status-pulse.warning,
+.status-pulse-warning {
+    background: #f59e0b;
+    box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.14);
+}
+
+.status-pulse-danger {
+    background: #ef4444;
+    box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.14);
+}
+
+@media (max-width: 1100px) {
+    .vehicle-directory {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .vehicle-directory {
+        grid-template-columns: 1fr;
+        padding: 16px;
+    }
+
+    .drawer-detail-grid,
+    .revenue-centre-stat-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .revenue-centre-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .revenue-month-row {
+        grid-template-columns: 42px minmax(0, 1fr);
+    }
+
+    .revenue-month-row strong {
+        grid-column: 2;
+        text-align: left;
+    }
+}
+
+.system-health-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.system-health-grid .quick-action {
+    min-width: 0;
+}
+
+.system-health-grid .quick-action h4,
+.system-health-grid .quick-action p {
+    overflow-wrap: normal;
+    word-break: normal;
+}
+
+@media (max-width: 1150px) {
+    .system-health-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .system-health-grid {
+        grid-template-columns: 1fr;
+    }
+}

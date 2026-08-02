@@ -85,6 +85,17 @@
 
                     <li>
                         <a
+                            href="#vehicles"
+                            class="navigation-link"
+                            data-navigation-link
+                        >
+                            <span class="navigation-icon">🚗</span>
+                            <span>Vehicles</span>
+                        </a>
+                    </li>
+                   
+                    <li>
+                        <a
                             href="#reminders"
                             class="navigation-link"
                             data-navigation-link
@@ -962,6 +973,82 @@
                         </div>
                     </div>
                 </section>
+                
+                <section
+                    id="vehicles"
+                    class="panel"
+                    style="margin-bottom: 24px;"
+>
+                <header class="panel-header">
+                    <div class="panel-title">
+                        <h3>Vehicle Centre</h3>
+                        <p>
+                            One profile per registration with complete
+                            garage history
+                        </p>
+                    </div>
+
+                    <span
+                        id="totalVehiclesLabel"
+                        class="panel-action"
+                    >
+                        0 vehicles
+                    </span>
+                </header>
+
+                <div class="panel-body">
+                    <div class="crm-toolbar">
+                        <div>
+                            <h4 class="crm-heading">
+                               Vehicle profiles
+                            </h4>
+
+                            <p class="crm-subheading">
+                                Search by registration, owner, make or model
+                                to view service history and MOT information.
+                            </p>
+                        </div>
+
+                        <div class="crm-toolbar-actions">
+                            <label
+                                class="sr-only"
+                                for="vehicleSearchInput"
+                            >
+                                Search vehicles
+                            </label>
+
+                            <input
+                                id="vehicleSearchInput"
+                                class="crm-search-input"
+                                type="search"
+                                placeholder="Search registration, owner, make or model"
+                                autocomplete="off"
+                            >
+                        </div>
+                    </div>
+
+                    <div
+                        id="vehicleDirectory"
+                        class="vehicle-directory"
+                        aria-live="polite"
+                    >
+                        <div class="empty-state compact">
+                            <div class="empty-state-icon">
+                                🚗
+                            </div>
+
+                            <h4>
+                                Vehicle profiles are ready
+                            </h4>
+
+                            <p>
+                               Grouped registrations will appear after the
+                               live dashboard data loads.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
                 <section id="system-health" class="panel">
                     <header class="panel-header">
@@ -979,7 +1066,7 @@
                     </header>
 
                     <div class="panel-body">
-                        <div class="quick-actions">
+                        <div class="quick-actions system-health-grid"></div>
                             <div class="quick-action">
                                 <span class="quick-action-icon">📞</span>
                                 <span>
@@ -1012,6 +1099,78 @@
 
                             <div class="quick-action">
                                 <span class="quick-action-icon">🧠</span>
+                            
+                            <div class="quick-actions system-health-grid"></div>
+
+                                <div class="quick-action">
+                                   <span class="quick-action-icon">📞</span>
+
+                                <span>
+                                    <h4>Vapi voice agent</h4>
+
+                                    <p id="vapiConnectionStatus">
+                                        Ready for inbound calls
+                                    </p>
+                                </span>
+                             </div>
+
+                            <div class="quick-action">
+                                <span class="quick-action-icon">📅</span>
+
+                                <span>
+                                    <h4>Google Calendar</h4>
+
+                                    <p id="calendarConnectionStatus">
+                                        Booking calendar connected
+                                    </p>
+                                </span>
+                            </div>
+
+                            <div class="quick-action">
+                                <span class="quick-action-icon">🚘</span>
+
+                                <span>
+                                    <h4>DVLA lookup</h4>
+
+                                    <p id="dvlaConnectionStatus">
+                                        Vehicle lookup available
+                                    </p>
+                                </span>
+                            </div>
+
+                            <div class="quick-action">
+                                <span class="quick-action-icon">🔔</span>
+
+                                <span>
+                                    <h4>Reminder scheduler</h4>
+
+                                    <p id="reminderConnectionStatus">
+                                       Reminder scheduler ready
+                                </p>
+                            </span>
+                        </div>
+
+                        <div class="quick-action">
+                             <span class="quick-action-icon">🧠</span>
+
+                            <span>
+                                <h4>Garage AI backend</h4>
+
+                                <p id="backendConnectionStatus">
+                                   Flask service online
+                                </p>
+                            </span>
+                        </div>
+
+                    </div>
+
+                    <p
+                        id="systemGeneratedAt"
+                        class="system-generated-at"
+                    >
+                        Waiting for dashboard update time
+                    </p>
+                                    
                                 <span>
                                     <h4>Garage AI backend</h4>
                                     <p id="backendConnectionStatus">

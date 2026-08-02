@@ -101,10 +101,14 @@ const dashboardState = {
     data: getDefaultDashboardData(),
     loading: false,
     remindersRunning: false,
+   
     bookingQuery: "",
     bookingService: "",
     bookingStatus: "",
+   
     customerQuery: "",
+    vehicleQuery: "",
+
     selectedBooking: null,
     selectedCustomer: null,
     selectedVehicle: null
@@ -149,6 +153,9 @@ function loadElements() {
         "totalCustomersLabel",
         "customerSearchInput",
         "customerDirectory",
+        "totalVehiclesLabel",
+        "vehicleSearchInput",
+        "vehicleDirectory",
         "overallSystemStatus",
         "sidebarStatusPulse",
         "sidebarStatusText",
@@ -156,6 +163,7 @@ function loadElements() {
         "vapiConnectionStatus",
         "calendarConnectionStatus",
         "dvlaConnectionStatus",
+        "reminderConnectionStatus",
         "backendConnectionStatus",
         "toastContainer",
         "viewAllBookingsButton",
@@ -215,6 +223,14 @@ function normaliseDashboardData(raw) {
             : {};
 
     return {
+        business: {
+            ...(data.business || {})
+        },
+
+        ui: {
+            ...(data.ui || {})
+        },
+
         summary: {
             ...defaults.summary,
             ...(data.summary || {})
@@ -240,14 +256,43 @@ function normaliseDashboardData(raw) {
                 ? data.upcoming_appointments
                 : [],
 
+        booking_history:
+            Array.isArray(data.booking_history)
+                ? data.booking_history
+                : [],
+
         customers:
             Array.isArray(data.customers)
                 ? data.customers
                 : [],
 
+        vehicles:
+            Array.isArray(data.vehicles)
+                ? data.vehicles
+                : [],
+
+        customer_summary: {
+            ...(data.customer_summary || {})
+        },
+
+        revenue: {
+            ...(data.revenue || {})
+        },
+
+        analytics: {
+            ...(data.analytics || {})
+        },
+
         reminders: {
             ...defaults.reminders,
-            ...(data.reminders || {})
+            ...(data.reminders || {}),
+
+            queue:
+                Array.isArray(
+                    data.reminders?.queue
+                )
+                    ? data.reminders.queue
+                    : []
         },
 
         ai_activity:
@@ -258,6 +303,10 @@ function normaliseDashboardData(raw) {
         systems: {
             ...defaults.systems,
             ...(data.systems || {})
+        },
+
+        meta: {
+            ...(data.meta || {})
         }
     };
 }
@@ -378,6 +427,18 @@ function bindEvents() {
         }
     );
 
+    el.vehicleSearchInput?.addEventListener(
+        "input",
+        (event) => {
+            dashboardState.vehicleQuery =
+                event.target.value
+                    .trim()
+                    .toLowerCase();
+
+            renderVehicleDirectory();
+        }
+    );
+
     document
         .querySelectorAll("[data-close-drawer]")
         .forEach((button) => {
@@ -418,6 +479,7 @@ function bindEvents() {
                 closeMobileSidebar();
                 closeAllDrawers();
                 closeBookingModal();
+                closeRevenueCentre();
             }
         }
     );
@@ -548,9 +610,9 @@ function handleDashboardAction(action) {
         return scrollToSection("bookings");
     }
 
-    if (action === "revenue-report") {
-        return scrollToSection("reports");
-    }
+   if (action === "revenue-report") {
+    return openRevenueCentre();
+   }
 }
 
 function scrollToSection(id) {
@@ -751,6 +813,7 @@ function renderDashboard() {
     renderReminderHealth();
     renderAIActivity();
     renderCustomerDirectory();
+    renderVehicleDirectory();
     renderSystemHealth();
 }
 
@@ -1405,21 +1468,32 @@ function renderUpcomingAppointments() {
 
 function renderReminderHealth() {
     const reminders =
-        dashboardState.data.reminders;
+        dashboardState.data.reminders || {};
 
     const enabled =
         reminders.enabled !== false;
 
     const due =
         safeNumber(
-            reminders.due ??
-            reminders.waiting
+            reminders.due
+        );
+
+    const waiting =
+        safeNumber(
+            reminders.waiting ??
+            reminders.pending ??
+            due
         );
 
     const sent =
         safeNumber(
             reminders.sent_this_month ??
             reminders.sent
+        );
+
+    const failed =
+        safeNumber(
+            reminders.failed
         );
 
     const status =
@@ -1432,28 +1506,51 @@ function renderReminderHealth() {
             )
         ).toLowerCase();
 
+    const hasError =
+        status === "error" ||
+        status === "failed" ||
+        failed > 0;
+
+    const needsAttention =
+        enabled &&
+        (
+            due > 0 ||
+            waiting > 0 ||
+            hasError
+        );
+
     if (el.reminderSystemBadge) {
         el.reminderSystemBadge.textContent =
-            enabled
-                ? "Active"
-                : "Disabled";
+            !enabled
+                ? "Disabled"
+                : hasError
+                    ? "Attention"
+                    : "Active";
 
         el.reminderSystemBadge.className =
             `status-badge ${
-                enabled
-                    ? "confirmed"
-                    : "cancelled"
+                !enabled
+                    ? "cancelled"
+                    : hasError
+                        ? "pending"
+                        : "confirmed"
             }`;
     }
 
     setText(
         el.schedulerStatus,
-        capitalise(status)
+        !enabled
+            ? "Disabled"
+            : hasError
+                ? "Needs attention"
+                : status === "ready"
+                    ? "Ready"
+                    : capitalise(status)
     );
 
     setText(
         el.remindersWaitingValue,
-        formatNumber(due)
+        formatNumber(waiting)
     );
 
     setText(
@@ -1463,10 +1560,18 @@ function renderReminderHealth() {
 
     setText(
         el.remindersSentDetail,
-        `Successfully processed ${
-            reminders.period ||
-            "this month"
-        }`
+        failed > 0
+            ? `${formatNumber(
+                failed
+            )} failed reminder${
+                failed === 1
+                    ? ""
+                    : "s"
+            } need attention`
+            : `Successfully processed ${
+                reminders.period ||
+                "this month"
+            }`
     );
 
     const lastRun =
@@ -1480,8 +1585,42 @@ function renderReminderHealth() {
             ? `Last run ${formatRelativeTime(
                 lastRun
             )}`
-            : "No reminder run recorded yet"
+            : enabled
+                ? "No reminder run recorded yet"
+                : "Reminder scheduler is disabled"
     );
+
+    setText(
+        el.remindersDueMetric,
+        formatNumber(due)
+    );
+
+    setText(
+        el.navigationReminderCount,
+        formatNumber(due)
+    );
+
+    if (el.reminderMetricStatus) {
+        el.reminderMetricStatus.textContent =
+            !enabled
+                ? "Disabled"
+                : hasError
+                    ? "Check failures"
+                    : due > 0
+                        ? "Action needed"
+                        : waiting > 0
+                            ? "Scheduled"
+                            : "Up to date";
+
+        el.reminderMetricStatus.className =
+            `metric-change ${
+                !enabled || hasError
+                    ? "negative"
+                    : needsAttention
+                        ? "warning"
+                        : "positive"
+            }`;
+    }
 }
 
 function renderAIActivity() {
@@ -1592,12 +1731,115 @@ function renderAIActivity() {
 }
 
 function getCustomerRecords() {
-    if (
-        dashboardState.data
-            .customers.length
-    ) {
-        return dashboardState.data
-            .customers;
+    const apiCustomers =
+        Array.isArray(
+            dashboardState.data.customers
+        )
+            ? dashboardState.data.customers
+            : [];
+
+    if (apiCustomers.length) {
+        return apiCustomers.map(
+            (customer) => {
+                const bookings =
+                    Array.isArray(
+                        customer.bookings
+                    )
+                        ? customer.bookings
+                        : Array.isArray(
+                            customer.booking_history
+                        )
+                            ? customer.booking_history
+                            : Array.isArray(
+                                customer.appointments
+                            )
+                                ? customer.appointments
+                                : Array.isArray(
+                                    customer.service_history
+                                )
+                                    ? customer.service_history
+                                    : [];
+
+                const vehicles =
+                    Array.isArray(
+                        customer.vehicles
+                    )
+                        ? customer.vehicles
+                        : Array.isArray(
+                            customer.vehicle_profiles
+                        )
+                            ? customer.vehicle_profiles
+                            : [];
+
+                return {
+                    ...customer,
+
+                    name:
+                        customer.name ||
+                        customer.customer_name ||
+                        "Customer",
+
+                    customer_name:
+                        customer.customer_name ||
+                        customer.name ||
+                        "Customer",
+
+                    phone:
+                        customer.phone ||
+                        customer.customer_phone ||
+                        "",
+
+                    customer_phone:
+                        customer.customer_phone ||
+                        customer.phone ||
+                        "",
+
+                    email:
+                        customer.email ||
+                        customer.customer_email ||
+                        "",
+
+                    bookings,
+
+                    booking_history:
+                        bookings,
+
+                    vehicles,
+
+                    booking_count:
+                        safeNumber(
+                            customer.booking_count ??
+                            customer.total_bookings ??
+                            bookings.length
+                        ),
+
+                    completed_visit_count:
+                        safeNumber(
+                            customer.completed_visit_count ??
+                            customer.completed_bookings
+                        ),
+
+                    upcoming_booking_count:
+                        safeNumber(
+                            customer.upcoming_booking_count ??
+                            customer.upcoming_bookings
+                        ),
+
+                    cancelled_booking_count:
+                        safeNumber(
+                            customer.cancelled_booking_count ??
+                            customer.cancelled_bookings
+                        ),
+
+                    total_revenue:
+                        safeNumber(
+                            customer.total_revenue ??
+                            customer.lifetime_value ??
+                            customer.total_spent
+                        )
+                };
+            }
+        );
     }
 
     const customerMap =
@@ -1612,7 +1854,17 @@ function getCustomerRecords() {
                         booking
                     ),
 
+                customer_name:
+                    bookingCustomer(
+                        booking
+                    ),
+
                 phone:
+                    bookingPhone(
+                        booking
+                    ),
+
+                customer_phone:
                     bookingPhone(
                         booking
                     ),
@@ -1623,7 +1875,8 @@ function getCustomerRecords() {
                     "",
 
                 vehicles: [],
-                bookings: []
+                bookings: [],
+                booking_history: []
             };
 
             const key =
@@ -1638,6 +1891,9 @@ function getCustomerRecords() {
             current.bookings.push(
                 booking
             );
+
+            current.booking_history =
+                current.bookings;
 
             const registration =
                 bookingRegistration(
@@ -1659,9 +1915,14 @@ function getCustomerRecords() {
             ) {
                 current.vehicles.push({
                     ...booking,
-                    registration
+                    registration,
+                    vehicle_reg:
+                        registration
                 });
             }
+
+            current.booking_count =
+                current.bookings.length;
 
             customerMap.set(
                 key,
@@ -1699,16 +1960,40 @@ function renderCustomerDirectory() {
 
                 const haystack = [
                     customer.name,
+                    customer.customer_name,
                     customer.phone,
+                    customer.customer_phone,
                     customer.email,
+                    customer.customer_email,
                     ...vehicleRegistrations
                 ]
+                    .filter(Boolean)
                     .join(" ")
                     .toLowerCase();
 
                 return (
                     !query ||
                     haystack.includes(query)
+                );
+            })
+            .sort((first, second) => {
+                const firstDate =
+                    parseDate(
+                        first.last_booking_date ||
+                        first.last_visit ||
+                        first.updated_at
+                    );
+
+                const secondDate =
+                    parseDate(
+                        second.last_booking_date ||
+                        second.last_visit ||
+                        second.updated_at
+                    );
+
+                return (
+                    (secondDate?.getTime() || 0) -
+                    (firstDate?.getTime() || 0)
                 );
             });
 
@@ -1718,7 +2003,7 @@ function renderCustomerDirectory() {
                 "👥",
                 "No customers found",
                 query
-                    ? "Try a different customer or vehicle search."
+                    ? "Try a different customer, phone number or vehicle registration."
                     : "Customer profiles will appear after bookings are loaded.",
                 true
             );
@@ -1728,7 +2013,7 @@ function renderCustomerDirectory() {
 
     el.customerDirectory.innerHTML =
         customers
-            .slice(0, 12)
+            .slice(0, 18)
             .map((customer) => {
                 const name =
                     customer.name ||
@@ -1754,11 +2039,34 @@ function renderCustomerDirectory() {
                         ? customer.bookings
                         : [];
 
+                const bookingCount =
+                    safeNumber(
+                        customer.booking_count ??
+                        customer.total_bookings ??
+                        bookings.length
+                    );
+
+                const completedCount =
+                    safeNumber(
+                        customer.completed_visit_count ??
+                        customer.completed_bookings
+                    );
+
+                const upcomingCount =
+                    safeNumber(
+                        customer.upcoming_booking_count ??
+                        customer.upcoming_bookings
+                    );
+
+                const totalRevenue =
+                    safeNumber(
+                        customer.total_revenue ??
+                        customer.lifetime_value ??
+                        customer.total_spent
+                    );
+
                 const key =
-                    customerKey({
-                        name,
-                        phone
-                    });
+                    customerKey(customer);
 
                 return `
                     <button
@@ -1767,6 +2075,9 @@ function renderCustomerDirectory() {
                         data-customer-key="${escapeAttribute(
                             key
                         )}"
+                        aria-label="Open ${escapeAttribute(
+                            name
+                        )} customer profile"
                     >
                         <span class="customer-directory-avatar">
                             ${getCustomerInitials(
@@ -1784,19 +2095,42 @@ function renderCustomerDirectory() {
                             </small>
 
                             <span>
-                                ${vehicles.length}
+                                ${formatNumber(
+                                    vehicles.length
+                                )}
                                 vehicle${
                                     vehicles.length === 1
                                         ? ""
                                         : "s"
                                 }
                                 ·
-                                ${bookings.length}
+                                ${formatNumber(
+                                    bookingCount
+                                )}
                                 booking${
-                                    bookings.length === 1
+                                    bookingCount === 1
                                         ? ""
                                         : "s"
                                 }
+                            </span>
+
+                            <span>
+                                ${formatNumber(
+                                    completedCount
+                                )}
+                                completed
+                                ·
+                                ${formatNumber(
+                                    upcomingCount
+                                )}
+                                upcoming
+                            </span>
+
+                            <span>
+                                Lifetime value:
+                                ${formatCurrency(
+                                    totalRevenue
+                                )}
                             </span>
                         </span>
 
@@ -1809,24 +2143,337 @@ function renderCustomerDirectory() {
             .join("");
 }
 
+function renderVehicleDirectory() {
+    if (!el.vehicleDirectory) {
+        return;
+    }
+
+    const query =
+        dashboardState.vehicleQuery;
+
+    const vehicles =
+        (
+            Array.isArray(
+                dashboardState.data.vehicles
+            )
+                ? dashboardState.data.vehicles
+                : []
+        )
+            .filter((vehicle) => {
+                const registration =
+                    bookingRegistration(
+                        vehicle
+                    );
+
+                const owner =
+                    vehicle.customer_name ||
+                    vehicle.owner_name ||
+                    vehicle.name ||
+                    "";
+
+                const make =
+                    vehicle.make ||
+                    vehicle.vehicle_make ||
+                    "";
+
+                const model =
+                    vehicle.model ||
+                    vehicle.vehicle_model ||
+                    "";
+
+                const haystack = [
+                    registration,
+                    owner,
+                    make,
+                    model,
+                    vehicle.colour,
+                    vehicle.color,
+                    vehicle.fuel_type
+                ]
+                    .filter(Boolean)
+                    .join(" ")
+                    .toLowerCase();
+
+                return (
+                    !query ||
+                    haystack.includes(query)
+                );
+            })
+            .sort((first, second) => {
+                const firstDate =
+                    parseDate(
+                        first.last_visit ||
+                        first.last_booking_date ||
+                        first.next_booking
+                    );
+
+                const secondDate =
+                    parseDate(
+                        second.last_visit ||
+                        second.last_booking_date ||
+                        second.next_booking
+                    );
+
+                return (
+                    (secondDate?.getTime() || 0) -
+                    (firstDate?.getTime() || 0)
+                );
+            });
+
+    setText(
+        el.totalVehiclesLabel,
+        `${formatNumber(
+            vehicles.length
+        )} vehicle${
+            vehicles.length === 1
+                ? ""
+                : "s"
+        }`
+    );
+
+    if (!vehicles.length) {
+        el.vehicleDirectory.innerHTML =
+            createEmptyState(
+                "🚗",
+                "No vehicles found",
+                query
+                    ? "Try another registration, owner, make or model."
+                    : "Vehicle profiles will appear when registrations are recorded.",
+                true
+            );
+
+        return;
+    }
+
+    el.vehicleDirectory.innerHTML =
+        vehicles
+            .slice(0, 24)
+            .map((vehicle) => {
+                const registration =
+                    bookingRegistration(
+                        vehicle
+                    );
+
+                const owner =
+                    vehicle.customer_name ||
+                    vehicle.owner_name ||
+                    vehicle.name ||
+                    "Customer";
+
+                const make =
+                    vehicle.make ||
+                    vehicle.vehicle_make ||
+                    "";
+
+                const model =
+                    vehicle.model ||
+                    vehicle.vehicle_model ||
+                    "";
+
+                const vehicleName =
+                    [make, model]
+                        .filter(Boolean)
+                        .join(" ") ||
+                    "Vehicle details unavailable";
+
+                const visits =
+                    safeNumber(
+                        vehicle.booking_count ??
+                        vehicle.total_bookings ??
+                        vehicle.visit_count
+                    );
+
+                const upcoming =
+                    safeNumber(
+                        vehicle.upcoming_booking_count ??
+                        vehicle.upcoming_bookings
+                    );
+
+                const totalRevenue =
+                    safeNumber(
+                        vehicle.total_revenue ??
+                        vehicle.total_spent ??
+                        vehicle.lifetime_value
+                    );
+
+                const motStatus =
+                    vehicle.mot_status ||
+                    vehicle.motStatus ||
+                    "MOT not loaded";
+
+                return `
+                    <button
+                        class="vehicle-directory-card"
+                        type="button"
+                        data-vehicle-reg="${escapeAttribute(
+                            registration
+                        )}"
+                        aria-label="Open vehicle profile for ${escapeAttribute(
+                            registration
+                        )}"
+                    >
+                        <span class="vehicle-directory-icon">
+                            🚗
+                        </span>
+
+                        <span class="vehicle-directory-copy">
+                            <strong class="vehicle-directory-registration">
+                                ${escapeHtml(
+                                    registration
+                                )}
+                            </strong>
+
+                            <span>
+                                ${escapeHtml(
+                                    vehicleName
+                                )}
+                            </span>
+
+                            <small>
+                                ${escapeHtml(
+                                    owner
+                                )}
+                            </small>
+
+                            <small>
+                                ${formatNumber(
+                                    visits
+                                )}
+                                visit${
+                                    visits === 1
+                                        ? ""
+                                        : "s"
+                                }
+                                ·
+                                ${formatNumber(
+                                    upcoming
+                                )}
+                                upcoming
+                            </small>
+
+                            <small>
+                                ${escapeHtml(
+                                    motStatus
+                                )}
+                                ·
+                                ${escapeHtml(
+                                    formatCurrency(
+                                        totalRevenue
+                                    )
+                                )}
+                                total
+                            </small>
+                        </span>
+
+                        <span class="vehicle-directory-arrow">
+                            ›
+                        </span>
+                    </button>
+                `;
+            })
+            .join("");
+}
+
 function renderSystemHealth() {
     const systems =
-        dashboardState.data.systems;
+        dashboardState.data.systems || {};
+
+    const reminders =
+        dashboardState.data.reminders || {};
+
+    const systemStatuses = {
+        vapi:
+            systems.vapi ||
+            "unknown",
+
+        calendar:
+            systems.calendar ||
+            "unknown",
+
+        dvla:
+            systems.dvla ||
+            "unknown",
+
+        reminders:
+            systems.reminders ||
+            reminders.status ||
+            (
+                reminders.enabled === false
+                    ? "disabled"
+                    : "ready"
+            ),
+
+        backend:
+            systems.backend ||
+            "connected"
+    };
+
+    const statusValues =
+        Object.values(
+            systemStatuses
+        ).map(
+            (status) =>
+                String(
+                    status || "unknown"
+                ).toLowerCase()
+        );
+
+    const errorStatuses = [
+        "error",
+        "failed",
+        "offline",
+        "disconnected",
+        "unavailable"
+    ];
+
+    const warningStatuses = [
+        "attention",
+        "warning",
+        "not configured",
+        "unknown",
+        "disabled"
+    ];
+
+    const hasError =
+        statusValues.some(
+            (status) =>
+                errorStatuses.includes(
+                    status
+                )
+        );
+
+    const hasWarning =
+        statusValues.some(
+            (status) =>
+                warningStatuses.includes(
+                    status
+                )
+        );
 
     const overall =
-        String(
-            systems.overall ||
-            "operational"
-        ).toLowerCase();
+        hasError
+            ? "attention"
+            : hasWarning
+                ? "partial"
+                : String(
+                    systems.overall ||
+                    "operational"
+                ).toLowerCase();
 
     const healthy =
+        !hasError &&
+        !hasWarning &&
         isConnectedStatus(
             overall
         );
 
     if (el.overallSystemStatus) {
         el.overallSystemStatus.textContent =
-            capitalise(overall);
+            healthy
+                ? "Operational"
+                : hasError
+                    ? "Needs attention"
+                    : "Partially ready";
 
         el.overallSystemStatus.className =
             `status-badge ${
@@ -1839,7 +2486,7 @@ function renderSystemHealth() {
     setText(
         el.vapiConnectionStatus,
         connectionText(
-            systems.vapi,
+            systemStatuses.vapi,
             "Ready for inbound calls"
         )
     );
@@ -1847,7 +2494,7 @@ function renderSystemHealth() {
     setText(
         el.calendarConnectionStatus,
         connectionText(
-            systems.calendar,
+            systemStatuses.calendar,
             "Booking calendar connected"
         )
     );
@@ -1855,15 +2502,25 @@ function renderSystemHealth() {
     setText(
         el.dvlaConnectionStatus,
         connectionText(
-            systems.dvla,
+            systemStatuses.dvla,
             "Vehicle lookup available"
         )
     );
 
+    if (el.reminderConnectionStatus) {
+        setText(
+            el.reminderConnectionStatus,
+            connectionText(
+                systemStatuses.reminders,
+                "Reminder scheduler ready"
+            )
+        );
+    }
+
     setText(
         el.backendConnectionStatus,
         connectionText(
-            systems.backend,
+            systemStatuses.backend,
             "Flask service online"
         )
     );
@@ -1872,14 +2529,18 @@ function renderSystemHealth() {
         el.sidebarStatusText,
         healthy
             ? "Garage AI online"
-            : "Garage AI needs attention"
+            : hasError
+                ? "Garage AI needs attention"
+                : "Garage AI partially ready"
     );
 
     setText(
         el.sidebarStatusDetail,
         healthy
-            ? "Voice, calendar and reminder services are operational."
-            : "One or more dashboard services reported an issue."
+            ? "Voice, calendar, DVLA, reminders and dashboard services are operational."
+            : hasError
+                ? "One or more business services reported an error."
+                : "The dashboard is online, but one or more integrations are not fully configured."
     );
 
     el.sidebarStatusPulse?.classList.toggle(
@@ -1912,14 +2573,90 @@ function openCustomerDrawer(customer) {
         "Email not recorded";
 
     const vehicles =
-        Array.isArray(customer.vehicles)
+        Array.isArray(
+            customer.vehicles
+        )
             ? customer.vehicles
             : [];
 
     const bookings =
-        Array.isArray(customer.bookings)
+        Array.isArray(
+            customer.bookings
+        )
             ? customer.bookings
-            : [];
+            : Array.isArray(
+                customer.booking_history
+            )
+                ? customer.booking_history
+                : [];
+
+    const sortedBookings =
+        [...bookings].sort(
+            (first, second) => {
+                const firstDate =
+                    parseDate(
+                        bookingDateValue(
+                            first
+                        )
+                    );
+
+                const secondDate =
+                    parseDate(
+                        bookingDateValue(
+                            second
+                        )
+                    );
+
+                return (
+                    (secondDate?.getTime() || 0) -
+                    (firstDate?.getTime() || 0)
+                );
+            }
+        );
+
+    const bookingCount =
+        safeNumber(
+            customer.booking_count ??
+            customer.total_bookings ??
+            bookings.length
+        );
+
+    const completedCount =
+        safeNumber(
+            customer.completed_visit_count ??
+            customer.completed_bookings
+        );
+
+    const upcomingCount =
+        safeNumber(
+            customer.upcoming_booking_count ??
+            customer.upcoming_bookings
+        );
+
+    const cancelledCount =
+        safeNumber(
+            customer.cancelled_booking_count ??
+            customer.cancelled_bookings
+        );
+
+    const totalRevenue =
+        safeNumber(
+            customer.total_revenue ??
+            customer.lifetime_value ??
+            customer.total_spent
+        );
+
+    const lastVisit =
+        parseDate(
+            customer.last_visit ||
+            customer.last_booking_date
+        );
+
+    const nextBooking =
+        parseDate(
+            customer.next_booking ||
+            customer.next_booking_date
+        );
 
     setText(
         el.customerDrawerTitle,
@@ -1930,16 +2667,22 @@ function openCustomerDrawer(customer) {
         el.customerDrawerBody.innerHTML = `
             <div class="drawer-profile-header">
                 <div class="drawer-profile-avatar">
-                    ${getCustomerInitials(name)}
+                    ${getCustomerInitials(
+                        name
+                    )}
                 </div>
 
                 <div>
                     <h3>
-                        ${escapeHtml(name)}
+                        ${escapeHtml(
+                            name
+                        )}
                     </h3>
 
                     <p>
-                        ${escapeHtml(phone)}
+                        ${escapeHtml(
+                            phone
+                        )}
                     </p>
                 </div>
             </div>
@@ -1963,10 +2706,56 @@ function openCustomerDrawer(customer) {
                 )}
 
                 ${drawerDetail(
-                    "Bookings",
+                    "Total bookings",
                     formatNumber(
-                        bookings.length
+                        bookingCount
                     )
+                )}
+
+                ${drawerDetail(
+                    "Completed visits",
+                    formatNumber(
+                        completedCount
+                    )
+                )}
+
+                ${drawerDetail(
+                    "Upcoming bookings",
+                    formatNumber(
+                        upcomingCount
+                    )
+                )}
+
+                ${drawerDetail(
+                    "Cancelled",
+                    formatNumber(
+                        cancelledCount
+                    )
+                )}
+
+                ${drawerDetail(
+                    "Lifetime value",
+                    formatCurrency(
+                        totalRevenue
+                    )
+                )}
+
+                ${drawerDetail(
+                    "Last visit",
+                    lastVisit
+                        ? formatAppointmentDate(
+                            lastVisit
+                        )
+                        : "No completed visit"
+                )}
+
+                ${drawerDetail(
+                    "Next booking",
+                    nextBooking
+                        ? formatAppointmentDate(
+                            nextBooking
+                        )
+                        : "No upcoming booking"
                 )}
             </div>
 
@@ -1975,61 +2764,81 @@ function openCustomerDrawer(customer) {
                     <h4>
                         Vehicles
                     </h4>
+
+                    <span>
+                        ${formatNumber(
+                            vehicles.length
+                        )}
+                    </span>
                 </div>
 
                 ${
                     vehicles.length
                         ? vehicles
-                            .map((vehicle) => {
-                                const registration =
-                                    bookingRegistration(
-                                        vehicle
-                                    );
+                            .map(
+                                (vehicle) => {
+                                    const registration =
+                                        bookingRegistration(
+                                            vehicle
+                                        );
 
-                                const vehicleName =
-                                    vehicle.vehicle_name ||
-                                    vehicle.make_model ||
-                                    [
-                                        vehicle.make,
-                                        vehicle.model
-                                    ]
-                                        .filter(Boolean)
-                                        .join(" ") ||
-                                    "Vehicle";
+                                    const make =
+                                        vehicle.make ||
+                                        vehicle.vehicle_make ||
+                                        "";
 
-                                return `
-                                    <button
-                                        class="drawer-list-item"
-                                        type="button"
-                                        data-vehicle-reg="${escapeAttribute(
-                                            registration
-                                        )}"
-                                    >
-                                        <span>
-                                            <strong>
-                                                ${escapeHtml(
-                                                    vehicleName
-                                                )}
-                                            </strong>
+                                    const model =
+                                        vehicle.model ||
+                                        vehicle.vehicle_model ||
+                                        "";
 
-                                            <small>
-                                                ${escapeHtml(
-                                                    registration
-                                                )}
-                                            </small>
-                                        </span>
+                                    const vehicleName =
+                                        [
+                                            make,
+                                            model
+                                        ]
+                                            .filter(Boolean)
+                                            .join(" ") ||
+                                        "Vehicle details unavailable";
 
-                                        <span>
-                                            ›
-                                        </span>
-                                    </button>
-                                `;
-                            })
+                                    return `
+                                        <button
+                                            class="drawer-list-button"
+                                            type="button"
+                                            data-vehicle-reg="${escapeAttribute(
+                                                registration
+                                            )}"
+                                        >
+                                            <span class="drawer-list-icon">
+                                                🚗
+                                            </span>
+
+                                            <span class="drawer-list-copy">
+                                                <strong>
+                                                    ${escapeHtml(
+                                                        registration
+                                                    )}
+                                                </strong>
+
+                                                <small>
+                                                    ${escapeHtml(
+                                                        vehicleName
+                                                    )}
+                                                </small>
+                                            </span>
+
+                                            <span class="drawer-list-arrow">
+                                                ›
+                                            </span>
+                                        </button>
+                                    `;
+                                }
+                            )
                             .join("")
                         : createEmptyState(
                             "🚗",
                             "No vehicles recorded",
-                            "Vehicle information will appear after a DVLA lookup.",
+                            "Vehicle records will appear when a registration is saved.",
                             true
                         )
                 }
@@ -2038,62 +2847,111 @@ function openCustomerDrawer(customer) {
             <div class="drawer-section">
                 <div class="drawer-section-header">
                     <h4>
-                        Booking history
+                        Complete booking history
                     </h4>
+
+                    <span>
+                        ${formatNumber(
+                            bookingCount
+                        )}
+                    </span>
                 </div>
 
                 ${
-                    bookings.length
-                        ? bookings
-                            .slice(0, 8)
-                            .map((booking) => {
-                                const date =
-                                    parseDate(
-                                        bookingDateValue(
-                                            booking
-                                        )
-                                    );
-
-                                return `
-                                    <div class="drawer-list-item static">
-                                        <span>
-                                            <strong>
-                                                ${escapeHtml(
-                                                    bookingService(
-                                                        booking
-                                                    )
-                                                )}
-                                            </strong>
-
-                                            <small>
-                                                ${
-                                                    date
-                                                        ? escapeHtml(
-                                                            formatAppointmentDate(
-                                                                date
-                                                            )
-                                                        )
-                                                        : "Date unavailable"
-                                                }
-                                            </small>
-                                        </span>
-
-                                        <span class="status-badge ${getStatusClass(
-                                            bookingStatus(
+                    sortedBookings.length
+                        ? sortedBookings
+                            .map(
+                                (booking) => {
+                                    const date =
+                                        parseDate(
+                                            bookingDateValue(
                                                 booking
                                             )
-                                        )}">
-                                            ${escapeHtml(
-                                                capitalise(
-                                                    bookingStatus(
-                                                        booking
-                                                    )
-                                                )
-                                            )}
-                                        </span>
-                                    </div>
-                                `;
-                            })
+                                        );
+
+                                    const service =
+                                        bookingService(
+                                            booking
+                                        );
+
+                                    const registration =
+                                        bookingRegistration(
+                                            booking
+                                        );
+
+                                    const status =
+                                        bookingStatus(
+                                            booking
+                                        );
+
+                                    const price =
+                                        safeNumber(
+                                            booking.price ??
+                                            booking.revenue ??
+                                            booking.value
+                                        );
+
+                                    return `
+                                        <div class="drawer-history-item">
+                                            <div class="drawer-history-icon">
+                                                ${getServiceIcon(
+                                                    service
+                                                )}
+                                            </div>
+
+                                            <div class="drawer-history-copy">
+                                                <div class="drawer-history-heading">
+                                                    <strong>
+                                                        ${escapeHtml(
+                                                            service
+                                                        )}
+                                                    </strong>
+
+                                                    <span class="status-badge ${getStatusClass(
+                                                        status
+                                                    )}">
+                                                        ${escapeHtml(
+                                                            capitalise(
+                                                                status
+                                                            )
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                <p>
+                                                    ${escapeHtml(
+                                                        registration
+                                                    )}
+                                                    ·
+                                                    ${
+                                                        date
+                                                            ? escapeHtml(
+                                                                formatAppointmentDate(
+                                                                    date
+                                                                )
+                                                            )
+                                                            : "Date unavailable"
+                                                    }
+                                                </p>
+
+                                                ${
+                                                    price > 0
+                                                        ? `
+                                                            <small>
+                                                                ${escapeHtml(
+                                                                    formatCurrency(
+                                                                        price
+                                                                    )
+                                                                )}
+                                                            </small>
+                                                        `
+                                                        : ""
+                                                }
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            )
                             .join("")
                         : createEmptyState(
                             "📅",
@@ -2114,46 +2972,208 @@ function openCustomerDrawer(customer) {
 function findVehicle(registration) {
     const normalisedRegistration =
         String(registration || "")
-            .trim()
+            .replace(/[^A-Z0-9]/gi, "")
             .toUpperCase();
+
+    if (!normalisedRegistration) {
+        return null;
+    }
+
+    const apiVehicles =
+        Array.isArray(
+            dashboardState.data.vehicles
+        )
+            ? dashboardState.data.vehicles
+            : [];
+
+    const apiVehicle =
+        apiVehicles.find(
+            (vehicle) => {
+                const vehicleRegistration =
+                    String(
+                        vehicle.registration_key ||
+                        vehicle.registration ||
+                        vehicle.vehicle_reg ||
+                        vehicle.reg ||
+                        ""
+                    )
+                        .replace(/[^A-Z0-9]/gi, "")
+                        .toUpperCase();
+
+                return (
+                    vehicleRegistration ===
+                    normalisedRegistration
+                );
+            }
+        );
+
+    if (apiVehicle) {
+        return apiVehicle;
+    }
 
     for (
         const customer of getCustomerRecords()
     ) {
         const vehicles =
-            Array.isArray(customer.vehicles)
+            Array.isArray(
+                customer.vehicles
+            )
                 ? customer.vehicles
                 : [];
 
         const vehicle =
             vehicles.find(
-                (item) =>
-                    bookingRegistration(item)
-                        .toUpperCase() ===
-                    normalisedRegistration
+                (item) => {
+                    const vehicleRegistration =
+                        String(
+                            item.registration_key ||
+                            item.registration ||
+                            item.vehicle_reg ||
+                            item.reg ||
+                            ""
+                        )
+                            .replace(/[^A-Z0-9]/gi, "")
+                            .toUpperCase();
+
+                    return (
+                        vehicleRegistration ===
+                        normalisedRegistration
+                    );
+                }
             );
 
         if (vehicle) {
             return {
                 ...vehicle,
+
                 customer_name:
+                    vehicle.customer_name ||
                     customer.name ||
-                    customer.customer_name,
+                    customer.customer_name ||
+                    "Customer",
+
                 customer_phone:
+                    vehicle.customer_phone ||
                     customer.phone ||
-                    customer.customer_phone
+                    customer.customer_phone ||
+                    "",
+
+                customer_email:
+                    vehicle.customer_email ||
+                    customer.email ||
+                    customer.customer_email ||
+                    "",
+
+                bookings:
+                    Array.isArray(
+                        vehicle.bookings
+                    )
+                        ? vehicle.bookings
+                        : Array.isArray(
+                            vehicle.booking_history
+                        )
+                            ? vehicle.booking_history
+                            : [],
+
+                booking_history:
+                    Array.isArray(
+                        vehicle.booking_history
+                    )
+                        ? vehicle.booking_history
+                        : Array.isArray(
+                            vehicle.bookings
+                        )
+                            ? vehicle.bookings
+                            : []
             };
         }
     }
 
-    return dashboardState.data
-        .upcoming_appointments
-        .find(
-            (booking) =>
-                bookingRegistration(booking)
-                    .toUpperCase() ===
-                normalisedRegistration
+    const allBookings = [
+        ...(
+            Array.isArray(
+                dashboardState.data.booking_history
+            )
+                ? dashboardState.data.booking_history
+                : []
+        ),
+
+        ...(
+            Array.isArray(
+                dashboardState.data.upcoming_appointments
+            )
+                ? dashboardState.data.upcoming_appointments
+                : []
+        )
+    ];
+
+    const matchingBookings =
+        allBookings.filter(
+            (booking) => {
+                const bookingRegistrationValue =
+                    String(
+                        booking.registration_key ||
+                        booking.vehicle_reg ||
+                        booking.registration ||
+                        booking.reg ||
+                        ""
+                    )
+                        .replace(/[^A-Z0-9]/gi, "")
+                        .toUpperCase();
+
+                return (
+                    bookingRegistrationValue ===
+                    normalisedRegistration
+                );
+            }
         );
+
+    if (!matchingBookings.length) {
+        return null;
+    }
+
+    const latestBooking =
+        [...matchingBookings].sort(
+            (first, second) => {
+                const firstDate =
+                    parseDate(
+                        bookingDateValue(first)
+                    );
+
+                const secondDate =
+                    parseDate(
+                        bookingDateValue(second)
+                    );
+
+                return (
+                    (secondDate?.getTime() || 0) -
+                    (firstDate?.getTime() || 0)
+                );
+            }
+        )[0];
+
+    return {
+        ...latestBooking,
+
+        registration:
+            bookingRegistration(
+                latestBooking
+            ),
+
+        vehicle_reg:
+            bookingRegistration(
+                latestBooking
+            ),
+
+        bookings:
+            matchingBookings,
+
+        booking_history:
+            matchingBookings,
+
+        booking_count:
+            matchingBookings.length
+    };
 }
 
 function openVehicleDrawer(vehicle) {
@@ -2177,14 +3197,26 @@ function openVehicleDrawer(vehicle) {
         vehicle.vehicle_model ||
         "Unknown";
 
+    const vehicleName =
+        [make, model]
+            .filter(
+                (value) =>
+                    value &&
+                    value !== "Unknown"
+            )
+            .join(" ") ||
+        "Vehicle details unavailable";
+
     const colour =
         vehicle.colour ||
         vehicle.color ||
+        vehicle.vehicle_colour ||
         "Unknown";
 
     const year =
         vehicle.year ||
         vehicle.manufacture_year ||
+        vehicle.year_of_manufacture ||
         "Unknown";
 
     const fuel =
@@ -2197,10 +3229,110 @@ function openVehicleDrawer(vehicle) {
         vehicle.motStatus ||
         "Not loaded";
 
-    const customer =
+    const motExpiry =
+        parseDate(
+            vehicle.mot_expiry_date ||
+            vehicle.mot_expiry ||
+            vehicle.mot_due_date
+        );
+
+    const owner =
         vehicle.customer_name ||
+        vehicle.owner_name ||
         vehicle.name ||
         "Customer";
+
+    const ownerPhone =
+        vehicle.customer_phone ||
+        vehicle.owner_phone ||
+        vehicle.phone ||
+        "Phone not recorded";
+
+    const ownerEmail =
+        vehicle.customer_email ||
+        vehicle.owner_email ||
+        vehicle.email ||
+        "Email not recorded";
+
+    const history =
+        Array.isArray(
+            vehicle.booking_history
+        )
+            ? vehicle.booking_history
+            : Array.isArray(
+                vehicle.bookings
+            )
+                ? vehicle.bookings
+                : Array.isArray(
+                    vehicle.service_history
+                )
+                    ? vehicle.service_history
+                    : [];
+
+    const sortedHistory =
+        [...history].sort(
+            (first, second) => {
+                const firstDate =
+                    parseDate(
+                        bookingDateValue(
+                            first
+                        )
+                    );
+
+                const secondDate =
+                    parseDate(
+                        bookingDateValue(
+                            second
+                        )
+                    );
+
+                return (
+                    (secondDate?.getTime() || 0) -
+                    (firstDate?.getTime() || 0)
+                );
+            }
+        );
+
+    const visitCount =
+        safeNumber(
+            vehicle.booking_count ??
+            vehicle.total_bookings ??
+            vehicle.visit_count ??
+            history.length
+        );
+
+    const completedVisitCount =
+        safeNumber(
+            vehicle.completed_visit_count ??
+            vehicle.completed_bookings
+        );
+
+    const upcomingBookingCount =
+        safeNumber(
+            vehicle.upcoming_booking_count ??
+            vehicle.upcoming_bookings
+        );
+
+    const totalRevenue =
+        safeNumber(
+            vehicle.total_revenue ??
+            vehicle.total_spent ??
+            vehicle.lifetime_value
+        );
+
+    const lastVisit =
+        parseDate(
+            vehicle.last_visit ||
+            vehicle.last_booking_date ||
+            vehicle.last_service_date
+        );
+
+    const nextBooking =
+        parseDate(
+            vehicle.next_booking ||
+            vehicle.next_booking_date ||
+            vehicle.next_appointment
+        );
 
     setText(
         el.vehicleDrawerTitle,
@@ -2223,18 +3355,35 @@ function openVehicleDrawer(vehicle) {
 
                     <h3>
                         ${escapeHtml(
-                            `${make} ${model}`
+                            vehicleName
                         )}
                     </h3>
 
                     <p>
                         Owned by
-                        ${escapeHtml(customer)}
+                        ${escapeHtml(
+                            owner
+                        )}
                     </p>
                 </div>
             </div>
 
             <div class="drawer-detail-grid">
+                ${drawerDetail(
+                    "Owner",
+                    owner
+                )}
+
+                ${drawerDetail(
+                    "Owner phone",
+                    ownerPhone
+                )}
+
+                ${drawerDetail(
+                    "Owner email",
+                    ownerEmail
+                )}
+
                 ${drawerDetail(
                     "Make",
                     make
@@ -2264,20 +3413,189 @@ function openVehicleDrawer(vehicle) {
                     "MOT status",
                     motStatus
                 )}
+
+                ${drawerDetail(
+                    "MOT expiry",
+                    motExpiry
+                        ? formatAppointmentDate(
+                            motExpiry
+                        )
+                        : "Not recorded"
+                )}
             </div>
 
             <div class="drawer-section">
                 <div class="drawer-section-header">
                     <h4>
-                        Vehicle record
+                        Vehicle performance
                     </h4>
                 </div>
 
-                <div class="drawer-note">
-                    Vehicle information is supplied from
-                    the booking and DVLA lookup data currently
-                    available to the dashboard.
+                <div class="drawer-detail-grid">
+                    ${drawerDetail(
+                        "Total visits",
+                        formatNumber(
+                            visitCount
+                        )
+                    )}
+
+                    ${drawerDetail(
+                        "Completed visits",
+                        formatNumber(
+                            completedVisitCount
+                        )
+                    )}
+
+                    ${drawerDetail(
+                        "Upcoming bookings",
+                        formatNumber(
+                            upcomingBookingCount
+                        )
+                    )}
+
+                    ${drawerDetail(
+                        "Total spent",
+                        formatCurrency(
+                            totalRevenue
+                        )
+                    )}
+
+                    ${drawerDetail(
+                        "Last visit",
+                        lastVisit
+                            ? formatAppointmentDate(
+                                lastVisit
+                            )
+                            : "No completed visit"
+                    )}
+
+                    ${drawerDetail(
+                        "Next booking",
+                        nextBooking
+                            ? formatAppointmentDate(
+                                nextBooking
+                            )
+                            : "No upcoming booking"
+                    )}
                 </div>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Complete service history
+                    </h4>
+
+                    <span>
+                        ${formatNumber(
+                            visitCount
+                        )}
+                    </span>
+                </div>
+
+                ${
+                    sortedHistory.length
+                        ? sortedHistory
+                            .map(
+                                (booking) => {
+                                    const date =
+                                        parseDate(
+                                            bookingDateValue(
+                                                booking
+                                            )
+                                        );
+
+                                    const service =
+                                        bookingService(
+                                            booking
+                                        );
+
+                                    const status =
+                                        bookingStatus(
+                                            booking
+                                        );
+
+                                    const customer =
+                                        bookingCustomer(
+                                            booking
+                                        );
+
+                                    const price =
+                                        safeNumber(
+                                            booking.price ??
+                                            booking.revenue ??
+                                            booking.value
+                                        );
+
+                                    return `
+                                        <div class="drawer-history-item">
+                                            <div class="drawer-history-icon">
+                                                ${getServiceIcon(
+                                                    service
+                                                )}
+                                            </div>
+
+                                            <div class="drawer-history-copy">
+                                                <div class="drawer-history-heading">
+                                                    <strong>
+                                                        ${escapeHtml(
+                                                            service
+                                                        )}
+                                                    </strong>
+
+                                                    <span class="status-badge ${getStatusClass(
+                                                        status
+                                                    )}">
+                                                        ${escapeHtml(
+                                                            capitalise(
+                                                                status
+                                                            )
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                <p>
+                                                    ${escapeHtml(
+                                                        customer
+                                                    )}
+                                                    ·
+                                                    ${
+                                                        date
+                                                            ? escapeHtml(
+                                                                formatAppointmentDate(
+                                                                    date
+                                                                )
+                                                            )
+                                                            : "Date unavailable"
+                                                    }
+                                                </p>
+
+                                                ${
+                                                    price > 0
+                                                        ? `
+                                                            <small>
+                                                                ${escapeHtml(
+                                                                    formatCurrency(
+                                                                        price
+                                                                    )
+                                                                )}
+                                                            </small>
+                                                        `
+                                                        : ""
+                                                }
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            )
+                            .join("")
+                        : createEmptyState(
+                            "🔧",
+                            "No service history recorded",
+                            "Completed and upcoming visits for this registration will appear here.",
+                            true
+                        )
+                }
             </div>
         `;
     }
@@ -2287,160 +3605,785 @@ function openVehicleDrawer(vehicle) {
     );
 }
 
+function openRevenueCentre() {
+    const revenue =
+        dashboardState.data.revenue || {};
+
+    const monthlyBreakdown =
+        Array.isArray(
+            revenue.monthly_breakdown
+        )
+            ? revenue.monthly_breakdown
+            : [];
+
+    let modal =
+        document.getElementById(
+            "revenueCentreModal"
+        );
+
+    if (!modal) {
+        modal =
+            document.createElement(
+                "div"
+            );
+
+        modal.id =
+            "revenueCentreModal";
+
+        modal.className =
+            "dashboard-modal";
+
+        modal.setAttribute(
+            "role",
+            "dialog"
+        );
+
+        modal.setAttribute(
+            "aria-modal",
+            "true"
+        );
+
+        modal.setAttribute(
+            "aria-hidden",
+            "true"
+        );
+
+        modal.innerHTML = `
+            <div class="dashboard-modal-card revenue-centre-modal-card">
+                <header class="dashboard-modal-header">
+                    <div>
+                        <span class="detail-drawer-eyebrow">
+                            Financial performance
+                        </span>
+
+                        <h2>
+                            Revenue Centre
+                        </h2>
+                    </div>
+
+                    <button
+                        class="drawer-close-button"
+                        type="button"
+                        data-close-revenue-centre
+                        aria-label="Close Revenue Centre"
+                    >
+                        ×
+                    </button>
+                </header>
+
+                <div
+                    id="revenueCentreBody"
+                    class="dashboard-modal-body"
+                ></div>
+            </div>
+        `;
+
+        document.body.appendChild(
+            modal
+        );
+
+        modal
+            .querySelector(
+                "[data-close-revenue-centre]"
+            )
+            ?.addEventListener(
+                "click",
+                closeRevenueCentre
+            );
+
+        modal.addEventListener(
+            "click",
+            (event) => {
+                if (
+                    event.target === modal
+                ) {
+                    closeRevenueCentre();
+                }
+            }
+        );
+    }
+
+    const body =
+        modal.querySelector(
+            "#revenueCentreBody"
+        );
+
+    const todayRevenue =
+        safeNumber(
+            revenue.today
+        );
+
+    const weekRevenue =
+        safeNumber(
+            revenue.this_week ??
+            revenue.week
+        );
+
+    const monthRevenue =
+        safeNumber(
+            revenue.this_month ??
+            revenue.month
+        );
+
+    const yearRevenue =
+        safeNumber(
+            revenue.this_year ??
+            revenue.year
+        );
+
+    const lifetimeRevenue =
+        safeNumber(
+            revenue.lifetime ??
+            revenue.total
+        );
+
+    const pipelineRevenue =
+        safeNumber(
+            revenue.future_pipeline ??
+            revenue.pipeline
+        );
+
+    const averageBookingValue =
+        safeNumber(
+            revenue.average_booking_value ??
+            revenue.average
+        );
+
+    const completedBookings =
+        safeNumber(
+            revenue.completed_booking_count ??
+            revenue.completed_bookings
+        );
+
+    if (body) {
+        body.innerHTML = `
+            <div class="revenue-centre-summary">
+                <div class="revenue-centre-highlight">
+                    <span>
+                        This month
+                    </span>
+
+                    <strong>
+                        ${escapeHtml(
+                            formatCurrency(
+                                monthRevenue
+                            )
+                        )}
+                    </strong>
+
+                    <small>
+                        Estimated from recorded garage bookings
+                    </small>
+                </div>
+
+                <div class="revenue-centre-stat-grid">
+                    <div class="revenue-centre-stat">
+                        <span>
+                            Today
+                        </span>
+
+                        <strong>
+                            ${escapeHtml(
+                                formatCurrency(
+                                    todayRevenue
+                                )
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="revenue-centre-stat">
+                        <span>
+                            This week
+                        </span>
+
+                        <strong>
+                            ${escapeHtml(
+                                formatCurrency(
+                                    weekRevenue
+                                )
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="revenue-centre-stat">
+                        <span>
+                            This year
+                        </span>
+
+                        <strong>
+                            ${escapeHtml(
+                                formatCurrency(
+                                    yearRevenue
+                                )
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="revenue-centre-stat">
+                        <span>
+                            Lifetime
+                        </span>
+
+                        <strong>
+                            ${escapeHtml(
+                                formatCurrency(
+                                    lifetimeRevenue
+                                )
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="revenue-centre-stat">
+                        <span>
+                            Future pipeline
+                        </span>
+
+                        <strong>
+                            ${escapeHtml(
+                                formatCurrency(
+                                    pipelineRevenue
+                                )
+                            )}
+                        </strong>
+                    </div>
+
+                    <div class="revenue-centre-stat">
+                        <span>
+                            Average booking
+                        </span>
+
+                        <strong>
+                            ${escapeHtml(
+                                formatCurrency(
+                                    averageBookingValue
+                                )
+                            )}
+                        </strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Revenue overview
+                    </h4>
+                </div>
+
+                <div class="drawer-detail-grid">
+                    ${drawerDetail(
+                        "Completed bookings",
+                        formatNumber(
+                            completedBookings
+                        )
+                    )}
+
+                    ${drawerDetail(
+                        "Future booked work",
+                        formatCurrency(
+                            pipelineRevenue
+                        )
+                    )}
+
+                    ${drawerDetail(
+                        "Average booking value",
+                        formatCurrency(
+                            averageBookingValue
+                        )
+                    )}
+
+                    ${drawerDetail(
+                        "Total recorded revenue",
+                        formatCurrency(
+                            lifetimeRevenue
+                        )
+                    )}
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Last six months
+                    </h4>
+
+                    <span>
+                        Revenue trend
+                    </span>
+                </div>
+
+                <div class="revenue-month-list">
+                    ${
+                        monthlyBreakdown.length
+                            ? monthlyBreakdown
+                                .map(
+                                    (month) => {
+                                        const amount =
+                                            safeNumber(
+                                                month.revenue ??
+                                                month.total ??
+                                                month.value
+                                            );
+
+                                        const maximum =
+                                            Math.max(
+                                                1,
+                                                ...monthlyBreakdown.map(
+                                                    (item) =>
+                                                        safeNumber(
+                                                            item.revenue ??
+                                                            item.total ??
+                                                            item.value
+                                                        )
+                                                )
+                                            );
+
+                                        const percentage =
+                                            Math.max(
+                                                4,
+                                                Math.round(
+                                                    (
+                                                        amount /
+                                                        maximum
+                                                    ) *
+                                                    100
+                                                )
+                                            );
+
+                                        return `
+                                            <div class="revenue-month-row">
+                                                <span class="revenue-month-label">
+                                                    ${escapeHtml(
+                                                        month.label ||
+                                                        "Month"
+                                                    )}
+                                                </span>
+
+                                                <span class="revenue-month-track">
+                                                    <span
+                                                        class="revenue-month-bar"
+                                                        style="width: ${percentage}%;"
+                                                    ></span>
+                                                </span>
+
+                                                <strong>
+                                                    ${escapeHtml(
+                                                        formatCurrency(
+                                                            amount
+                                                        )
+                                                    )}
+                                                </strong>
+                                            </div>
+                                        `;
+                                    }
+                                )
+                                .join("")
+                            : createEmptyState(
+                                "£",
+                                "No revenue history loaded",
+                                "Monthly revenue will appear as booking history is recorded.",
+                                true
+                            )
+                    }
+                </div>
+            </div>
+
+            <div class="drawer-note">
+                Revenue is estimated using the configured service prices
+                attached to recorded bookings. Cancelled bookings are excluded.
+            </div>
+        `;
+    }
+
+    modal.classList.add(
+        "visible"
+    );
+
+    modal.setAttribute(
+        "aria-hidden",
+        "false"
+    );
+
+    document.body.classList.add(
+        "modal-open"
+    );
+}
+
+function closeRevenueCentre() {
+    const modal =
+        document.getElementById(
+            "revenueCentreModal"
+        );
+
+    modal?.classList.remove(
+        "visible"
+    );
+
+    modal?.setAttribute(
+        "aria-hidden",
+        "true"
+    );
+
+    document.body.classList.remove(
+        "modal-open"
+    );
+}
+
 function openReminderDrawer() {
     const reminders =
-        dashboardState.data.reminders;
+        dashboardState.data.reminders || {};
 
     const queue =
         Array.isArray(reminders.queue)
             ? reminders.queue
             : [];
 
+    const recent =
+        Array.isArray(reminders.recent)
+            ? reminders.recent
+            : [];
+
+    const waiting =
+        safeNumber(
+            reminders.waiting ??
+            reminders.pending ??
+            reminders.due
+        );
+
+    const due =
+        safeNumber(
+            reminders.due
+        );
+
+    const sent =
+        safeNumber(
+            reminders.sent_this_month ??
+            reminders.sent
+        );
+
+    const failed =
+        safeNumber(
+            reminders.failed
+        );
+
+    const lastRun =
+        parseDate(
+            reminders.last_run
+        );
+
+    const nextRun =
+        parseDate(
+            reminders.next_run
+        );
+
+    const status =
+        String(
+            reminders.status ||
+            "ready"
+        ).toLowerCase();
+
     setText(
         el.reminderCentreWaiting,
-        formatNumber(
-            reminders.waiting ??
-            reminders.due
-        )
+        formatNumber(waiting)
     );
 
     setText(
         el.reminderCentreSent,
-        formatNumber(
-            reminders.sent_this_month ??
-            reminders.sent
-        )
+        formatNumber(sent)
     );
 
     setText(
         el.reminderCentreFailed,
-        formatNumber(
-            reminders.failed
-        )
+        formatNumber(failed)
+    );
+
+    setText(
+        el.reminderDrawerTitle,
+        "Reminder Centre"
     );
 
     if (el.reminderQueueList) {
-        el.reminderQueueList.innerHTML =
-            queue.length
-                ? queue
-                    .slice(0, 12)
-                    .map((reminder) => {
-                        const customer =
-                            reminder.customer_name ||
-                            reminder.name ||
-                            "Customer";
+        el.reminderQueueList.innerHTML = `
+            <div class="drawer-detail-grid reminder-centre-detail-grid">
+                ${drawerDetail(
+                    "Due now",
+                    formatNumber(due)
+                )}
 
-                        const service =
-                            reminder.service ||
-                            reminder.service_name ||
-                            "Garage appointment";
+                ${drawerDetail(
+                    "Waiting",
+                    formatNumber(waiting)
+                )}
 
-                        const date =
-                            parseDate(
-                                reminder.send_at ||
-                                reminder.datetime ||
-                                reminder.date
-                            );
+                ${drawerDetail(
+                    "Sent this month",
+                    formatNumber(sent)
+                )}
 
-                        const status =
-                            String(
-                                reminder.status ||
-                                "pending"
-                            ).toLowerCase();
+                ${drawerDetail(
+                    "Failed",
+                    formatNumber(failed)
+                )}
 
-                        return `
-                            <div class="reminder-queue-item">
-                                <div class="reminder-queue-icon">
-                                    🔔
-                                </div>
+                ${drawerDetail(
+                    "Last run",
+                    lastRun
+                        ? formatAppointmentDate(lastRun)
+                        : "Not recorded"
+                )}
 
-                                <div class="reminder-queue-copy">
-                                    <strong>
-                                        ${escapeHtml(
-                                            customer
-                                        )}
-                                    </strong>
+                ${drawerDetail(
+                    "Next run",
+                    nextRun
+                        ? formatAppointmentDate(nextRun)
+                        : "Automatic schedule"
+                )}
+            </div>
 
-                                    <span>
-                                        ${escapeHtml(
-                                            service
-                                        )}
-                                    </span>
+            <div class="drawer-note">
+                Scheduler status:
+                <strong>
+                    ${escapeHtml(
+                        capitalise(status)
+                    )}
+                </strong>
+            </div>
 
-                                    <small>
-                                        ${
-                                            date
-                                                ? escapeHtml(
-                                                    formatAppointmentDate(
-                                                        date
-                                                    )
-                                                )
-                                                : "Scheduled reminder"
-                                        }
-                                    </small>
-                                </div>
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Reminder queue
+                    </h4>
 
-                                <span class="status-badge ${getStatusClass(
-                                    status
-                                )}">
-                                    ${escapeHtml(
-                                        capitalise(status)
-                                    )}
-                                </span>
-                            </div>
-                        `;
-                    })
-                    .join("")
-                : createEmptyState(
-                    "🔔",
-                    "Reminder queue is clear",
-                    "Upcoming reminders will appear here.",
-                    true
-                );
+                    <span>
+                        ${formatNumber(
+                            queue.length
+                        )}
+                    </span>
+                </div>
+
+                ${
+                    queue.length
+                        ? queue
+                            .slice(0, 20)
+                            .map(
+                                (reminder) => {
+                                    const customer =
+                                        reminder.customer_name ||
+                                        reminder.name ||
+                                        "Customer";
+
+                                    const service =
+                                        reminder.service ||
+                                        reminder.service_name ||
+                                        reminder.type ||
+                                        "Garage reminder";
+
+                                    const registration =
+                                        reminder.vehicle_reg ||
+                                        reminder.registration ||
+                                        reminder.reg ||
+                                        "";
+
+                                    const sendDate =
+                                        parseDate(
+                                            reminder.send_at ||
+                                            reminder.datetime ||
+                                            reminder.date ||
+                                            reminder.due_at
+                                        );
+
+                                    const reminderStatus =
+                                        String(
+                                            reminder.status ||
+                                            "pending"
+                                        ).toLowerCase();
+
+                                    const reminderType =
+                                        reminder.reminder_type ||
+                                        reminder.template ||
+                                        reminder.kind ||
+                                        "Reminder";
+
+                                    return `
+                                        <div class="reminder-queue-item">
+                                            <div class="reminder-queue-icon">
+                                                🔔
+                                            </div>
+
+                                            <div class="reminder-queue-copy">
+                                                <div class="reminder-queue-heading">
+                                                    <strong>
+                                                        ${escapeHtml(
+                                                            customer
+                                                        )}
+                                                    </strong>
+
+                                                    <span class="status-badge ${getStatusClass(
+                                                        reminderStatus
+                                                    )}">
+                                                        ${escapeHtml(
+                                                            capitalise(
+                                                                reminderStatus
+                                                            )
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                <span>
+                                                    ${escapeHtml(
+                                                        reminderType
+                                                    )}
+                                                    ·
+                                                    ${escapeHtml(
+                                                        service
+                                                    )}
+                                                </span>
+
+                                                ${
+                                                    registration
+                                                        ? `
+                                                            <small>
+                                                                ${escapeHtml(
+                                                                    registration
+                                                                )}
+                                                            </small>
+                                                        `
+                                                        : ""
+                                                }
+
+                                                <small>
+                                                    ${
+                                                        sendDate
+                                                            ? escapeHtml(
+                                                                formatAppointmentDate(
+                                                                    sendDate
+                                                                )
+                                                            )
+                                                            : "Schedule not recorded"
+                                                    }
+                                                </small>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            )
+                            .join("")
+                        : createEmptyState(
+                            "🔔",
+                            "No reminders waiting",
+                            "The reminder queue is currently clear.",
+                            true
+                        )
+                }
+            </div>
+
+            <div class="drawer-section">
+                <div class="drawer-section-header">
+                    <h4>
+                        Recent reminder activity
+                    </h4>
+
+                    <span>
+                        ${formatNumber(
+                            recent.length
+                        )}
+                    </span>
+                </div>
+
+                ${
+                    recent.length
+                        ? recent
+                            .slice(0, 10)
+                            .map(
+                                (item) => {
+                                    const customer =
+                                        item.customer_name ||
+                                        item.name ||
+                                        "Customer";
+
+                                    const itemStatus =
+                                        String(
+                                            item.status ||
+                                            "sent"
+                                        ).toLowerCase();
+
+                                    const itemDate =
+                                        parseDate(
+                                            item.sent_at ||
+                                            item.updated_at ||
+                                            item.created_at ||
+                                            item.date
+                                        );
+
+                                    return `
+                                        <div class="reminder-queue-item">
+                                            <div class="reminder-queue-icon">
+                                                ${
+                                                    itemStatus === "failed"
+                                                        ? "⚠️"
+                                                        : "✅"
+                                                }
+                                            </div>
+
+                                            <div class="reminder-queue-copy">
+                                                <div class="reminder-queue-heading">
+                                                    <strong>
+                                                        ${escapeHtml(
+                                                            customer
+                                                        )}
+                                                    </strong>
+
+                                                    <span class="status-badge ${getStatusClass(
+                                                        itemStatus
+                                                    )}">
+                                                        ${escapeHtml(
+                                                            capitalise(
+                                                                itemStatus
+                                                            )
+                                                        )}
+                                                    </span>
+                                                </div>
+
+                                                <span>
+                                                    ${escapeHtml(
+                                                        item.message ||
+                                                        item.detail ||
+                                                        item.reminder_type ||
+                                                        "Reminder activity"
+                                                    )}
+                                                </span>
+
+                                                <small>
+                                                    ${
+                                                        itemDate
+                                                            ? escapeHtml(
+                                                                formatAppointmentDate(
+                                                                    itemDate
+                                                                )
+                                                            )
+                                                            : "Time unavailable"
+                                                    }
+                                                </small>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            )
+                            .join("")
+                        : createEmptyState(
+                            "📨",
+                            "No recent reminder activity",
+                            "Sent and failed reminder records will appear here when available.",
+                            true
+                        )
+                }
+            </div>
+        `;
     }
 
     openDrawer(
         el.reminderDrawer
-    );
-}
-
-function openDrawer(drawer) {
-    closeAllDrawers();
-
-    drawer?.classList.add("open");
-    drawer?.setAttribute(
-        "aria-hidden",
-        "false"
-    );
-
-    el.drawerOverlay?.classList.add(
-        "visible"
-    );
-
-    document.body.classList.add(
-        "drawer-open"
-    );
-}
-
-function closeAllDrawers() {
-    [
-        el.customerDrawer,
-        el.vehicleDrawer,
-        el.reminderDrawer
-    ].forEach((drawer) => {
-        drawer?.classList.remove("open");
-        drawer?.setAttribute(
-            "aria-hidden",
-            "true"
-        );
-    });
-
-    el.drawerOverlay?.classList.remove(
-        "visible"
-    );
-
-    document.body.classList.remove(
-        "drawer-open"
     );
 }
 
