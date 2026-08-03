@@ -196,6 +196,31 @@ document.addEventListener(
     initialiseDashboard
 );
 
+window.addEventListener(
+    "pageshow",
+    (event) => {
+        if (event.persisted) {
+            refreshDashboard({
+                silent: true
+            });
+        }
+    }
+);
+
+document.addEventListener(
+    "visibilitychange",
+    () => {
+        if (
+            document.visibilityState === "visible" &&
+            !dashboardState.loading
+        ) {
+            refreshDashboard({
+                silent: true
+            });
+        }
+    }
+);
+
 function initialiseDashboard() {
     loadElements();
     updateHeaderDate();
@@ -576,20 +601,6 @@ function handleDelegatedClick(event) {
         }
     }
 }
-
-    const vehicleButton =
-        event.target.closest("[data-vehicle-reg]");
-
-    if (vehicleButton) {
-        const vehicle = findVehicle(
-            vehicleButton.dataset.vehicleReg
-        );
-
-        if (vehicle) {
-            openVehicleDrawer(vehicle);
-        }
-    }
-
 
 function toggleMobileSidebar() {
     const open =
@@ -2204,15 +2215,73 @@ function renderVehicleDirectory() {
     const query =
         dashboardState.vehicleQuery;
 
-    const vehicles =
-        (
-            Array.isArray(
-                dashboardState.data.vehicles
-            )
-                ? dashboardState.data.vehicles
-                : []
-        )
-            .filter((vehicle) => {
+    const groupedVehicles = new Map();
+
+(
+    Array.isArray(
+        dashboardState.data.vehicles
+    )
+        ? dashboardState.data.vehicles
+        : []
+).forEach((vehicle) => {
+    const key = String(
+        bookingRegistration(vehicle)
+    )
+        .replace(/[^A-Z0-9]/gi, "")
+        .toUpperCase();
+
+    if (!key) {
+        return;
+    }
+
+    if (!groupedVehicles.has(key)) {
+        groupedVehicles.set(key, {
+            ...vehicle,
+            booking_count:
+                safeNumber(
+                    vehicle.booking_count
+                ),
+            upcoming_booking_count:
+                safeNumber(
+                    vehicle.upcoming_booking_count
+                ),
+            total_revenue:
+                safeNumber(
+                    vehicle.total_revenue
+                )
+        });
+
+        return;
+    }
+
+    const existing =
+        groupedVehicles.get(key);
+
+    existing.booking_count +=
+        safeNumber(
+            vehicle.booking_count
+        );
+
+    existing.upcoming_booking_count +=
+        safeNumber(
+            vehicle.upcoming_booking_count
+        );
+
+    existing.total_revenue +=
+        safeNumber(
+            vehicle.total_revenue
+        );
+
+    existing.booking_history = [
+        ...(existing.booking_history || []),
+        ...(vehicle.booking_history || [])
+    ];
+});
+
+const vehicles =
+    Array.from(
+        groupedVehicles.values()
+    ).filter((vehicle) => {
                 const registration =
                     bookingRegistration(
                         vehicle
