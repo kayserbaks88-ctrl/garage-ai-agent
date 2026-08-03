@@ -2734,7 +2734,12 @@ body.modal-open {
 
 @media (max-width: 700px) {
     .system-health-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .system-health-grid .quick-action {
+        min-height: 150px;
     }
 }
 /* =========================================================
