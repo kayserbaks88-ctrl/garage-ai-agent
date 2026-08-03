@@ -349,6 +349,19 @@ function bindEvents() {
         runReminders
     );
 
+    document
+    .querySelector(
+        'a[href="#reminders"]'
+    )
+    ?.addEventListener(
+        "click",
+        (event) => {
+            event.preventDefault();
+            closeMobileSidebar();
+            openReminderDrawer();
+        }
+    );
+    
     el.viewAllBookingsButton?.addEventListener(
         "click",
         () => scrollToSection("bookings")
@@ -492,30 +505,29 @@ function bindEvents() {
 }
 
 function handleDelegatedClick(event) {
-    const bookingButton =
-        event.target.closest("[data-booking-index]");
-
-    if (bookingButton) {
-        const booking = filteredBookings()[
-            Number(bookingButton.dataset.bookingIndex)
-        ];
-
-        if (booking) {
-            openBookingModal(booking);
-        }
-
-        return;
-    }
+    /*
+     * Customer and vehicle buttons sit inside booking rows.
+     * They must be checked before the booking row itself.
+     */
 
     const customerButton =
-        event.target.closest("[data-customer-key]");
+        event.target.closest(
+            "[data-customer-key]"
+        );
 
     if (customerButton) {
-        const customer = getCustomerRecords().find(
-            (item) =>
-                customerKey(item) ===
-                customerButton.dataset.customerKey
-        );
+        event.preventDefault();
+        event.stopPropagation();
+
+        const wantedKey =
+            customerButton.dataset.customerKey;
+
+        const customer =
+            getCustomerRecords().find(
+                (item) =>
+                    customerKey(item) ===
+                    wantedKey
+            );
 
         if (customer) {
             openCustomerDrawer(customer);
@@ -523,6 +535,47 @@ function handleDelegatedClick(event) {
 
         return;
     }
+
+    const vehicleButton =
+        event.target.closest(
+            "[data-vehicle-reg]"
+        );
+
+    if (vehicleButton) {
+        event.preventDefault();
+        event.stopPropagation();
+
+        const vehicle =
+            findVehicle(
+                vehicleButton.dataset.vehicleReg
+            );
+
+        if (vehicle) {
+            openVehicleDrawer(vehicle);
+        }
+
+        return;
+    }
+
+    const bookingButton =
+        event.target.closest(
+            "[data-booking-index]"
+        );
+
+    if (bookingButton) {
+        const booking =
+            filteredBookings()[
+                Number(
+                    bookingButton.dataset
+                        .bookingIndex
+                )
+            ];
+
+        if (booking) {
+            openBookingModal(booking);
+        }
+    }
+}
 
     const vehicleButton =
         event.target.closest("[data-vehicle-reg]");
@@ -536,7 +589,7 @@ function handleDelegatedClick(event) {
             openVehicleDrawer(vehicle);
         }
     }
-}
+
 
 function toggleMobileSidebar() {
     const open =
