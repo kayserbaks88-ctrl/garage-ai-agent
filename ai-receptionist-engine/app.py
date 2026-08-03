@@ -310,7 +310,7 @@ def _register_optional_reminder_blueprint() -> None:
     the module does not use a Flask Blueprint.
     """
     try:
-        module = importlib.import_module("integrations.reminder_scheduler")
+        module = importlib.import_module("trimtech.integrations.reminder_scheduler")
         blueprint = getattr(module, "reminder_scheduler_bp", None)
 
         if blueprint is not None and blueprint.name not in app.blueprints:
@@ -337,7 +337,7 @@ def run_all_automations():
     jobs = (
         (
             "appointment_reminders",
-            "integrations.reminder_scheduler",
+            "trimtech.integrations.reminder_scheduler",
             (
                 "process_appointment_reminders",
                 "process_reminders",
@@ -361,7 +361,7 @@ def run_all_automations():
         ),
         (
             "mot_reminders",
-            "integrations.mot_reminders",
+            "trimtech.integrations.mot_reminders",
             (
                 "process_mot_reminders",
                 "process_due_mot_reminders",
@@ -400,7 +400,7 @@ def run_appointment_reminders():
 
     result = _run_automation(
         "appointment_reminders",
-        "integrations.reminder_scheduler",
+        "trimtech.integrations.reminder_scheduler",
         (
             "process_appointment_reminders",
             "process_reminders",
@@ -450,7 +450,7 @@ def run_mot_reminders():
 
     result = _run_automation(
         "mot_reminders",
-        "integrations.mot_reminders",
+        "trimtech.integrations.mot_reminders",
         (
             "process_mot_reminders",
             "process_due_mot_reminders",
