@@ -375,17 +375,13 @@ function bindEvents() {
     );
 
     document
-    .querySelector(
-        'a[href="#reminders"]'
-    )
-    ?.addEventListener(
-        "click",
-        (event) => {
+        .querySelector('a[href="#reminders"]')
+        ?.addEventListener("click", (event) => {
             event.preventDefault();
+            event.stopPropagation();
             closeMobileSidebar();
             openReminderDrawer();
-        }
-    );
+        });
     
     el.viewAllBookingsButton?.addEventListener(
         "click",
@@ -2396,7 +2392,7 @@ const vehicles =
                     [make, model]
                         .filter(Boolean)
                         .join(" ") ||
-                    "Vehicle details unavailable";
+                    "Make and model not recorded";
 
                 const visits =
                     safeNumber(
@@ -2671,6 +2667,45 @@ function renderSystemHealth() {
     );
 }
 
+function openDrawer(drawer) {
+    if (!drawer) {
+        return;
+    }
+
+    closeAllDrawers(drawer);
+
+    drawer.classList.add("open");
+    drawer.classList.add("visible");
+    drawer.setAttribute("aria-hidden", "false");
+
+    el.drawerOverlay?.classList.add("open");
+    el.drawerOverlay?.classList.add("visible");
+    el.drawerOverlay?.setAttribute("aria-hidden", "false");
+
+    document.body.classList.add("drawer-open");
+}
+
+function closeAllDrawers(exceptDrawer = null) {
+    [
+        el.customerDrawer,
+        el.vehicleDrawer,
+        el.reminderDrawer
+    ].forEach((drawer) => {
+        if (!drawer || drawer === exceptDrawer) {
+            return;
+        }
+
+        drawer.classList.remove("open", "visible");
+        drawer.setAttribute("aria-hidden", "true");
+    });
+
+    if (!exceptDrawer) {
+        el.drawerOverlay?.classList.remove("open", "visible");
+        el.drawerOverlay?.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("drawer-open");
+    }
+}
+
 function openCustomerDrawer(customer) {
     dashboardState.selectedCustomer =
         customer;
@@ -2921,7 +2956,7 @@ function openCustomerDrawer(customer) {
                                         ]
                                             .filter(Boolean)
                                             .join(" ") ||
-                                        "Vehicle details unavailable";
+                                        "Make and model not recorded";
 
                                     return `
                                         <button
@@ -3327,7 +3362,7 @@ function openVehicleDrawer(vehicle) {
                     value !== "Unknown"
             )
             .join(" ") ||
-        "Vehicle details unavailable";
+        "Make and model not recorded";
 
     const colour =
         vehicle.colour ||

@@ -1317,6 +1317,7 @@ def system_health(
         "vapi": vapi_status,
         "calendar": calendar_status,
         "dvla": dvla_status,
+        "reminders": "connected",
         "backend": "connected",
     }
 
