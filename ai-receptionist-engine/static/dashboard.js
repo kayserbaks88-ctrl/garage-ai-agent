@@ -523,6 +523,30 @@ function bindEvents() {
             closeMobileSidebar();
         }
     });
+
+    document
+    .querySelectorAll("[data-close-drawer]")
+    .forEach((button) => {
+        button.addEventListener("click", () => {
+            closeAllDrawers();
+        });
+    });
+
+el.drawerOverlay?.addEventListener(
+    "click",
+    () => {
+        closeAllDrawers();
+    }
+);
+
+document.addEventListener(
+    "keydown",
+    (event) => {
+        if (event.key === "Escape") {
+            closeAllDrawers();
+        }
+    }
+);
 }
 
 function handleDelegatedClick(event) {

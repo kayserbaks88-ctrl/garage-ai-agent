@@ -2933,3 +2933,38 @@ body.drawer-open {
         grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     }
 }
+
+/* Final System Connections layout */
+
+.system-health-grid {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+    width: 100%;
+}
+
+.system-health-card {
+    width: auto;
+    min-width: 0;
+    height: 100%;
+}
+
+/* Phone: horizontal swipe row instead of vertical cards */
+@media (max-width: 700px) {
+    .system-health-grid {
+        display: flex;
+        gap: 14px;
+        overflow-x: auto;
+        overflow-y: hidden;
+        padding-bottom: 10px;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .system-health-card {
+        flex: 0 0 78%;
+        width: 78%;
+        min-width: 78%;
+        scroll-snap-align: start;
+    }
+}
