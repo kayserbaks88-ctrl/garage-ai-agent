@@ -461,6 +461,27 @@ def book_appointment():
         data.get("make_model") or ""
     ).strip()
 
+    from trimtech.integrations.dvla import safely_lookup_vehicle
+
+    vehicle_lookup = safely_lookup_vehicle(
+    registration
+    )
+
+    if vehicle_lookup.get("success"):
+        vehicle_data = (
+            vehicle_lookup.get("vehicle")
+            or {}
+        )
+    else:
+        vehicle_data = {
+            "reg": registration,
+            "registration": registration,
+            "make_model": (
+            make_model
+            or "Vehicle confirmed by customer"
+        ),
+    }
+    
     notes = str(
         data.get("notes") or ""
     ).strip()

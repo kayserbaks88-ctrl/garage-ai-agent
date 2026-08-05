@@ -383,6 +383,11 @@ def create_booking(
         or ""
     ).strip()
 
+    fuel_type = str(
+       vehicle.get("fuel_type")
+       or ""
+    ).strip()
+
     mot_status = str(
         vehicle.get("mot_status")
         or ""
@@ -407,6 +412,7 @@ def create_booking(
         "model": model,
         "make_model": make_model,
         "colour": colour,
+        "fuel_type": fuel_type,
         "year_of_manufacture": (
             year_of_manufacture
         ),

@@ -540,11 +540,29 @@ def build_vehicle_record(
         else None
     )
 
+    latest_customer_booking = (
+        latest_booking
+        or next_booking
+        or last_completed
+        or {}
+    )
+
     return {
         "registration_key": registration_key,
         "registration": format_registration(
             registration_key
         ),
+
+        "customer_name": customer_name_from_booking(
+            latest_customer_booking
+        ),
+        "customer_phone": customer_phone_from_booking(
+            latest_customer_booking
+        ),
+        "customer_email": customer_email_from_booking(
+            latest_customer_booking
+        ),
+
         "make": normalise_text(
             latest_available(
                 ordered_bookings,
@@ -625,6 +643,8 @@ def build_vehicle_record(
         "upcoming_booking_count": len(
             upcoming_bookings
         ),
+        "total_revenue": total_spend,
+        "total_spent": total_spend,
         "total_spend": total_spend,
         "estimated_pipeline_value": estimated_pipeline_value,
         "average_completed_visit_value": round(
