@@ -2829,13 +2829,14 @@ function openCustomerDrawer(customer) {
 
     const lastVisit =
         parseDate(
+            customer.last_completed_visit?.start ||
             customer.last_visit ||
             customer.last_booking_date
         );
 
     const nextBooking =
         parseDate(
-            customer.next_booking ||
+            customer.next_booking?.start ||
             customer.next_booking_date
         );
 
