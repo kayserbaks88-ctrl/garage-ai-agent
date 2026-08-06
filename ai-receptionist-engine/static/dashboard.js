@@ -2828,16 +2828,10 @@ function openCustomerDrawer(customer) {
         );
 
     const lastVisit =
-        parseDate(
-            customer.last_visit ||
-            customer.last_booking_date
-        );
+        customer.last_completed_visit || null;
 
     const nextBooking =
-        parseDate(
-            customer.next_booking ||
-            customer.next_booking_date
-        );
+        customer.next_booking || null;
 
     setText(
         el.customerDrawerTitle,
