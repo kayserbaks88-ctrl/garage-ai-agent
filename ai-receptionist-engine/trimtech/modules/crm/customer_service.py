@@ -149,6 +149,74 @@ def booking_sort_key(
 
     return (1, normalise_text(value))
 
+def booking_is_cancelled(
+    booking: dict[str, Any],
+) -> bool:
+    status = normalise_text(
+        booking.get("status")
+        or booking.get("booking_status")
+        or "confirmed"
+    ).lower()
+
+    return "cancel" in status
+
+
+def booking_is_completed(
+    booking: dict[str, Any],
+    now: datetime,
+) -> bool:
+    if booking_is_cancelled(booking):
+        return False
+
+    status = normalise_text(
+        booking.get("status")
+        or booking.get("booking_status")
+        or "confirmed"
+    ).lower()
+
+    if any(
+        word in status
+        for word in (
+            "completed",
+            "complete",
+            "done",
+            "finished",
+            "attended",
+        )
+    ):
+        return True
+
+    booking_time = parse_datetime(
+        booking_datetime_value(booking)
+    )
+
+    if booking_time is None:
+        return False
+
+    try:
+        return booking_time < now
+    except TypeError:
+        return False
+
+
+def booking_is_upcoming(
+    booking: dict[str, Any],
+    now: datetime,
+) -> bool:
+    if booking_is_cancelled(booking):
+        return False
+
+    booking_time = parse_datetime(
+        booking_datetime_value(booking)
+    )
+
+    if booking_time is None:
+        return False
+
+    try:
+        return booking_time >= now
+    except TypeError:
+        return False
 
 def customer_vehicle_summaries(
     bookings: list[dict[str, Any]],
