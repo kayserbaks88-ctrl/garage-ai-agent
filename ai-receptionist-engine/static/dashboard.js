@@ -2923,20 +2923,20 @@ function openCustomerDrawer(customer) {
 
                 ${drawerDetail(
                     "Last visit",
-                    lastVisit
+                    lastVisit?.start
                         ? formatAppointmentDate(
-                            lastVisit
+                           lastVisit.start
                         )
                         : "No completed visit"
                 )}
 
                 ${drawerDetail(
                     "Next booking",
-                    nextBooking
+                    nextBooking?.start
                         ? formatAppointmentDate(
-                            nextBooking
-                        )
-                        : "No upcoming booking"
+                           nextBooking.start
+                    )
+                    : "No upcoming booking"
                 )}
             </div>
 
