@@ -7,9 +7,13 @@ import os
 from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, session
 from twilio.twiml.messaging_response import MessagingResponse
 from trimtech.integrations.vapi import vapi_bp
+from trimtech.modules.onboarding import onboarding_blueprint
+from trimtech.modules.platform import platform_blueprint
+from trimtech.core.registry import load_business_instance
+
 
 load_dotenv()
 
@@ -71,6 +75,8 @@ def protect_dashboard_api_blueprint():
 app.register_blueprint(dashboard_auth)
 app.register_blueprint(dashboard_api)
 app.register_blueprint(vapi_bp)
+app.register_blueprint(onboarding_blueprint)
+app.register_blueprint(platform_blueprint)
 
 # =========================================================
 # Health check
@@ -820,11 +826,53 @@ def campaign_opt_out():
                 "error": "campaign_opt_out_failed",
             }
         ), 500
-
 @app.route("/dashboard")
 @dashboard_login_required
 def dashboard():
-    return render_template("dashboard.html")
+    # Legacy/current dashboard.
+    # Remove any previously selected platform business.
+    session.pop("dashboard_business_id", None)
+
+    return render_template(
+        "dashboard.html",
+        business=None,
+        business_slug="",
+    )
+
+
+@app.route(
+    "/platform/businesses/<business_slug>/dashboard"
+)
+@dashboard_login_required
+def business_dashboard(
+    business_slug: str,
+):
+    try:
+        business = load_business_instance(
+            business_slug,
+            refresh=True,
+        )
+
+    except LookupError:
+        return jsonify(
+            {
+                "success": False,
+                "error": "business_not_found",
+                "business_slug": business_slug,
+            }
+        ), 404
+
+    # This becomes the business context used by the
+    # dashboard API for this logged-in session.
+    session["dashboard_business_id"] = (
+        business.business_id
+    )
+
+    return render_template(
+        "dashboard.html",
+        business=business,
+        business_slug=business.business_id,
+    )
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5000"))

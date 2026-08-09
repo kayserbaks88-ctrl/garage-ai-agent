@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        Review your setup | TrimTech
+    </title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family:
+                Inter,
+                Arial,
+                sans-serif;
+            background:
+                linear-gradient(
+                    135deg,
+                    #f4f7fb,
+                    #eef4ff
+                );
+            color: #172033;
+        }
+
+        .page {
+            width: min(1100px, 100%);
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns:
+                minmax(0, 0.85fr)
+                minmax(0, 1.15fr);
+            gap: 28px;
+            align-items: start;
+        }
+
+        .intro-panel,
+        .review-panel {
+            background: #ffffff;
+            border: 1px solid #dfe7f2;
+            border-radius: 24px;
+            box-shadow:
+                0 18px 50px
+                rgba(37, 55, 86, 0.10);
+        }
+
+        .intro-panel {
+            padding: 36px;
+            position: sticky;
+            top: 24px;
+        }
+
+        .brand-badge {
+            width: 58px;
+            height: 58px;
+            border-radius: 18px;
+            display: grid;
+            place-items: center;
+            background:
+                linear-gradient(
+                    135deg,
+                    #1478ff,
+                    #0057d8
+                );
+            color: #ffffff;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+
+        .eyebrow {
+            margin: 0 0 10px;
+            color: #1367e8;
+            font-size: 13px;
+            font-weight: 800;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin-top: 0;
+        }
+
+        h1 {
+            margin-bottom: 18px;
+            font-size: clamp(
+                34px,
+                5vw,
+                52px
+            );
+            line-height: 1.05;
+        }
+
+        .intro-copy {
+            color: #647089;
+            font-size: 17px;
+            line-height: 1.7;
+        }
+
+        .progress {
+            margin-top: 34px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .progress-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #66758d;
+        }
+
+        .progress-number {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            border: 1px solid #d8e2ef;
+            background: #f7faff;
+            font-weight: 800;
+        }
+
+        .progress-item.complete {
+            color: #067647;
+            font-weight: 800;
+        }
+
+        .progress-item.complete
+        .progress-number {
+            border-color: #b7ebcf;
+            background: #ecfdf3;
+            color: #067647;
+        }
+
+        .progress-item.active {
+            color: #172033;
+            font-weight: 800;
+        }
+
+        .progress-item.active
+        .progress-number {
+            background: #146ef5;
+            border-color: #146ef5;
+            color: #ffffff;
+        }
+
+        .review-panel {
+            padding: 32px;
+        }
+
+        .review-header {
+            margin-bottom: 26px;
+        }
+
+        .review-header h2 {
+            margin-bottom: 10px;
+            font-size: 30px;
+        }
+
+        .review-header p {
+            color: #6f7c91;
+            line-height: 1.6;
+        }
+
+        .flash-stack {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 22px;
+        }
+
+        .flash-message {
+            padding: 13px 15px;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+
+        .flash-message.error {
+            background: #fff0f0;
+            color: #b42318;
+            border: 1px solid #f2c6c3;
+        }
+
+        .flash-message.success {
+            background: #ecfdf3;
+            color: #067647;
+            border: 1px solid #b7ebcf;
+        }
+
+        .business-card {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 22px;
+            border: 1px solid #dce5f0;
+            border-radius: 18px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #f8fbff,
+                    #ffffff
+                );
+            margin-bottom: 24px;
+        }
+
+        .business-icon {
+            width: 58px;
+            height: 58px;
+            border-radius: 17px;
+            display: grid;
+            place-items: center;
+            background: #eaf3ff;
+            font-size: 27px;
+            flex-shrink: 0;
+        }
+
+        .business-card h3 {
+            margin-bottom: 5px;
+            font-size: 22px;
+        }
+
+        .business-type {
+            margin: 0;
+            color: #62728a;
+            text-transform: capitalize;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .detail-card {
+            padding: 18px;
+            border: 1px solid #dde6f1;
+            border-radius: 16px;
+            background: #ffffff;
+            min-width: 0;
+        }
+
+        .detail-card.full {
+            grid-column: 1 / -1;
+        }
+
+        .detail-label {
+            margin-bottom: 8px;
+            color: #718097;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+        }
+
+        .detail-value {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 750;
+            overflow-wrap: anywhere;
+        }
+
+        .empty-value {
+            color: #8b97aa;
+            font-weight: 600;
+        }
+
+        .notice {
+            margin-top: 24px;
+            padding: 17px 18px;
+            border-radius: 15px;
+            background: #fff8e6;
+            border: 1px solid #f2dfa9;
+            color: #71540c;
+            line-height: 1.6;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+            margin-top: 26px;
+        }
+
+        .button {
+            min-height: 50px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 22px;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 800;
+            transition:
+                transform 0.2s ease,
+                box-shadow 0.2s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+        }
+
+        .button.secondary {
+            border: 1px solid #d6e0ec;
+            background: #ffffff;
+            color: #243047;
+        }
+
+        .button.primary {
+            background:
+                linear-gradient(
+                    135deg,
+                    #1677ff,
+                    #005bd7
+                );
+            color: #ffffff;
+            box-shadow:
+                0 14px 30px
+                rgba(20, 110, 245, 0.24);
+        }
+
+        @media (max-width: 800px) {
+            .page {
+                padding: 18px 14px 28px;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .intro-panel {
+                position: static;
+                padding: 26px;
+            }
+
+            .review-panel {
+                padding: 24px 18px;
+            }
+
+            .detail-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detail-card.full {
+                grid-column: auto;
+            }
+
+            .actions {
+                flex-direction: column-reverse;
+            }
+
+            .button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+        <section class="layout">
+            <aside class="intro-panel">
+                <div class="brand-badge">⚙️</div>
+
+                <p class="eyebrow">
+                    TrimTech Platform
+                </p>
+
+                <h1>
+                    Your business profile is taking shape.
+                </h1>
+
+                <p class="intro-copy">
+                    Review the details saved in Step 1.
+                    Next, we will add services, pricing and
+                    opening hours.
+                </p>
+
+                <div class="progress">
+                    <div class="progress-item complete">
+                        <span class="progress-number">✓</span>
+                        <span>Business details</span>
+                    </div>
+
+                    <div class="progress-item active">
+                        <span class="progress-number">2</span>
+                        <span>Services and hours</span>
+                    </div>
+
+                    <div class="progress-item">
+                        <span class="progress-number">3</span>
+                        <span>Integrations</span>
+                    </div>
+
+                    <div class="progress-item">
+                        <span class="progress-number">4</span>
+                        <span>Launch</span>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="review-panel">
+                <header class="review-header">
+                    <p class="eyebrow">
+                        Business profile
+                    </p>
+
+                    <h2>
+                        Check your details
+                    </h2>
+
+                    <p>
+                        Your onboarding progress has been
+                        saved successfully.
+                    </p>
+                </header>
+
+                {% with messages =
+                    get_flashed_messages(
+                        with_categories=true
+                    )
+                %}
+                    {% if messages %}
+                        <div class="flash-stack">
+                            {% for category, message in messages %}
+                                <div
+                                    class="flash-message {{ category }}"
+                                >
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endwith %}
+
+                <div class="business-card">
+                    <div class="business-icon">
+                        {% if business.business_type == "garage" %}
+                            🚗
+                        {% elif business.business_type == "barber" %}
+                            💈
+                        {% elif business.business_type == "cleaning" %}
+                            🧹
+                        {% elif business.business_type == "accountant" %}
+                            📊
+                        {% else %}
+                            🏢
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <h3>
+                            {{ business.business_name }}
+                        </h3>
+
+                        <p class="business-type">
+                            {{ business.business_type }}
+                        </p>
+                    </div>
+                </div>
+
+                <div class="detail-grid">
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Owner
+                        </p>
+
+                        <p class="detail-value">
+                            {{ business.owner_name }}
+                        </p>
+                    </article>
+
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Business URL
+                        </p>
+
+                        <p class="detail-value">
+                            {{ business.business_slug }}
+                        </p>
+                    </article>
+
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Email
+                        </p>
+
+                        <p class="detail-value">
+                            {{ business.email }}
+                        </p>
+                    </article>
+
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Phone
+                        </p>
+
+                        <p class="detail-value">
+                            {{ business.phone }}
+                        </p>
+                    </article>
+
+                    <article class="detail-card full">
+                        <p class="detail-label">
+                            Address
+                        </p>
+
+                        <p class="detail-value">
+                            {% if business.address %}
+                                {{ business.address }}
+                            {% else %}
+                                <span class="empty-value">
+                                    Not provided
+                                </span>
+                            {% endif %}
+                        </p>
+                    </article>
+
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Postcode
+                        </p>
+
+                        <p class="detail-value">
+                            {% if business.postcode %}
+                                {{ business.postcode }}
+                            {% else %}
+                                <span class="empty-value">
+                                    Not provided
+                                </span>
+                            {% endif %}
+                        </p>
+                    </article>
+
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Website
+                        </p>
+
+                        <p class="detail-value">
+                            {% if business.website %}
+                                {{ business.website }}
+                            {% else %}
+                                <span class="empty-value">
+                                    Not provided
+                                </span>
+                            {% endif %}
+                        </p>
+                    </article>
+
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Timezone
+                        </p>
+
+                        <p class="detail-value">
+                            {{ business.timezone }}
+                        </p>
+                    </article>
+
+                    <article class="detail-card">
+                        <p class="detail-label">
+                            Currency
+                        </p>
+
+                        <p class="detail-value">
+                            {{ business.currency }}
+                        </p>
+                    </article>
+                </div>
+
+                <div class="notice">
+                    Step 1 is saved. The next screen will let
+                    the owner add services, durations, prices
+                    and business opening hours.
+                </div>
+
+                <div class="actions">
+                    <a
+                        class="button secondary"
+                        href="{{ url_for(
+                            'onboarding.onboarding_start'
+                        ) }}"
+                    >
+                        ← Start again
+                    <a
+                        class="button primary"
+                        href="{{ url_for(
+                            'onboarding.onboarding_services',
+                             business_slug=business.business_slug
+                        ) }}"
+                    >
+                        Continue to services →
+                    </a>
+               
+                </div>
+            </section>
+        </section>
+    </main>
+</body>
+</html>

@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        {{ business.business_name }} | TrimTech Platform
+    </title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family:
+                Inter,
+                Arial,
+                sans-serif;
+            background:
+                linear-gradient(
+                    135deg,
+                    #f4f7fb,
+                    #eef4ff
+                );
+            color: #172033;
+        }
+
+        a {
+            color: inherit;
+        }
+
+        .page {
+            width: min(1180px, 100%);
+            margin: 0 auto;
+            padding: 30px 20px 50px;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 18px;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #53627a;
+            text-decoration: none;
+            font-weight: 800;
+        }
+
+        .platform-label {
+            color: #1367e8;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .hero {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            align-items: center;
+            padding: 28px;
+            margin-bottom: 22px;
+            border-radius: 24px;
+            background: #ffffff;
+            border: 1px solid #dfe7f2;
+            box-shadow:
+                0 16px 42px
+                rgba(37, 55, 86, 0.08);
+        }
+
+        .hero-main {
+            display: flex;
+            align-items: center;
+            gap: 18px;
+            min-width: 0;
+        }
+
+        .business-icon {
+            width: 68px;
+            height: 68px;
+            flex-shrink: 0;
+            display: grid;
+            place-items: center;
+            border-radius: 20px;
+            background: #eef5ff;
+            font-size: 31px;
+        }
+
+        .eyebrow {
+            margin: 0 0 7px;
+            color: #1367e8;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+        }
+
+        h1,
+        h2,
+        h3,
+        p {
+            margin-top: 0;
+        }
+
+        h1 {
+            margin-bottom: 6px;
+            font-size: clamp(
+                30px,
+                5vw,
+                42px
+            );
+        }
+
+        .subtitle {
+            margin-bottom: 0;
+            color: #718097;
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 14px;
+            border-radius: 999px;
+            font-weight: 850;
+            white-space: nowrap;
+        }
+
+        .status.live {
+            background: #ecfdf3;
+            color: #067647;
+        }
+
+        .status.setup {
+            background: #fff7e6;
+            color: #a15c00;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(4, minmax(0, 1fr));
+            gap: 15px;
+            margin-bottom: 22px;
+        }
+
+        .summary-card {
+            padding: 20px;
+            border-radius: 18px;
+            background: #ffffff;
+            border: 1px solid #dde6f1;
+        }
+
+        .label {
+            margin-bottom: 7px;
+            color: #78869a;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: 0.09em;
+            text-transform: uppercase;
+        }
+
+        .value {
+            margin-bottom: 0;
+            font-size: 20px;
+            font-weight: 900;
+            overflow-wrap: anywhere;
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns:
+                minmax(0, 1.1fr)
+                minmax(300px, 0.9fr);
+            gap: 22px;
+        }
+
+        .panel {
+            padding: 26px;
+            border-radius: 22px;
+            background: #ffffff;
+            border: 1px solid #dfe7f2;
+            box-shadow:
+                0 14px 36px
+                rgba(37, 55, 86, 0.06);
+        }
+
+        .panel + .panel {
+            margin-top: 22px;
+        }
+
+        .panel-header {
+            margin-bottom: 20px;
+        }
+
+        .panel-header h2 {
+            margin-bottom: 5px;
+            font-size: 23px;
+        }
+
+        .panel-header p {
+            margin-bottom: 0;
+            color: #718097;
+            line-height: 1.5;
+        }
+
+        .details-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .detail {
+            padding: 16px;
+            border: 1px solid #e1e8f1;
+            border-radius: 15px;
+            background: #fafcff;
+        }
+
+        .detail.full {
+            grid-column: 1 / -1;
+        }
+
+        .detail-value {
+            margin: 0;
+            font-weight: 800;
+            overflow-wrap: anywhere;
+        }
+
+        .service-list,
+        .integration-list {
+            display: grid;
+            gap: 12px;
+        }
+
+        .service-item,
+        .integration-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            padding: 15px 16px;
+            border: 1px solid #e0e7f0;
+            border-radius: 15px;
+            background: #fbfcfe;
+        }
+
+        .service-name,
+        .integration-name {
+            margin: 0;
+            font-weight: 850;
+        }
+
+        .service-meta {
+            margin: 4px 0 0;
+            color: #748197;
+            font-size: 13px;
+        }
+
+        .service-price {
+            font-weight: 900;
+            white-space: nowrap;
+        }
+
+        .integration-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: #ecfdf3;
+            color: #067647;
+            font-size: 12px;
+            font-weight: 850;
+        }
+
+        .integration-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .empty {
+            padding: 20px;
+            border-radius: 15px;
+            background: #f8fafc;
+            color: #718097;
+            text-align: center;
+        }
+
+        .actions {
+            display: grid;
+            gap: 12px;
+        }
+
+        .button {
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 14px;
+            text-decoration: none;
+            font-weight: 900;
+        }
+
+        .button.primary {
+            background:
+                linear-gradient(
+                    135deg,
+                    #1677ff,
+                    #005bd7
+                );
+            color: #ffffff;
+            box-shadow:
+                0 12px 25px
+                rgba(20, 110, 245, 0.20);
+        }
+
+        .button.secondary {
+            border: 1px solid #d5dfeb;
+            background: #ffffff;
+            color: #26364e;
+        }
+
+        .notice {
+            margin-top: 18px;
+            padding: 16px;
+            border-radius: 15px;
+            background: #f7faff;
+            border: 1px solid #dbe8f8;
+            color: #5d6c82;
+            line-height: 1.55;
+        }
+
+        .flash-stack {
+            display: grid;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .flash-message {
+            padding: 13px 15px;
+            border-radius: 12px;
+            font-weight: 800;
+        }
+
+        .flash-message.error {
+            background: #fff0f0;
+            color: #b42318;
+            border: 1px solid #f2c6c3;
+        }
+
+        .flash-message.success {
+            background: #ecfdf3;
+            color: #067647;
+            border: 1px solid #b7ebcf;
+        }
+
+        @media (max-width: 900px) {
+            .summary-grid {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .page {
+                padding: 18px 12px 35px;
+            }
+
+            .hero {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .summary-grid,
+            .details-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .detail.full {
+                grid-column: auto;
+            }
+
+            .panel {
+                padding: 20px 16px;
+            }
+
+            .service-item {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main class="page">
+
+        <div class="topbar">
+            <a
+                class="back-link"
+                href="{{ url_for(
+                    'platform.platform_businesses'
+                ) }}"
+            >
+                ← All businesses
+            </a>
+
+            <span class="platform-label">
+                TrimTech Platform
+            </span>
+        </div>
+
+        {% with messages =
+            get_flashed_messages(
+                with_categories=true
+            )
+        %}
+            {% if messages %}
+                <div class="flash-stack">
+                    {% for category, message in messages %}
+                        <div
+                            class="flash-message {{ category }}"
+                        >
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <section class="hero">
+            <div class="hero-main">
+                <div class="business-icon">
+                    {% if business.business_type == "garage" %}
+                        🚗
+                    {% elif business.business_type == "barber" %}
+                        💈
+                    {% elif business.business_type == "cleaning" %}
+                        🧹
+                    {% elif business.business_type == "accountant" %}
+                        📊
+                    {% else %}
+                        🏢
+                    {% endif %}
+                </div>
+
+                <div>
+                    <p class="eyebrow">
+                        Business profile
+                    </p>
+
+                    <h1>
+                        {{ business.business_name }}
+                    </h1>
+
+                    <p class="subtitle">
+                        {{ business.business_type | title }}
+                        · {{ business.owner_name }}
+                    </p>
+                </div>
+            </div>
+
+            <div
+                class="status {% if business.onboarding_complete %}live{% else %}setup{% endif %}"
+            >
+                <span class="status-dot"></span>
+
+                {% if business.onboarding_complete %}
+                    Live
+                {% else %}
+                    Setup in progress
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="summary-grid">
+            <article class="summary-card">
+                <p class="label">
+                    Services
+                </p>
+
+                <p class="value">
+                    {{ service_count }}
+                </p>
+            </article>
+
+            <article class="summary-card">
+                <p class="label">
+                    Integrations
+                </p>
+
+                <p class="value">
+                    {{ integration_count }}
+                </p>
+            </article>
+
+            <article class="summary-card">
+                <p class="label">
+                    Timezone
+                </p>
+
+                <p class="value">
+                    {{ business.timezone }}
+                </p>
+            </article>
+
+            <article class="summary-card">
+                <p class="label">
+                    Currency
+                </p>
+
+                <p class="value">
+                    {{ business.currency }}
+                </p>
+            </article>
+        </section>
+
+        <section class="content-grid">
+            <div>
+                <article class="panel">
+                    <div class="panel-header">
+                        <h2>
+                            Business details
+                        </h2>
+
+                        <p>
+                            Saved information for this business.
+                        </p>
+                    </div>
+
+                    <div class="details-grid">
+                        <div class="detail">
+                            <p class="label">
+                                Owner
+                            </p>
+
+                            <p class="detail-value">
+                                {{ business.owner_name }}
+                            </p>
+                        </div>
+
+                        <div class="detail">
+                            <p class="label">
+                                Business type
+                            </p>
+
+                            <p class="detail-value">
+                                {{ business.business_type | title }}
+                            </p>
+                        </div>
+
+                        <div class="detail">
+                            <p class="label">
+                                Email
+                            </p>
+
+                            <p class="detail-value">
+                                {{ business.email }}
+                            </p>
+                        </div>
+
+                        <div class="detail">
+                            <p class="label">
+                                Phone
+                            </p>
+
+                            <p class="detail-value">
+                                {{ business.phone }}
+                            </p>
+                        </div>
+
+                        <div class="detail full">
+                            <p class="label">
+                                Address
+                            </p>
+
+                            <p class="detail-value">
+                                {% if business.address %}
+                                    {{ business.address }}
+                                    {% if business.postcode %}
+                                        · {{ business.postcode }}
+                                    {% endif %}
+                                {% else %}
+                                    Not recorded
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="detail full">
+                            <p class="label">
+                                Website
+                            </p>
+
+                            <p class="detail-value">
+                                {% if business.website %}
+                                    {{ business.website }}
+                                {% else %}
+                                    Not recorded
+                                {% endif %}
+                            </p>
+                        </div>
+
+                        <div class="detail">
+                            <p class="label">
+                                Business slug
+                            </p>
+
+                            <p class="detail-value">
+                                {{ business.business_slug }}
+                            </p>
+                        </div>
+
+                        <div class="detail">
+                            <p class="label">
+                                Country
+                            </p>
+
+                            <p class="detail-value">
+                                {{ business.country }}
+                            </p>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <h2>
+                            Services
+                        </h2>
+
+                        <p>
+                            Services configured during onboarding.
+                        </p>
+                    </div>
+
+                    {% if business.services %}
+                        <div class="service-list">
+                            {% for service in business.services %}
+                                <div class="service-item">
+                                    <div>
+                                        <p class="service-name">
+                                            {{ service.get(
+                                                'name',
+                                                'Service'
+                                            ) }}
+                                        </p>
+
+                                        <p class="service-meta">
+                                            {{ service.get(
+                                                'duration_minutes',
+                                                0
+                                            ) }}
+                                            minutes
+                                        </p>
+                                    </div>
+
+                                    <div class="service-price">
+                                        £{{ "%.2f"|format(
+                                            service.get(
+                                                'price',
+                                                0
+                                            )
+                                        ) }}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty">
+                            No services configured.
+                        </div>
+                    {% endif %}
+                </article>
+            </div>
+
+            <aside>
+                <article class="panel">
+                    <div class="panel-header">
+                        <h2>
+                            Integrations
+                        </h2>
+
+                        <p>
+                            Services enabled for this business.
+                        </p>
+                    </div>
+
+                    {% if integrations %}
+                        <div class="integration-list">
+                            {% for integration in integrations %}
+                                <div class="integration-item">
+                                    <p class="integration-name">
+                                        {{ integration }}
+                                    </p>
+
+                                    <span class="integration-badge">
+                                        <span class="integration-dot"></span>
+                                        Enabled
+                                    </span>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="empty">
+                            No integrations enabled.
+                        </div>
+                    {% endif %}
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <h2>
+                            Business controls
+                        </h2>
+
+                        <p>
+                            Manage this TrimTech business.
+                        </p>
+                    </div>
+
+                    <div class="actions">
+                        <a
+                            class="button primary"
+                            href="{{ url_for(
+                                'onboarding.onboarding_review',
+                                business_slug=business.business_slug
+                            ) }}"
+                        >
+                           
+                        <a
+                            class="button primary"
+                            href="{{ url_for(
+                                'business_dashboard',
+                                business_slug=business.business_slug
+                            ) }}"
+                        >
+                            Open Dashboard
+                        </a>
+                        
+                        Edit setup
+                        </a>
+
+                        <a
+                            class="button secondary"
+                            href="{{ url_for(
+                                'platform.platform_businesses'
+                            ) }}"
+                        >
+                            Back to businesses
+                        </a>
+                    </div>
+
+                    <div class="notice">
+                        The next platform stage will connect
+                        this profile to its own operational
+                        dashboard, AI receptionist and live
+                        integrations.
+                    </div>
+                </article>
+            </aside>
+        </section>
+    </main>
+</body>
+</html>
