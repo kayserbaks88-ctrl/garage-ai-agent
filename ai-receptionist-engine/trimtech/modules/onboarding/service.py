@@ -3,46 +3,50 @@ from __future__ import annotations
 """
 TrimTech onboarding storage service.
 
-This module saves and loads onboarding records as JSON files.
-It gives us a simple working foundation now and can later be
-replaced with a database without changing the onboarding pages.
-"""
+This module is the stable storage interface used by:
 
-import json
-import os
-from pathlib import Path
-from typing import Any
+- onboarding routes
+- TrimTech Platform
+- business registry
+- business dashboards
+
+The storage implementation now uses the persistent onboarding
+repository instead of individual JSON files.
+
+Because the public functions in this module stay the same, the rest
+of the application does not need to know whether records are stored
+in JSON, SQLite, Postgres, or another database later.
+"""
 
 from trimtech.modules.onboarding.models import (
     OnboardingBusiness,
     create_business_slug,
 )
-
-
-DEFAULT_STORAGE_DIRECTORY = Path(
-    os.getenv(
-        "ONBOARDING_STORAGE_DIR",
-        "data/onboarding",
-    )
+from trimtech.modules.onboarding.repository import (
+    OnboardingRepositoryError,
+    business_record_exists,
+    delete_business_record,
+    list_business_records,
+    load_business_record,
+    repository_health,
+    save_business_record,
 )
 
 
 class OnboardingStorageError(RuntimeError):
-    """Raised when onboarding data cannot be saved or loaded."""
+    """
+    Raised when onboarding data cannot be saved or loaded.
+    """
 
 
-def storage_directory() -> Path:
-    directory = DEFAULT_STORAGE_DIRECTORY
-    directory.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-    return directory
-
-
-def business_file_path(
+def _clean_business_slug(
     business_slug: str,
-) -> Path:
+) -> str:
+    """
+    Convert a supplied business slug into the same safe format
+    used throughout TrimTech onboarding.
+    """
+
     safe_slug = create_business_slug(
         business_slug
     )
@@ -52,14 +56,27 @@ def business_file_path(
             "A valid business slug is required."
         )
 
-    return storage_directory() / (
-        f"{safe_slug}.json"
-    )
+    return safe_slug
 
 
 def save_onboarding_business(
     business: OnboardingBusiness,
-) -> Path:
+) -> OnboardingBusiness:
+    """
+    Save or update one onboarding business.
+
+    The business is validated before it is written to persistent
+    storage.
+    """
+
+    if not isinstance(
+        business,
+        OnboardingBusiness,
+    ):
+        raise OnboardingStorageError(
+            "A valid onboarding business is required."
+        )
+
     errors = business.validate()
 
     if errors:
@@ -67,138 +84,184 @@ def save_onboarding_business(
             " ".join(errors)
         )
 
-    path = business_file_path(
+    safe_slug = _clean_business_slug(
         business.business_slug
     )
 
-    temporary_path = path.with_suffix(
-        ".json.tmp"
-    )
+    business.business_slug = safe_slug
 
     payload = business.to_dict()
 
+    payload[
+        "business_slug"
+    ] = safe_slug
+
     try:
-        temporary_path.write_text(
-            json.dumps(
-                payload,
-                indent=2,
-                ensure_ascii=False,
-            ),
-            encoding="utf-8",
+        save_business_record(
+            payload
         )
 
-        temporary_path.replace(path)
-
-    except OSError as error:
+    except OnboardingRepositoryError as error:
         raise OnboardingStorageError(
             "Unable to save onboarding progress."
         ) from error
 
-    return path
+    return business
 
 
 def load_onboarding_business(
     business_slug: str,
 ) -> OnboardingBusiness | None:
-    path = business_file_path(
+    """
+    Load one onboarding business by slug.
+    """
+
+    safe_slug = _clean_business_slug(
         business_slug
     )
 
-    if not path.exists():
-        return None
-
     try:
-        raw_data = json.loads(
-            path.read_text(
-                encoding="utf-8",
-            )
+        raw_data = load_business_record(
+            safe_slug
         )
 
-    except (
-        OSError,
-        json.JSONDecodeError,
-    ) as error:
+    except OnboardingRepositoryError as error:
         raise OnboardingStorageError(
             "Unable to load onboarding progress."
         ) from error
 
-    if not isinstance(raw_data, dict):
+    if raw_data is None:
+        return None
+
+    if not isinstance(
+        raw_data,
+        dict,
+    ):
         raise OnboardingStorageError(
             "The onboarding record is invalid."
         )
 
-    return OnboardingBusiness.from_dict(
-        raw_data
-    )
+    try:
+        business = (
+            OnboardingBusiness.from_dict(
+                raw_data
+            )
+        )
+
+    except (
+        TypeError,
+        ValueError,
+    ) as error:
+        raise OnboardingStorageError(
+            "The onboarding record is invalid."
+        ) from error
+
+    return business
 
 
 def onboarding_business_exists(
     business_slug: str,
 ) -> bool:
-    return business_file_path(
+    """
+    Return True when a business exists in persistent storage.
+    """
+
+    safe_slug = _clean_business_slug(
         business_slug
-    ).exists()
+    )
+
+    try:
+        return business_record_exists(
+            safe_slug
+        )
+
+    except OnboardingRepositoryError as error:
+        raise OnboardingStorageError(
+            "Unable to check onboarding progress."
+        ) from error
 
 
 def delete_onboarding_business(
     business_slug: str,
 ) -> bool:
-    path = business_file_path(
+    """
+    Delete one onboarding business.
+    """
+
+    safe_slug = _clean_business_slug(
         business_slug
     )
 
-    if not path.exists():
-        return False
-
     try:
-        path.unlink()
-    except OSError as error:
+        return delete_business_record(
+            safe_slug
+        )
+
+    except OnboardingRepositoryError as error:
         raise OnboardingStorageError(
             "Unable to delete onboarding progress."
         ) from error
-
-    return True
 
 
 def list_onboarding_businesses() -> list[
     OnboardingBusiness
 ]:
-    businesses: list[OnboardingBusiness] = []
+    """
+    Return every valid onboarding business from persistent storage.
+    """
 
     try:
-        files = sorted(
-            storage_directory().glob(
-                "*.json"
-            )
+        raw_records = (
+            list_business_records()
         )
-    except OSError as error:
+
+    except OnboardingRepositoryError as error:
         raise OnboardingStorageError(
             "Unable to list onboarding records."
         ) from error
 
-    for path in files:
+    businesses: list[
+        OnboardingBusiness
+    ] = []
+
+    for raw_data in raw_records:
+        if not isinstance(
+            raw_data,
+            dict,
+        ):
+            continue
+
         try:
-            raw_data: Any = json.loads(
-                path.read_text(
-                    encoding="utf-8",
-                )
-            )
-
-            if not isinstance(raw_data, dict):
-                continue
-
-            businesses.append(
+            business = (
                 OnboardingBusiness.from_dict(
                     raw_data
                 )
             )
 
         except (
-            OSError,
-            json.JSONDecodeError,
             TypeError,
             ValueError,
         ):
             continue
 
+        businesses.append(
+            business
+        )
+
     return businesses
+
+
+def onboarding_storage_health() -> dict:
+    """
+    Return basic persistent-storage health information.
+
+    Useful for local testing and deployment diagnostics.
+    """
+
+    try:
+        return repository_health()
+
+    except OnboardingRepositoryError as error:
+        raise OnboardingStorageError(
+            "Unable to check onboarding storage."
+        ) from error
