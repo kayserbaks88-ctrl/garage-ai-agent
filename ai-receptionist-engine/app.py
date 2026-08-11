@@ -13,7 +13,10 @@ from trimtech.integrations.vapi import vapi_bp
 from trimtech.modules.onboarding import onboarding_blueprint
 from trimtech.modules.platform import platform_blueprint
 from trimtech.core.registry import load_business_instance
-
+from trimtech.modules.auth import auth_blueprint
+from trimtech.modules.auth.routes import (
+    business_access_required,
+)
 
 load_dotenv()
 
@@ -75,6 +78,7 @@ def protect_dashboard_api_blueprint():
 app.register_blueprint(dashboard_auth)
 app.register_blueprint(dashboard_api)
 app.register_blueprint(vapi_bp)
+app.register_blueprint(auth_blueprint)
 app.register_blueprint(onboarding_blueprint)
 app.register_blueprint(platform_blueprint)
 
@@ -843,10 +847,34 @@ def dashboard():
 @app.route(
     "/platform/businesses/<business_slug>/dashboard"
 )
-@dashboard_login_required
+@business_access_required
 def business_dashboard(
     business_slug: str,
 ):
+    try:
+        business = load_business_instance(
+            business_slug,
+            refresh=True,
+        )
+
+    except LookupError:
+        return jsonify(
+            {
+                "success": False,
+                "error": "business_not_found",
+                "business_slug": business_slug,
+            }
+        ), 404
+
+    session["dashboard_business_id"] = (
+        business.business_id
+    )
+
+    return render_template(
+        "dashboard.html",
+        business=business,
+        business_slug=business.business_id,
+    )
     try:
         business = load_business_instance(
             business_slug,

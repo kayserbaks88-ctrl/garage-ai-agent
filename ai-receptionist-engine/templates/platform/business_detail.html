@@ -318,13 +318,16 @@
         }
 
         .button {
+            width: 100%;
             min-height: 50px;
             display: flex;
             align-items: center;
             justify-content: center;
+            border: 0;
             border-radius: 14px;
             text-decoration: none;
             font-weight: 900;
+            cursor: pointer;
         }
 
         .button.primary {
@@ -340,10 +343,133 @@
                 rgba(20, 110, 245, 0.20);
         }
 
+        .button.invite {
+            background:
+                linear-gradient(
+                    135deg,
+                    #16243d,
+                    #263f68
+                );
+            color: #ffffff;
+        }
+
         .button.secondary {
             border: 1px solid #d5dfeb;
             background: #ffffff;
             color: #26364e;
+        }
+
+        .button:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
+        .invite-box {
+            margin-bottom: 22px;
+            padding: 18px;
+            border-radius: 16px;
+            border: 1px solid #dfe7f2;
+            background: #f8fbff;
+        }
+
+        .invite-box h3 {
+            margin-bottom: 6px;
+            font-size: 18px;
+        }
+
+        .invite-copy {
+            margin-bottom: 14px;
+            color: #718097;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .invite-field {
+            margin-bottom: 12px;
+        }
+
+        .invite-field label {
+            display: block;
+            margin-bottom: 7px;
+            color: #53627a;
+            font-size: 12px;
+            font-weight: 850;
+        }
+
+        .invite-field input {
+            width: 100%;
+            min-height: 46px;
+            padding: 0 13px;
+            border: 1px solid #d3deeb;
+            border-radius: 12px;
+            background: #ffffff;
+            color: #172033;
+            outline: none;
+        }
+
+        .invite-result {
+            display: none;
+            margin-top: 14px;
+            padding: 14px;
+            border-radius: 13px;
+            border: 1px solid #b7ebcf;
+            background: #ecfdf3;
+        }
+
+        .invite-result.visible {
+            display: block;
+        }
+
+        .invite-result.error {
+            border-color: #f2c6c3;
+            background: #fff0f0;
+        }
+
+        .invite-result-title {
+            margin-bottom: 8px;
+            color: #067647;
+            font-size: 13px;
+            font-weight: 900;
+        }
+
+        .invite-result.error .invite-result-title {
+            color: #b42318;
+        }
+
+        .invite-url-row {
+            display: grid;
+            grid-template-columns:
+                minmax(0, 1fr)
+                auto;
+            gap: 8px;
+        }
+
+        .invite-url {
+            min-width: 0;
+            padding: 10px 11px;
+            border: 1px solid #c9dfd2;
+            border-radius: 10px;
+            background: #ffffff;
+            color: #26364e;
+            font-size: 12px;
+            overflow-wrap: anywhere;
+        }
+
+        .copy-button {
+            min-height: 42px;
+            padding: 0 14px;
+            border: 0;
+            border-radius: 10px;
+            background: #067647;
+            color: #ffffff;
+            font-weight: 850;
+            cursor: pointer;
+        }
+
+        .invite-expiry {
+            margin: 8px 0 0;
+            color: #5d6c82;
+            font-size: 12px;
         }
 
         .notice {
@@ -740,6 +866,88 @@
                 <article class="panel">
                     <div class="panel-header">
                         <h2>
+                            Customer access
+                        </h2>
+
+                        <p>
+                            Generate a secure one-time registration link
+                            for this business.
+                        </p>
+                    </div>
+
+                    <div class="invite-box">
+                        <h3>
+                            Invite customer
+                        </h3>
+
+                        <p class="invite-copy">
+                            The link expires after 72 hours and can only
+                            be used once. The account created from it is
+                            permanently tied to
+                            <strong>{{ business.business_name }}</strong>.
+                        </p>
+
+                        <div class="invite-field">
+                            <label for="invite-email">
+                                Customer email
+                            </label>
+
+                            <input
+                                id="invite-email"
+                                type="email"
+                                value="{{ business.email }}"
+                                autocomplete="email"
+                            >
+                        </div>
+
+                        <button
+                            class="button invite"
+                            type="button"
+                            id="create-invite-button"
+                        >
+                            Create secure invite
+                        </button>
+
+                        <div
+                            class="invite-result"
+                            id="invite-result"
+                        >
+                            <div
+                                class="invite-result-title"
+                                id="invite-result-title"
+                            >
+                                Registration link created
+                            </div>
+
+                            <div
+                                class="invite-url-row"
+                                id="invite-url-row"
+                            >
+                                <div
+                                    class="invite-url"
+                                    id="invite-url"
+                                ></div>
+
+                                <button
+                                    class="copy-button"
+                                    type="button"
+                                    id="copy-invite-button"
+                                >
+                                    Copy link
+                                </button>
+                            </div>
+
+                            <p
+                                class="invite-expiry"
+                                id="invite-expiry"
+                            ></p>
+                        </div>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <h2>
                             Business controls
                         </h2>
 
@@ -752,22 +960,21 @@
                         <a
                             class="button primary"
                             href="{{ url_for(
-                                'onboarding.onboarding_review',
-                                business_slug=business.business_slug
-                            ) }}"
-                        >
-                           
-                        <a
-                            class="button primary"
-                            href="{{ url_for(
                                 'business_dashboard',
                                 business_slug=business.business_slug
                             ) }}"
                         >
                             Open Dashboard
                         </a>
-                        
-                        Edit setup
+
+                        <a
+                            class="button secondary"
+                            href="{{ url_for(
+                                'onboarding.onboarding_review',
+                                business_slug=business.business_slug
+                            ) }}"
+                        >
+                            Edit setup
                         </a>
 
                         <a
@@ -781,14 +988,200 @@
                     </div>
 
                     <div class="notice">
-                        The next platform stage will connect
-                        this profile to its own operational
-                        dashboard, AI receptionist and live
-                        integrations.
+                        Platform administrators can manage this business.
+                        Customer accounts can only access the business
+                        they are linked to.
                     </div>
                 </article>
             </aside>
         </section>
     </main>
+
+    <script>
+        const inviteButton =
+            document.getElementById(
+                "create-invite-button"
+            );
+
+        const inviteEmail =
+            document.getElementById(
+                "invite-email"
+            );
+
+        const inviteResult =
+            document.getElementById(
+                "invite-result"
+            );
+
+        const inviteResultTitle =
+            document.getElementById(
+                "invite-result-title"
+            );
+
+        const inviteUrlRow =
+            document.getElementById(
+                "invite-url-row"
+            );
+
+        const inviteUrl =
+            document.getElementById(
+                "invite-url"
+            );
+
+        const inviteExpiry =
+            document.getElementById(
+                "invite-expiry"
+            );
+
+        const copyInviteButton =
+            document.getElementById(
+                "copy-invite-button"
+            );
+
+        let currentInviteUrl = "";
+
+        function showInviteError(message) {
+            inviteResult.classList.add(
+                "visible",
+                "error"
+            );
+
+            inviteResultTitle.textContent =
+                message || "Unable to create invite.";
+
+            inviteUrlRow.style.display =
+                "none";
+
+            inviteExpiry.textContent = "";
+            currentInviteUrl = "";
+        }
+
+        function showInviteSuccess(data) {
+            currentInviteUrl =
+                data.registration_url || "";
+
+            inviteResult.classList.remove(
+                "error"
+            );
+
+            inviteResult.classList.add(
+                "visible"
+            );
+
+            inviteResultTitle.textContent =
+                "Registration link created";
+
+            inviteUrlRow.style.display =
+                "grid";
+
+            inviteUrl.textContent =
+                currentInviteUrl;
+
+            inviteExpiry.textContent =
+                data.expires_at
+                    ? `Expires: ${data.expires_at}`
+                    : "This invite expires after 72 hours.";
+        }
+
+        if (inviteButton) {
+            inviteButton.addEventListener(
+                "click",
+                async () => {
+                    const email =
+                        (inviteEmail?.value || "")
+                            .trim();
+
+                    if (!email) {
+                        showInviteError(
+                            "Enter the customer email first."
+                        );
+                        return;
+                    }
+
+                    inviteButton.disabled = true;
+                    inviteButton.textContent =
+                        "Creating invite...";
+
+                    try {
+                        const response = await fetch(
+                            "{{ url_for('auth.create_business_invite', business_slug=business.business_slug) }}",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type":
+                                        "application/json"
+                                },
+                                body: JSON.stringify({
+                                    email: email
+                                })
+                            }
+                        );
+
+                        const data =
+                            await response.json();
+
+                        if (
+                            !response.ok ||
+                            !data.success
+                        ) {
+                            showInviteError(
+                                data.message ||
+                                data.error ||
+                                "Unable to create invite."
+                            );
+                            return;
+                        }
+
+                        showInviteSuccess(
+                            data
+                        );
+
+                    } catch (error) {
+                        showInviteError(
+                            "Unable to create invite right now."
+                        );
+
+                    } finally {
+                        inviteButton.disabled = false;
+                        inviteButton.textContent =
+                            "Create secure invite";
+                    }
+                }
+            );
+        }
+
+        if (copyInviteButton) {
+            copyInviteButton.addEventListener(
+                "click",
+                async () => {
+                    if (!currentInviteUrl) {
+                        return;
+                    }
+
+                    try {
+                        await navigator.clipboard.writeText(
+                            currentInviteUrl
+                        );
+
+                        copyInviteButton.textContent =
+                            "Copied";
+
+                        window.setTimeout(
+                            () => {
+                                copyInviteButton.textContent =
+                                    "Copy link";
+                            },
+                            1600
+                        );
+
+                    } catch (error) {
+                        copyInviteButton.textContent =
+                            "Copy failed";
+                    }
+                }
+            );
+        }
+    </script>
+
 </body>
 </html>

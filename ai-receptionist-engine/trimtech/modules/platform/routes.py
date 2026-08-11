@@ -20,6 +20,9 @@ from trimtech.modules.onboarding.service import (
     list_onboarding_businesses,
 )
 
+from trimtech.modules.auth.routes import (
+    platform_admin_required,
+)
 
 platform_blueprint = Blueprint(
     "platform",
@@ -72,6 +75,7 @@ def get_business_by_slug(
 
 
 @platform_blueprint.get("/")
+@platform_admin_required
 def platform_home():
     return redirect(
         url_for(
@@ -83,6 +87,7 @@ def platform_home():
 @platform_blueprint.get(
     "/businesses"
 )
+@platform_admin_required
 def platform_businesses():
     try:
         onboarding_businesses = (
@@ -192,6 +197,7 @@ def platform_businesses():
 @platform_blueprint.get(
     "/businesses/<business_slug>"
 )
+@platform_admin_required
 def platform_business_detail(
     business_slug: str,
 ):
