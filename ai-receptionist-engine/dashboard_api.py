@@ -44,7 +44,13 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 
 from dashboard_auth import (
-    dashboard_api_login_required,
+    is_dashboard_authenticated,
+)
+
+from trimtech.modules.auth.routes import (
+    BUSINESS_ID_SESSION_KEY,
+    BUSINESS_USER_SESSION_KEY,
+    PLATFORM_ADMIN_SESSION_KEY,
 )
 
 from trimtech.core.business import BusinessConfig
@@ -214,6 +220,101 @@ def enabled_service_keys() -> list[str]:
         for service
         in business.enabled_services()
     ]
+
+
+# =========================================================
+# Dashboard API access control
+# =========================================================
+
+
+def dashboard_api_access_allowed() -> bool:
+    """
+    Allow the correct authentication mode for each dashboard.
+
+    Legacy /dashboard:
+        Uses the original dashboard login.
+
+    Platform admin:
+        May open any onboarded business dashboard.
+
+    Business customer:
+        May only load API data for the business ID stored in
+        their authenticated customer session.
+
+    This keeps the existing Garage dashboard compatible while
+    allowing secure customer dashboards to use the same API.
+    """
+
+    if is_dashboard_authenticated():
+        return True
+
+    if bool(
+        session.get(
+            PLATFORM_ADMIN_SESSION_KEY
+        )
+    ):
+        return True
+
+    if not bool(
+        session.get(
+            BUSINESS_USER_SESSION_KEY
+        )
+    ):
+        return False
+
+    customer_business_id = normalise_text(
+        session.get(
+            BUSINESS_ID_SESSION_KEY
+        )
+    )
+
+    dashboard_business_id = (
+        selected_business_id()
+    )
+
+    return bool(
+        customer_business_id
+        and dashboard_business_id
+        and customer_business_id
+        == dashboard_business_id
+    )
+
+
+def dashboard_api_access_required(
+    view_function,
+):
+    """
+    Protect dashboard API routes without forcing customer
+    sessions through the legacy dashboard authentication.
+    """
+
+    from functools import wraps
+
+    @wraps(view_function)
+    def wrapped(*args, **kwargs):
+        if dashboard_api_access_allowed():
+            return view_function(
+                *args,
+                **kwargs,
+            )
+
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": (
+                        "dashboard_access_denied"
+                    ),
+                    "message": (
+                        "You do not have access "
+                        "to this dashboard."
+                    ),
+                }
+            ),
+            403,
+        )
+
+    return wrapped
 
 
 # =========================================================
@@ -2624,7 +2725,7 @@ def build_dashboard_data() -> dict[str, Any]:
 @dashboard_api.get(
     "/api/dashboard-data"
 )
-@dashboard_api_login_required
+@dashboard_api_access_required
 def dashboard_data():
     try:
         data = (
@@ -2671,7 +2772,7 @@ def dashboard_data():
 @dashboard_api.get(
     "/api/business"
 )
-@dashboard_api_login_required
+@dashboard_api_access_required
 def dashboard_business():
     business = (
         current_business()
@@ -2693,7 +2794,7 @@ def dashboard_business():
 @dashboard_api.get(
     "/api/dashboard-health"
 )
-@dashboard_api_login_required
+@dashboard_api_access_required
 def dashboard_health():
     business = (
         current_business()
@@ -2753,7 +2854,7 @@ def dashboard_health():
 @dashboard_api.post(
     "/api/run-reminders"
 )
-@dashboard_api_login_required
+@dashboard_api_access_required
 def dashboard_run_reminders():
     """
     Keep the existing Garage reminder runner working.
