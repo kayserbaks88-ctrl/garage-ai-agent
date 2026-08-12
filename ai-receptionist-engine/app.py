@@ -31,7 +31,6 @@ from dashboard_api import dashboard_api
 from dashboard_auth import (
     dashboard_auth,
     dashboard_login_required,
-    is_dashboard_authenticated,
 )
 
 app = Flask(__name__)
@@ -58,22 +57,6 @@ app.config.update(
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )
-
-
-@dashboard_api.before_request
-def protect_dashboard_api_blueprint():
-    """Require a valid dashboard login for every dashboard API route."""
-    if not is_dashboard_authenticated():
-        return jsonify(
-            {
-                "success": False,
-                "error": "authentication_required",
-                "message": "Please log in to access the dashboard.",
-            }
-        ), 401
-
-    return None
-
 
 app.register_blueprint(dashboard_auth)
 app.register_blueprint(dashboard_api)
