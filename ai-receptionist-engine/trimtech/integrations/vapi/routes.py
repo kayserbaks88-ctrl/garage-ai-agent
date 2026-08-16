@@ -721,6 +721,81 @@ def list_customer_bookings():
         }
     ), 200
 
+def _business_prompt_variables(
+    business: BusinessConfig,
+    *,
+    called_number: str = "",
+) -> dict[str, str]:
+    tz = timezone(business)
+    now = datetime.now(tz)
+
+    service_lines: list[str] = []
+
+    for service in business.services:
+        if not getattr(service, "enabled", True):
+            continue
+
+        name = _text(
+            getattr(service, "name", "")
+            or getattr(service, "key", "").replace("_", " ").title()
+        )
+
+        price = getattr(service, "price", None)
+        duration = getattr(service, "duration_minutes", None)
+
+        parts = [name]
+
+        if price is not None:
+            try:
+                parts.append(f"£{float(price):.2f}")
+            except (TypeError, ValueError):
+                parts.append(_text(price))
+
+        if duration:
+            try:
+                parts.append(f"{int(duration)} minutes")
+            except (TypeError, ValueError):
+                pass
+
+        service_lines.append(" - ".join(parts))
+
+    metadata = getattr(business, "metadata", {})
+
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    opening_hours = _text(
+        metadata.get("opening_hours")
+    )
+
+    business_notes = _text(
+        metadata.get("business_notes")
+    )
+
+    business_timezone = _text(
+        getattr(business, "timezone_name", "")
+    ) or "Europe/London"
+
+    return {
+        "business_name": _text(
+            getattr(business, "business_name", "")
+        ),
+        "timezone": business_timezone,
+        "business_phone": _phone(called_number),
+        "opening_hours": (
+            opening_hours
+            or "Opening hours have not been configured."
+        ),
+        "services": (
+            "\n".join(service_lines)
+            if service_lines
+            else "No services are currently configured."
+        ),
+        "business_notes": business_notes,
+        "current_local_datetime": now.strftime(
+            "%A %d %B %Y %I:%M %p"
+        ),
+    }
 
 @vapi_bp.route("/cancel-appointment", methods=["POST"])
 def cancel_appointment():
