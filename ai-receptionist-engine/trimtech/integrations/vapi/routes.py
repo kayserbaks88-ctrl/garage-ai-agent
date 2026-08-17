@@ -797,6 +797,36 @@ def _business_prompt_variables(
         ),
     }
 
+@vapi_bp.route("/assistant-config", methods=["POST"])
+def assistant_config():
+    data = _payload()
+
+    try:
+        business = _resolve_business(data)
+    except Exception as error:
+        return _business_error(error)
+
+    called_number = _called_number(data)
+
+    variables = _business_prompt_variables(
+        business,
+        called_number=called_number,
+    )
+
+    return jsonify(
+        {
+            "success": True,
+            "business_id": business.business_id,
+            "assistant_id": os.getenv(
+                "VAPI_GARAGE_MASTER_ASSISTANT_ID",
+                "",
+            ).strip(),
+            "assistantOverrides": {
+                "variableValues": variables,
+            },
+        }
+    ), 200
+
 @vapi_bp.route("/cancel-appointment", methods=["POST"])
 def cancel_appointment():
     data = _payload()
