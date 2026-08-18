@@ -110,26 +110,45 @@ def _business_candidates() -> list[BusinessConfig]:
     return businesses
 
 
+def _message_type(data: dict[str, Any]) -> str:
+    message = data.get("message") if isinstance(data.get("message"), dict) else {}
+    return _text(message.get("type") or data.get("type")).lower()
+
+
 def _called_number(data: dict[str, Any]) -> str:
     direct = _phone(data.get("called_number") or data.get("calledNumber"))
     if direct:
         return direct
 
     message = data.get("message") if isinstance(data.get("message"), dict) else {}
-    call = message.get("call") if isinstance(message.get("call"), dict) else {}
 
+    call = message.get("call") if isinstance(message.get("call"), dict) else {}
     if not call and isinstance(data.get("call"), dict):
         call = data.get("call") or {}
 
-    phone_number = (
+    call_phone_number = (
         call.get("phoneNumber")
         if isinstance(call.get("phoneNumber"), dict)
         else {}
     )
 
+    message_phone_number = (
+        message.get("phoneNumber")
+        if isinstance(message.get("phoneNumber"), dict)
+        else {}
+    )
+
+    data_phone_number = (
+        data.get("phoneNumber")
+        if isinstance(data.get("phoneNumber"), dict)
+        else {}
+    )
+
     return _phone(
-        phone_number.get("number")
+        call_phone_number.get("number")
         or call.get("phoneNumberNumber")
+        or message_phone_number.get("number")
+        or data_phone_number.get("number")
     )
 
 
@@ -800,27 +819,93 @@ def _business_prompt_variables(
 @vapi_bp.route("/assistant-config", methods=["POST"])
 def assistant_config():
     data = _payload()
+    message_type = _message_type(data)
+
+    # This endpoint is intended to be used as the Vapi phone-number
+    # Server URL for dynamic inbound assistant selection.
+    if message_type and message_type != "assistant-request":
+        return "", 204
 
     try:
         business = _resolve_business(data)
     except Exception as error:
-        return _business_error(error)
+        reason = str(error)
+        print(
+            "VAPI ASSISTANT REQUEST BUSINESS ERROR:",
+            {
+                "reason": reason,
+                "called_number": _called_number(data),
+            },
+        )
+
+        messages = {
+            "missing_called_number": (
+                "Sorry, I could not identify which garage you called. "
+                "Please try again shortly."
+            ),
+            "business_not_configured": (
+                "Sorry, this garage phone line is not configured yet. "
+                "Please try again shortly."
+            ),
+            "duplicate_vapi_phone_mapping": (
+                "Sorry, this garage phone line is temporarily unavailable. "
+                "Please try again shortly."
+            ),
+        }
+
+        return jsonify(
+            {
+                "error": messages.get(
+                    reason,
+                    "Sorry, the garage assistant is temporarily unavailable. "
+                    "Please try again shortly.",
+                )
+            }
+        ), 200
+
+    assistant_id = os.getenv(
+        "VAPI_GARAGE_MASTER_ASSISTANT_ID",
+        "",
+    ).strip()
+
+    if not assistant_id:
+        print(
+            "VAPI ASSISTANT REQUEST ERROR:",
+            {
+                "business_id": business.business_id,
+                "reason": "missing_master_assistant_id",
+            },
+        )
+        return jsonify(
+            {
+                "error": (
+                    "Sorry, the garage assistant is temporarily unavailable. "
+                    "Please try again shortly."
+                )
+            }
+        ), 200
 
     called_number = _called_number(data)
-
     variables = _business_prompt_variables(
         business,
         called_number=called_number,
     )
 
+    print(
+        "VAPI ASSISTANT REQUEST:",
+        {
+            "business_id": business.business_id,
+            "called_number": called_number,
+            "assistant_id": assistant_id,
+        },
+    )
+
+    # Vapi requires camelCase `assistantId` here.
+    # assistantOverrides.variableValues fills the {{...}} values
+    # in the saved shared master assistant for this call.
     return jsonify(
         {
-            "success": True,
-            "business_id": business.business_id,
-            "assistant_id": os.getenv(
-                "VAPI_GARAGE_MASTER_ASSISTANT_ID",
-                "",
-            ).strip(),
+            "assistantId": assistant_id,
             "assistantOverrides": {
                 "variableValues": variables,
             },
