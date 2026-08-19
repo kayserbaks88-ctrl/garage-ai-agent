@@ -3009,3 +3009,66 @@ body.drawer-open {
         overflow-y: auto !important;
     }
 }
+
+/* =========================================================
+   31. FINAL VISUAL POLISH — MOBILE DRAWER + SUBTLE COLOUR
+   Keeps dashboard behaviour unchanged.
+   ========================================================= */
+
+/* Give the main white panels a very light branded lift without
+   turning the dashboard into a multi-colour interface. */
+.panel {
+    background:
+        linear-gradient(180deg, rgba(239, 246, 255, 0.34) 0, #ffffff 72px);
+}
+
+.panel-header {
+    background: linear-gradient(
+        90deg,
+        rgba(37, 99, 235, 0.045),
+        rgba(124, 58, 237, 0.025),
+        transparent 70%
+    );
+}
+
+/* Slightly richer interactive cards while retaining the existing
+   white professional dashboard appearance. */
+.customer-directory-card,
+.vehicle-directory-card,
+.quick-action,
+.health-row {
+    background:
+        linear-gradient(145deg, #ffffff 0%, rgba(239, 246, 255, 0.38) 100%);
+}
+
+/* Keep the existing status colours as the main visual language. */
+.customer-directory-card:hover,
+.vehicle-directory-card:hover,
+.quick-action:hover {
+    border-color: rgba(37, 99, 235, 0.28);
+}
+
+/* Mobile vehicle drawer:
+   flush to the bottom again, with a flat bottom edge.
+   This replaces the earlier floating 10px / rounded-all-round version. */
+@media (max-width: 700px) {
+    #vehicleDrawer {
+        top: auto !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+        height: auto !important;
+        max-height: 72vh !important;
+        border-radius: 22px 22px 0 0 !important;
+        overflow: hidden !important;
+        box-shadow: 0 -18px 50px rgba(15, 23, 42, 0.18) !important;
+    }
+
+    #vehicleDrawer .detail-drawer-body {
+        max-height: calc(72vh - 95px) !important;
+        overflow-y: auto !important;
+        padding-bottom: max(21px, env(safe-area-inset-bottom)) !important;
+    }
+}
