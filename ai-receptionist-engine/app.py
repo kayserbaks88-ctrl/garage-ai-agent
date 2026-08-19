@@ -208,6 +208,7 @@ def _require_private_access():
       DASHBOARD_API_KEY
     """
     expected = _configured_secret(
+        "REMINDER_CRON_SECRET",
         "INTERNAL_API_TOKEN",
         "SCHEDULER_SECRET",
         "DASHBOARD_API_KEY",
