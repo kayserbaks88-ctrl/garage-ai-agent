@@ -386,6 +386,7 @@ def run_all_automations():
 
 
 @app.route("/internal/run/reminders", methods=["POST"])
+@app.route("/internal/run-reminders", methods=["POST"])
 def run_appointment_reminders():
     denied = _require_private_access()
     if denied:
