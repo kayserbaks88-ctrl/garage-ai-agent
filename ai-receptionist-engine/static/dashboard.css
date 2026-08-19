@@ -3072,3 +3072,130 @@ body.drawer-open {
         padding-bottom: max(21px, env(safe-area-inset-bottom)) !important;
     }
 }
+
+/* =========================================================
+   32. RICH AI POLISH — CUSTOMER / VEHICLE / MOBILE ACTION ROW
+   Visual-only overrides. No dashboard logic changed.
+   ========================================================= */
+
+/* Richer section treatment: subtle layered blue/violet glow */
+#customerSection,
+#vehicleSection,
+.customer-centre,
+.vehicle-centre,
+.customer-directory-panel,
+.vehicle-directory-panel {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at 92% 4%, rgba(124, 58, 237, 0.08), transparent 28%),
+        radial-gradient(circle at 8% 100%, rgba(37, 99, 235, 0.08), transparent 30%),
+        linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+/* Customer cards: cooler blue intelligence feel */
+.customer-directory-card {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(37, 99, 235, 0.16);
+    background:
+        radial-gradient(circle at 100% 0%, rgba(96, 165, 250, 0.12), transparent 34%),
+        linear-gradient(145deg, #ffffff 0%, #f5f9ff 100%);
+    box-shadow:
+        0 10px 28px rgba(37, 99, 235, 0.055),
+        0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.customer-directory-card::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 14px 0 0 14px;
+    background: linear-gradient(180deg, var(--primary-light), var(--primary));
+    content: "";
+    opacity: 0.78;
+}
+
+/* Vehicle cards: blue-violet accent so the Vehicle Centre has its own identity */
+.vehicle-directory-card {
+    position: relative;
+    overflow: hidden;
+    border-color: rgba(124, 58, 237, 0.15);
+    background:
+        radial-gradient(circle at 100% 0%, rgba(124, 58, 237, 0.10), transparent 34%),
+        linear-gradient(145deg, #ffffff 0%, #f8f7ff 100%);
+    box-shadow:
+        0 10px 28px rgba(124, 58, 237, 0.05),
+        0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.vehicle-directory-card::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 4px;
+    height: 100%;
+    border-radius: 14px 0 0 14px;
+    background: linear-gradient(180deg, #8b5cf6, #2563eb);
+    content: "";
+    opacity: 0.76;
+}
+
+/* Richer toolbar/header banding within data-heavy sections */
+.crm-toolbar,
+.booking-toolbar {
+    background:
+        linear-gradient(
+            90deg,
+            rgba(37, 99, 235, 0.07),
+            rgba(124, 58, 237, 0.035),
+            #ffffff 72%
+        );
+}
+
+/* Mobile: keep the four quick actions in ONE horizontal row. */
+@media (max-width: 700px) {
+    .quick-actions {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 7px !important;
+    }
+
+    .quick-action {
+        min-width: 0 !important;
+        min-height: 92px !important;
+        padding: 10px 8px !important;
+        gap: 8px !important;
+        border-radius: 13px !important;
+    }
+
+    .quick-action-icon {
+        width: 34px !important;
+        height: 34px !important;
+        border-radius: 10px !important;
+        font-size: 16px !important;
+    }
+
+    .quick-action h4 {
+        font-size: 9px !important;
+        line-height: 1.2 !important;
+    }
+
+    .quick-action p {
+        display: none !important;
+    }
+}
+
+/* Override the older <=420px stacking rule. */
+@media (max-width: 420px) {
+    .quick-actions {
+        grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+        gap: 6px !important;
+    }
+
+    .quick-action {
+        min-height: 86px !important;
+        padding: 9px 6px !important;
+    }
+}
