@@ -371,14 +371,73 @@ def create_booking(
     registration = _clean_text(
         vehicle.get("reg")
         or vehicle.get("registration")
+        or vehicle.get("vehicle_reg")
+        or vehicle.get("registrationNumber")
         or "Unknown reg"
     ).upper()
 
-    make_model = _clean_text(
+    make = _clean_text(
+        vehicle.get("make")
+        or vehicle.get("vehicle_make")
+        or vehicle.get("manufacturer")
+    )
+
+    model = _clean_text(
+        vehicle.get("model")
+        or vehicle.get("vehicle_model")
+    )
+
+    colour = _clean_text(
+        vehicle.get("colour")
+        or vehicle.get("color")
+        or vehicle.get("vehicle_colour")
+    )
+
+    year = _clean_text(
+        vehicle.get("year")
+        or vehicle.get("manufacture_year")
+        or vehicle.get("year_of_manufacture")
+        or vehicle.get("yearOfManufacture")
+    )
+
+    fuel_type = _clean_text(
+        vehicle.get("fuel_type")
+        or vehicle.get("fuel")
+        or vehicle.get("fuelType")
+    )
+
+    mot_status = _clean_text(
+        vehicle.get("mot_status")
+        or vehicle.get("mot")
+        or vehicle.get("motStatus")
+    )
+
+    mot_expiry_date = _clean_text(
+        vehicle.get("mot_expiry_date")
+        or vehicle.get("mot_expiry")
+        or vehicle.get("motExpiryDate")
+    )
+
+    supplied_make_model = _clean_text(
         vehicle.get("make_model")
         or vehicle.get("vehicle")
+    )
+
+    make_model = (
+        supplied_make_model
+        or " ".join(
+            part
+            for part in (make, model)
+            if part
+        ).strip()
         or "Vehicle not confirmed"
     )
+
+    # Some DVLA payloads only contain make, not model.
+    # If make_model is populated but make is not, preserve the available
+    # vehicle identity in the make field so the dashboard can display it.
+    if not make and supplied_make_model:
+        make = supplied_make_model
 
     customer_name = _clean_text(customer_name) or "Customer"
     phone = _clean_text(phone)
@@ -395,6 +454,13 @@ def create_booking(
             f"Service: {service.name}\n"
             f"Registration: {registration}\n"
             f"Vehicle: {make_model}\n"
+            f"Make: {make or 'Not recorded'}\n"
+            f"Model: {model or 'Not recorded'}\n"
+            f"Colour: {colour or 'Not recorded'}\n"
+            f"Year: {year or 'Not recorded'}\n"
+            f"Fuel type: {fuel_type or 'Not recorded'}\n"
+            f"MOT status: {mot_status or 'Not recorded'}\n"
+            f"MOT expiry date: {mot_expiry_date or 'Not recorded'}\n"
             f"Notes: {notes or 'None'}\n\n"
             f"Booked via {source}"
         ),
@@ -413,7 +479,15 @@ def create_booking(
                 "service": service.key,
                 "registration": registration,
                 "reg": registration,
+                "vehicle_reg": registration,
                 "make_model": make_model,
+                "make": make,
+                "model": model,
+                "colour": colour,
+                "year": year,
+                "fuel_type": fuel_type,
+                "mot_status": mot_status,
+                "mot_expiry_date": mot_expiry_date,
                 "notes": notes,
                 "source": source,
                 "business_id": business.business_id,
@@ -440,6 +514,16 @@ def create_booking(
         "start": start_dt.isoformat(),
         "end": end_dt.isoformat(),
         "business_id": business.business_id,
+        "vehicle": {
+            "registration": registration,
+            "make": make,
+            "model": model,
+            "colour": colour,
+            "year": year,
+            "fuel_type": fuel_type,
+            "mot_status": mot_status,
+            "mot_expiry_date": mot_expiry_date,
+        },
     }
 
 
