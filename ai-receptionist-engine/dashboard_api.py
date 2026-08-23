@@ -74,10 +74,9 @@ from trimtech.modules.crm.vehicle_service import (
     normalise_registration,
 )
 
-from trimtech.modules.reminders.service import (
+from trimtech.modules.reminders.reminder_scheduler import (
     get_reminder_health,
 )
-
 
 dashboard_api = Blueprint(
     "dashboard_api",
