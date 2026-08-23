@@ -395,7 +395,7 @@ def run_appointment_reminders():
 
     result = _run_automation(
         "appointment_reminders",
-        "trimtech.integrations.reminder_scheduler",
+        "trimtech.modules.reminders.reminder_scheduler",
         (
             "process_appointment_reminders",
             "process_reminders",
