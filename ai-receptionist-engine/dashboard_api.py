@@ -2157,20 +2157,14 @@ def default_reminder_health() -> dict[str, Any]:
 
 def reminder_health() -> dict[str, Any]:
     """
-    The current reminder implementation was originally built for
-    the single Garage deployment.
+    Return reminder health for the currently resolved business.
 
-    Until reminder storage/scheduling is explicitly business-scoped,
-    an onboarded business must not read the legacy Garage reminder
-    queue.
-
-    This prevents one customer seeing another customer's reminder
-    state.
+    Reminder scheduling is now business-aware, so both the legacy
+    TrimTech Garage dashboard and onboarded business dashboards use
+    the shared reminder health service with isolated business context.
     """
 
-    default_result = (
-        default_reminder_health()
-    )
+    default_result = default_reminder_health()
 
     if not current_business().feature_enabled(
         "reminders"
@@ -2181,17 +2175,11 @@ def reminder_health() -> dict[str, Any]:
             "status": "disabled",
         }
 
-    if is_business_instance_request():
-        return {
-            **default_result,
-            "status": (
-                "not_configured"
-            ),
-        }
-
     try:
-        health = (
-            get_reminder_health()
+        business = current_business()
+
+        health = get_reminder_health(
+            business_id=business.business_id,
         )
 
         if isinstance(
@@ -2201,12 +2189,19 @@ def reminder_health() -> dict[str, Any]:
             return {
                 **default_result,
                 **health,
+                "enabled": True,
             }
 
     except Exception as error:
         print(
             "DASHBOARD REMINDER HEALTH ERROR:",
-            repr(error),
+            {
+                "business_id": (
+                    current_business()
+                    .business_id
+                ),
+                "error": repr(error),
+            },
         )
 
         return {
