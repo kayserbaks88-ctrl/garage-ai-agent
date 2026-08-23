@@ -9,7 +9,7 @@ from integrations.garage_calendar import (
     normalise_phone,
 )
 from integrations.garage_config import SERVICES, TIMEZONE
-from integrations.reminder_sender import (
+from trimtech.modules.reminders.sender import (
     send_24_hour_reminder,
     send_2_hour_reminder,
     send_follow_up,

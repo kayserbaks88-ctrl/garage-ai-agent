@@ -59,7 +59,7 @@ from trimtech.core.registry import (
     load_business_instance,
 )
 
-from trimtech.integrations.reminder_scheduler import (
+from trimtech.modules.reminders.reminder_scheduler import (
     process_reminders,
 )
 

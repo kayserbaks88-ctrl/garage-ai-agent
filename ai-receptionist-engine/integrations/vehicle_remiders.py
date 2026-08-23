@@ -11,7 +11,7 @@ from integrations.garage_calendar import (
     normalise_phone,
 )
 from integrations.garage_config import TIMEZONE
-from integrations.reminder_sender import send_whatsapp_template
+from from trimtech.modules.reminders.sender import import send_whatsapp_template
 
 
 SERVICE_REMINDER_DAYS = (30, 7, 0)

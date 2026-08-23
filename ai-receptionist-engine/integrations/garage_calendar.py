@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import date, datetime, time, timedelta
-from integrations.reminder_sender import send_booking_confirmation
+from trimtech.modules.reminders.sender import send_booking_confirmation
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
