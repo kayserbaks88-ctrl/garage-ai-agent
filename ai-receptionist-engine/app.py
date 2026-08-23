@@ -331,7 +331,7 @@ def run_all_automations():
     jobs = (
         (
             "appointment_reminders",
-            "trimtech.integrations.reminder_scheduler",
+            "trimtech.modules.reminders.reminder_scheduler",
             (
                 "process_appointment_reminders",
                 "process_reminders",
