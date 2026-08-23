@@ -304,7 +304,7 @@ def _register_optional_reminder_blueprint() -> None:
     the module does not use a Flask Blueprint.
     """
     try:
-        module = importlib.import_module("trimtech.integrations.reminder_scheduler")
+        module = importlib.import_module("trimtech.modules.reminders.reminder_scheduler")
         blueprint = getattr(module, "reminder_scheduler_bp", None)
 
         if blueprint is not None and blueprint.name not in app.blueprints:
