@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="TrimTech AI gives garages an AI receptionist that answers calls, checks vehicle details, books appointments, manages customers and sends reminders — 24/7." />
+  <meta name="theme-color" content="#07111f" />
+  <title>TrimTech AI | AI Receptionist for Garages</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-soft: #0b1728;
+      --panel: rgba(15, 31, 51, 0.78);
+      --panel-strong: #0f1f33;
+      --line: rgba(255,255,255,0.10);
+      --text: #f7fbff;
+      --muted: #9db0c5;
+      --brand: #22d3a7;
+      --brand-2: #63a8ff;
+      --brand-dark: #09251f;
+      --success: #6ee7b7;
+      --warning: #fbbf24;
+      --shadow: 0 22px 70px rgba(0,0,0,0.28);
+      --radius: 24px;
+      --radius-sm: 16px;
+      --max: 1180px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 8% 4%, rgba(34, 211, 167, 0.13), transparent 28rem),
+        radial-gradient(circle at 93% 11%, rgba(99, 168, 255, 0.15), transparent 30rem),
+        var(--bg);
+      line-height: 1.55;
+      overflow-x: hidden;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    button, input { font: inherit; }
+    img { max-width: 100%; display: block; }
+
+    .container {
+      width: min(calc(100% - 32px), var(--max));
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      padding: 8px 12px;
+      border: 1px solid rgba(34,211,167,.25);
+      border-radius: 999px;
+      background: rgba(34,211,167,.07);
+      color: #b9ffe9;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: .02em;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 0 6px rgba(34,211,167,.10);
+    }
+
+    .nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: rgba(7,17,31,.78);
+      backdrop-filter: blur(18px);
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+
+    .nav-inner {
+      height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      font-family: "Manrope", sans-serif;
+      font-weight: 800;
+      letter-spacing: -.03em;
+      font-size: 21px;
+    }
+
+    .brand-mark {
+      width: 38px;
+      height: 38px;
+      display: grid;
+      place-items: center;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--brand), var(--brand-2));
+      color: #04101c;
+      font-weight: 900;
+      box-shadow: 0 8px 30px rgba(34,211,167,.20);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      color: #bed0df;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .nav-links a:hover { color: white; }
+
+    .btn {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      border-radius: 14px;
+      padding: 0 18px;
+      font-weight: 800;
+      border: 1px solid transparent;
+      cursor: pointer;
+      transition: .18s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      color: #04120f;
+      background: linear-gradient(135deg, #55edc5, var(--brand));
+      box-shadow: 0 12px 30px rgba(34,211,167,.18);
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,.055);
+      border-color: rgba(255,255,255,.12);
+      color: #f7fbff;
+    }
+
+    .btn-small {
+      min-height: 42px;
+      padding: 0 15px;
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
+    .hero {
+      padding: 82px 0 52px;
+      position: relative;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1.02fr .98fr;
+      align-items: center;
+      gap: 60px;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin: 20px 0 22px;
+      max-width: 770px;
+      font-family: "Manrope", sans-serif;
+      font-size: clamp(44px, 6.2vw, 78px);
+      line-height: .99;
+      letter-spacing: -.055em;
+    }
+
+    .gradient-text {
+      background: linear-gradient(90deg, #71f6d2 0%, #7db6ff 88%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+
+    .hero-copy > p {
+      max-width: 680px;
+      margin-bottom: 28px;
+      color: #b1c3d3;
+      font-size: 18px;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .hero-note {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px 20px;
+      color: #89a0b4;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .hero-note span::before {
+      content: "✓";
+      color: var(--brand);
+      margin-right: 7px;
+      font-weight: 900;
+    }
+
+    .demo-shell {
+      position: relative;
+      min-height: 550px;
+    }
+
+    .glow {
+      position: absolute;
+      inset: 70px 30px 30px;
+      background: radial-gradient(circle, rgba(34,211,167,.18), transparent 62%);
+      filter: blur(28px);
+      pointer-events: none;
+    }
+
+    .phone-card {
+      position: absolute;
+      top: 0;
+      right: 15px;
+      width: min(100%, 430px);
+      border-radius: 31px;
+      background: linear-gradient(180deg, rgba(18,36,58,.97), rgba(9,21,36,.98));
+      border: 1px solid rgba(255,255,255,.11);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .phone-top {
+      padding: 19px 20px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .agent {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .agent-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 15px;
+      display: grid;
+      place-items: center;
+      color: #05120f;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--brand), #8df9dd);
+    }
+
+    .agent strong { display: block; font-size: 14px; }
+    .agent small { color: var(--success); }
+
+    .live-pill {
+      font-size: 11px;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 6px 9px;
+      color: #b9ffe9;
+      background: rgba(34,211,167,.10);
+      border: 1px solid rgba(34,211,167,.20);
+    }
+
+    .call-body { padding: 22px; }
+
+    .wave {
+      height: 78px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      margin: 4px 0 22px;
+    }
+
+    .wave i {
+      width: 5px;
+      border-radius: 999px;
+      background: linear-gradient(180deg, var(--brand-2), var(--brand));
+      opacity: .9;
+    }
+
+    .wave i:nth-child(1) { height: 18px; }
+    .wave i:nth-child(2) { height: 33px; }
+    .wave i:nth-child(3) { height: 52px; }
+    .wave i:nth-child(4) { height: 68px; }
+    .wave i:nth-child(5) { height: 44px; }
+    .wave i:nth-child(6) { height: 61px; }
+    .wave i:nth-child(7) { height: 34px; }
+    .wave i:nth-child(8) { height: 22px; }
+    .wave i:nth-child(9) { height: 45px; }
+    .wave i:nth-child(10) { height: 29px; }
+
+    .transcript {
+      display: grid;
+      gap: 12px;
+    }
+
+    .bubble {
+      max-width: 87%;
+      padding: 12px 14px;
+      border-radius: 15px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .bubble.ai {
+      background: #132941;
+      color: #dfeaf3;
+      border-bottom-left-radius: 5px;
+    }
+
+    .bubble.user {
+      margin-left: auto;
+      background: linear-gradient(135deg, #203b61, #244a67);
+      color: white;
+      border-bottom-right-radius: 5px;
+    }
+
+    .task-card {
+      margin-top: 18px;
+      background: rgba(34,211,167,.07);
+      border: 1px solid rgba(34,211,167,.18);
+      border-radius: 16px;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .task-check {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: var(--brand);
+      color: #04120f;
+      font-weight: 900;
+    }
+
+    .task-card strong { font-size: 13px; }
+    .task-card small { display: block; color: #86a1b7; margin-top: 2px; }
+
+    .mini-card {
+      position: absolute;
+      left: 0;
+      bottom: 18px;
+      width: 250px;
+      border-radius: 20px;
+      padding: 17px;
+      background: rgba(17,34,55,.94);
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 18px 55px rgba(0,0,0,.28);
+      backdrop-filter: blur(18px);
+    }
+
+    .mini-card small {
+      color: #90a6ba;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      font-size: 10px;
+    }
+
+    .mini-card h3 {
+      margin: 7px 0 3px;
+      font-size: 25px;
+      letter-spacing: -.04em;
+    }
+
+    .mini-card p {
+      margin: 0;
+      color: #9fb2c4;
+      font-size: 12px;
+    }
+
+    .proof-strip {
+      margin-top: 45px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      overflow: hidden;
+      background: rgba(255,255,255,.025);
+    }
+
+    .proof-item {
+      padding: 21px;
+      border-right: 1px solid var(--line);
+    }
+
+    .proof-item:last-child { border-right: none; }
+    .proof-item strong { display: block; font-size: 16px; margin-bottom: 3px; }
+    .proof-item span { color: #849bb0; font-size: 12px; }
+
+    section { padding: 90px 0; }
+
+    .section-head {
+      max-width: 760px;
+      margin-bottom: 42px;
+    }
+
+    .section-head.center {
+      text-align: center;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .section-head h2 {
+      font-family: "Manrope", sans-serif;
+      margin: 14px 0 14px;
+      font-size: clamp(34px, 5vw, 52px);
+      line-height: 1.08;
+      letter-spacing: -.045em;
+    }
+
+    .section-head p {
+      color: #9fb2c4;
+      font-size: 17px;
+      line-height: 1.72;
+    }
+
+    .problem-grid,
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: linear-gradient(180deg, rgba(18,36,58,.65), rgba(10,23,39,.76));
+      box-shadow: 0 12px 40px rgba(0,0,0,.12);
+    }
+
+    .problem-card { padding: 25px; }
+
+    .icon {
+      width: 47px;
+      height: 47px;
+      display: grid;
+      place-items: center;
+      border-radius: 14px;
+      margin-bottom: 19px;
+      background: rgba(99,168,255,.10);
+      border: 1px solid rgba(99,168,255,.16);
+      font-size: 21px;
+    }
+
+    .problem-card h3,
+    .feature-card h3 {
+      margin-bottom: 8px;
+      font-size: 18px;
+      letter-spacing: -.02em;
+    }
+
+    .problem-card p,
+    .feature-card p {
+      margin: 0;
+      color: #91a7bb;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    .solution {
+      background: linear-gradient(180deg, transparent, rgba(255,255,255,.015), transparent);
+    }
+
+    .feature-card {
+      padding: 25px;
+      min-height: 225px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::after {
+      content: "";
+      width: 120px;
+      height: 120px;
+      position: absolute;
+      top: -70px;
+      right: -65px;
+      border-radius: 50%;
+      background: rgba(34,211,167,.12);
+      filter: blur(10px);
+    }
+
+    .feature-tag {
+      display: inline-flex;
+      margin-top: 17px;
+      padding: 6px 9px;
+      border-radius: 999px;
+      color: #bffdeb;
+      background: rgba(34,211,167,.07);
+      border: 1px solid rgba(34,211,167,.14);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .workflow {
+      display: grid;
+      grid-template-columns: .9fr 1.1fr;
+      gap: 30px;
+      align-items: center;
+    }
+
+    .steps { display: grid; gap: 14px; }
+
+    .step {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 16px;
+      align-items: start;
+      padding: 18px;
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,.025);
+    }
+
+    .step-num {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border-radius: 13px;
+      color: #07111f;
+      background: linear-gradient(135deg, #79f1d0, #61a9ff);
+      font-weight: 900;
+    }
+
+    .step strong { display: block; margin-bottom: 4px; }
+    .step p { margin: 0; color: #91a7bb; font-size: 13px; }
+
+    .dashboard {
+      padding: 18px;
+      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,.11);
+      background: linear-gradient(180deg, #0f2034, #091624);
+      box-shadow: var(--shadow);
+    }
+
+    .dash-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 4px 2px 12px;
+    }
+
+    .dash-top strong { font-size: 14px; }
+    .dash-top span { color: var(--success); font-size: 11px; }
+
+    .dash-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 15px;
+      border-radius: 16px;
+      background: rgba(255,255,255,.035);
+      border: 1px solid rgba(255,255,255,.07);
+    }
+
+    .stat small { color: #7990a6; font-size: 10px; }
+    .stat strong { display: block; margin-top: 7px; font-size: 20px; }
+
+    .dash-list {
+      margin-top: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .dash-row {
+      display: grid;
+      grid-template-columns: 1.35fr .85fr .65fr;
+      gap: 12px;
+      padding: 12px 13px;
+      align-items: center;
+      border-radius: 13px;
+      background: rgba(255,255,255,.025);
+      border: 1px solid rgba(255,255,255,.05);
+      font-size: 11px;
+      color: #a8bac9;
+    }
+
+    .dash-row strong { color: white; font-size: 12px; }
+
+    .status {
+      justify-self: end;
+      color: #bafbe8;
+      background: rgba(34,211,167,.08);
+      border: 1px solid rgba(34,211,167,.15);
+      border-radius: 999px;
+      padding: 5px 7px;
+      font-weight: 800;
+      font-size: 9px;
+    }
+
+    .demo-section { position: relative; }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 20px;
+    }
+
+    .demo-card {
+      padding: 27px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .demo-card::before {
+      content: "";
+      position: absolute;
+      inset: auto -100px -120px auto;
+      width: 280px;
+      height: 280px;
+      border-radius: 50%;
+      background: rgba(99,168,255,.07);
+    }
+
+    .business-line {
+      display: flex;
+      align-items: center;
+      gap: 13px;
+      margin-bottom: 20px;
+    }
+
+    .business-logo {
+      width: 52px;
+      height: 52px;
+      display: grid;
+      place-items: center;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(34,211,167,.24), rgba(99,168,255,.26));
+      border: 1px solid rgba(255,255,255,.12);
+      font-weight: 900;
+      color: #d9fff5;
+    }
+
+    .business-line h3 { margin: 0 0 2px; }
+    .business-line p { margin: 0; color: #8197ab; font-size: 12px; }
+
+    .demo-points {
+      display: grid;
+      gap: 10px;
+      margin: 18px 0 24px;
+    }
+
+    .demo-point {
+      display: flex;
+      gap: 10px;
+      color: #a9bccd;
+      font-size: 13px;
+    }
+
+    .demo-point::before {
+      content: "✓";
+      color: var(--brand);
+      font-weight: 900;
+    }
+
+    .demo-card .btn {
+      position: relative;
+      z-index: 2;
+    }
+
+    .audience {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 35px;
+      align-items: center;
+    }
+
+    .check-list {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 11px;
+    }
+
+    .check {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px 14px;
+      background: rgba(255,255,255,.025);
+      color: #b6c7d5;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .check span {
+      width: 27px;
+      height: 27px;
+      flex: 0 0 27px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: rgba(34,211,167,.12);
+      color: var(--brand);
+    }
+
+    .cta-panel {
+      padding: 52px;
+      border-radius: 32px;
+      text-align: center;
+      border: 1px solid rgba(255,255,255,.12);
+      background:
+        radial-gradient(circle at 20% 20%, rgba(34,211,167,.13), transparent 25rem),
+        radial-gradient(circle at 80% 70%, rgba(99,168,255,.14), transparent 30rem),
+        #0d1d30;
+      box-shadow: var(--shadow);
+    }
+
+    .cta-panel h2 {
+      max-width: 780px;
+      margin: 15px auto 14px;
+      font-family: "Manrope", sans-serif;
+      font-size: clamp(35px, 5vw, 55px);
+      line-height: 1.08;
+      letter-spacing: -.045em;
+    }
+
+    .cta-panel p {
+      max-width: 660px;
+      margin: 0 auto 27px;
+      color: #a6b9c9;
+      font-size: 16px;
+    }
+
+    .cta-actions {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .faq {
+      max-width: 850px;
+      margin: 0 auto;
+      display: grid;
+      gap: 12px;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 17px;
+      padding: 0 18px;
+      background: rgba(255,255,255,.025);
+    }
+
+    summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 19px 0;
+      font-weight: 800;
+      position: relative;
+      padding-right: 30px;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    summary::after {
+      content: "+";
+      position: absolute;
+      right: 2px;
+      top: 18px;
+      color: var(--brand);
+      font-size: 21px;
+    }
+
+    details[open] summary::after { content: "–"; }
+
+    details p {
+      margin: -2px 0 19px;
+      color: #91a7bb;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 34px 0 42px;
+      color: #778fa4;
+      font-size: 12px;
+    }
+
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+    }
+
+    .mobile-cta {
+      display: none;
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 70;
+      min-height: 52px;
+      border-radius: 15px;
+      align-items: center;
+      justify-content: center;
+      color: #04120f;
+      background: linear-gradient(135deg, #63f0cb, #22d3a7);
+      font-weight: 900;
+      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+    }
+
+    @media (max-width: 960px) {
+      .nav-links { display: none; }
+      .hero { padding-top: 55px; }
+      .hero-grid,
+      .workflow,
+      .audience {
+        grid-template-columns: 1fr;
+      }
+
+      .demo-shell {
+        min-height: 525px;
+        max-width: 620px;
+        margin: 15px auto 0;
+      }
+
+      .phone-card {
+        left: auto;
+        right: 0;
+      }
+
+      .problem-grid,
+      .features-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .proof-strip { grid-template-columns: repeat(2, 1fr); }
+      .proof-item:nth-child(2) { border-right: none; }
+      .proof-item:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 680px) {
+      .container { width: min(calc(100% - 24px), var(--max)); }
+      .nav-inner { height: 66px; }
+      .nav .btn-small { display: none; }
+
+      .hero {
+        padding-top: 38px;
+        padding-bottom: 28px;
+      }
+
+      h1 {
+        font-size: clamp(42px, 13vw, 62px);
+        line-height: 1.01;
+      }
+
+      .hero-copy > p { font-size: 16px; }
+      .hero-actions .btn { width: 100%; }
+
+      .demo-shell {
+        min-height: 510px;
+        margin-top: 30px;
+      }
+
+      .phone-card {
+        width: 100%;
+        right: 0;
+      }
+
+      .mini-card {
+        width: 210px;
+        left: -3px;
+        bottom: 0;
+      }
+
+      .proof-strip {
+        margin-top: 32px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .proof-item { padding: 16px; }
+
+      section { padding: 68px 0; }
+
+      .problem-grid,
+      .features-grid,
+      .demo-grid,
+      .check-list {
+        grid-template-columns: 1fr;
+      }
+
+      .section-head { margin-bottom: 30px; }
+      .section-head h2 { font-size: 37px; }
+
+      .dash-stats { grid-template-columns: 1fr 1fr; }
+      .dash-stats .stat:last-child { grid-column: 1 / -1; }
+
+      .dash-row {
+        grid-template-columns: 1.15fr .85fr;
+      }
+
+      .dash-row > :nth-child(2) { display: none; }
+
+      .cta-panel {
+        padding: 36px 21px;
+        border-radius: 25px;
+      }
+
+      .cta-actions .btn { width: 100%; }
+
+      .footer-inner {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      footer { padding-bottom: 88px; }
+      .mobile-cta { display: flex; }
+    }
+  </style>
+</head>
+
+<body>
+  <nav class="nav" aria-label="Main navigation">
+    <div class="container nav-inner">
+      <a class="brand" href="#top" aria-label="TrimTech AI home">
+        <span class="brand-mark">T</span>
+        <span>TrimTech AI</span>
+      </a>
+
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#demos">Live demos</a>
+        <a href="#faq">FAQ</a>
+      </div>
+
+      <a class="btn btn-primary btn-small" href="#book-demo">Book a demo</a>
+    </div>
+  </nav>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container">
+        <div class="hero-grid">
+          <div class="hero-copy">
+            <span class="eyebrow"><span class="dot"></span> Built for busy UK garages</span>
+
+            <h1>
+              Your garage's
+              <span class="gradient-text">AI receptionist.</span>
+              Always on.
+            </h1>
+
+            <p>
+              TrimTech AI answers customer calls, checks vehicle details, books jobs into your calendar,
+              manages customer information and sends appointment reminders — so your team can stay focused on the workshop.
+            </p>
+
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#book-demo">See TrimTech AI in action →</a>
+              <a class="btn btn-secondary" href="#demos">Explore live demos</a>
+            </div>
+
+            <div class="hero-note" aria-label="Key benefits">
+              <span>24/7 call handling</span>
+              <span>Google Calendar booking</span>
+              <span>Vehicle lookup</span>
+              <span>Automated reminders</span>
+            </div>
+          </div>
+
+          <div class="demo-shell" aria-label="AI receptionist demonstration">
+            <div class="glow"></div>
+
+            <div class="phone-card">
+              <div class="phone-top">
+                <div class="agent">
+                  <div class="agent-icon">AI</div>
+                  <div>
+                    <strong>TrimTech AI Receptionist</strong>
+                    <small>● Live call in progress</small>
+                  </div>
+                </div>
+                <span class="live-pill">24/7</span>
+              </div>
+
+              <div class="call-body">
+                <div class="wave" aria-hidden="true">
+                  <i></i><i></i><i></i><i></i><i></i>
+                  <i></i><i></i><i></i><i></i><i></i>
+                </div>
+
+                <div class="transcript">
+                  <div class="bubble ai">
+                    Good afternoon, you're through to the garage. How can I help?
+                  </div>
+                  <div class="bubble user">
+                    Can I book my car in for an MOT on Thursday?
+                  </div>
+                  <div class="bubble ai">
+                    Absolutely. I'll check availability. Can I take your registration please?
+                  </div>
+                </div>
+
+                <div class="task-card">
+                  <div class="task-check">✓</div>
+                  <div>
+                    <strong>Appointment booked automatically</strong>
+                    <small>Calendar updated • Reminder scheduled</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="mini-card">
+              <small>Vehicle identified</small>
+              <h3>Ford Focus</h3>
+              <p>Registration checked before booking</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="proof-strip" aria-label="Platform capabilities">
+          <div class="proof-item">
+            <strong>Answers every call</strong>
+            <span>Even when the workshop is busy</span>
+          </div>
+          <div class="proof-item">
+            <strong>Books automatically</strong>
+            <span>Using your real availability</span>
+          </div>
+          <div class="proof-item">
+            <strong>Knows the customer</strong>
+            <span>CRM and vehicle history built in</span>
+          </div>
+          <div class="proof-item">
+            <strong>Follows up</strong>
+            <span>Automated booking reminders</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container">
+        <div class="section-head center">
+          <span class="eyebrow">The problem</span>
+          <h2>Every missed call can be a missed booking.</h2>
+          <p>
+            Customers ring while you're under a car, speaking to someone at the desk or already on another call.
+            TrimTech AI gives your garage another pair of hands without putting another person behind the counter.
+          </p>
+        </div>
+
+        <div class="problem-grid">
+          <article class="card problem-card">
+            <div class="icon">☎</div>
+            <h3>Calls go unanswered</h3>
+            <p>Customers often ring the next garage if nobody picks up. Your AI receptionist is ready whenever they call.</p>
+          </article>
+
+          <article class="card problem-card">
+            <div class="icon">🗓</div>
+            <h3>Bookings interrupt the workshop</h3>
+            <p>Stop breaking away from jobs to check the diary. Availability and appointment creation happen automatically.</p>
+          </article>
+
+          <article class="card problem-card">
+            <div class="icon">⏱</div>
+            <h3>Admin steals your time</h3>
+            <p>Customer details, vehicle information, confirmations and reminders are handled as part of the same conversation.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="features" class="solution">
+      <div class="container">
+        <div class="section-head">
+          <span class="eyebrow">One connected platform</span>
+          <h2>More than an answering service.</h2>
+          <p>
+            TrimTech AI connects the call, calendar, vehicle, customer and reminder workflow into one garage-ready system.
+          </p>
+        </div>
+
+        <div class="features-grid">
+          <article class="card feature-card">
+            <div class="icon">🎙</div>
+            <h3>AI voice receptionist</h3>
+            <p>Speaks naturally with customers, understands why they're calling and guides them through the next step.</p>
+            <span class="feature-tag">24/7 answering</span>
+          </article>
+
+          <article class="card feature-card">
+            <div class="icon">📅</div>
+            <h3>Real calendar booking</h3>
+            <p>Checks live availability and books appointments into the garage calendar without double-booking the team.</p>
+            <span class="feature-tag">Google Calendar</span>
+          </article>
+
+          <article class="card feature-card">
+            <div class="icon">🚘</div>
+            <h3>Vehicle intelligence</h3>
+            <p>Captures the registration and can identify vehicle information so the garage has better context before the visit.</p>
+            <span class="feature-tag">Vehicle lookup</span>
+          </article>
+
+          <article class="card feature-card">
+            <div class="icon">👤</div>
+            <h3>Customer CRM</h3>
+            <p>Keeps useful customer, vehicle and booking information together instead of leaving it scattered across calls and notes.</p>
+            <span class="feature-tag">Customer history</span>
+          </article>
+
+          <article class="card feature-card">
+            <div class="icon">🔔</div>
+            <h3>Automated reminders</h3>
+            <p>Sends appointment reminders automatically to help customers remember their booking and reduce avoidable no-shows.</p>
+            <span class="feature-tag">WhatsApp ready</span>
+          </article>
+
+          <article class="card feature-card">
+            <div class="icon">📊</div>
+            <h3>Business dashboard</h3>
+            <p>See bookings, customers, vehicles, reminders and business activity from a single operational dashboard.</p>
+            <span class="feature-tag">Business-aware</span>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="how-it-works">
+      <div class="container workflow">
+        <div>
+          <div class="section-head">
+            <span class="eyebrow">How it works</span>
+            <h2>From incoming call to confirmed booking.</h2>
+            <p>
+              The customer gets a smooth experience. Your garage gets structured information and an appointment in the diary.
+            </p>
+          </div>
+
+          <div class="steps">
+            <div class="step">
+              <div class="step-num">1</div>
+              <div>
+                <strong>Your customer calls</strong>
+                <p>TrimTech AI answers using your garage name, services and business information.</p>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-num">2</div>
+              <div>
+                <strong>The AI handles the request</strong>
+                <p>It can discuss the service, capture customer details, confirm the vehicle and check your availability.</p>
+              </div>
+            </div>
+
+            <div class="step">
+              <div class="step-num">3</div>
+              <div>
+                <strong>Your systems update</strong>
+                <p>The appointment is created, customer information is stored and reminders are scheduled automatically.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard" aria-label="Example TrimTech AI dashboard">
+          <div class="dash-top">
+            <strong>TrimTech AI • Garage Dashboard</strong>
+            <span>● Systems healthy</span>
+          </div>
+
+          <div class="dash-stats">
+            <div class="stat">
+              <small>TODAY'S BOOKINGS</small>
+              <strong>8</strong>
+            </div>
+            <div class="stat">
+              <small>REMINDERS SENT</small>
+              <strong>14</strong>
+            </div>
+            <div class="stat">
+              <small>CUSTOMERS</small>
+              <strong>126</strong>
+            </div>
+          </div>
+
+          <div class="dash-list">
+            <div class="dash-row">
+              <strong>MOT • Ford Focus</strong>
+              <span>09:30 • Sarah M.</span>
+              <span class="status">Booked</span>
+            </div>
+            <div class="dash-row">
+              <strong>Full Service • BMW 3 Series</strong>
+              <span>11:00 • Daniel K.</span>
+              <span class="status">Confirmed</span>
+            </div>
+            <div class="dash-row">
+              <strong>Diagnostic • VW Golf</strong>
+              <span>14:15 • James R.</span>
+              <span class="status">Reminder sent</span>
+            </div>
+            <div class="dash-row">
+              <strong>MOT • Vauxhall Corsa</strong>
+              <span>16:00 • Emily P.</span>
+              <span class="status">Booked</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="demos" class="demo-section">
+      <div class="container">
+        <div class="section-head center">
+          <span class="eyebrow"><span class="dot"></span> Real platform demos</span>
+          <h2>See the same TrimTech AI engine working for two garages.</h2>
+          <p>
+            The platform is business-aware, so each garage keeps its own identity, services, pricing, calendar and customer data
+            while running on the same underlying AI system.
+          </p>
+        </div>
+
+        <div class="demo-grid">
+          <article class="card demo-card">
+            <div class="business-line">
+              <div class="business-logo">TG</div>
+              <div>
+                <h3>TrimTech Garage</h3>
+                <p>Full garage AI demonstration</p>
+              </div>
+            </div>
+
+            <div class="demo-points">
+              <div class="demo-point">AI voice receptionist</div>
+              <div class="demo-point">MOT, service and diagnostic booking</div>
+              <div class="demo-point">Vehicle registration workflow</div>
+              <div class="demo-point">Automated reminders and dashboard</div>
+            </div>
+
+            <a class="btn btn-secondary" href="#book-demo">Request TrimTech Garage demo</a>
+          </article>
+
+          <article class="card demo-card">
+            <div class="business-line">
+              <div class="business-logo">NR</div>
+              <div>
+                <h3>Natalie's Repairs</h3>
+                <p>Second business on the shared platform</p>
+              </div>
+            </div>
+
+            <div class="demo-points">
+              <div class="demo-point">Own garage name and customer experience</div>
+              <div class="demo-point">Own services and business settings</div>
+              <div class="demo-point">Own booking and reminder workflow</div>
+              <div class="demo-point">Business data kept separate</div>
+            </div>
+
+            <a class="btn btn-secondary" href="#book-demo">Request Natalie's demo</a>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="container audience">
+        <div class="section-head">
+          <span class="eyebrow">Built for independent garages</span>
+          <h2>Keep the workshop moving while TrimTech AI handles the front desk.</h2>
+          <p>
+            Ideal for garages that want to answer more enquiries, make booking easier and reduce repetitive admin without replacing the personal service customers expect.
+          </p>
+          <a class="btn btn-primary" href="#book-demo">Show me how it would work for my garage</a>
+        </div>
+
+        <div class="check-list">
+          <div class="check"><span>✓</span> MOT centres</div>
+          <div class="check"><span>✓</span> Service & repair garages</div>
+          <div class="check"><span>✓</span> Independent workshops</div>
+          <div class="check"><span>✓</span> Mobile mechanics</div>
+          <div class="check"><span>✓</span> Diagnostic specialists</div>
+          <div class="check"><span>✓</span> Growing garage groups</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="book-demo">
+      <div class="container">
+        <div class="cta-panel">
+          <span class="eyebrow"><span class="dot"></span> See it working</span>
+          <h2>What would your garage do with fewer missed calls?</h2>
+          <p>
+            See a live TrimTech AI demonstration and discover how the receptionist, calendar, vehicle workflow,
+            customer data and reminders can work together for your business.
+          </p>
+
+          <div class="cta-actions">
+            <!-- Replace the href below with your final demo-booking/contact URL. -->
+            <a class="btn btn-primary" href="mailto:hello@trimtech.ai?subject=TrimTech%20AI%20Demo">Book my free demo →</a>
+            <a class="btn btn-secondary" href="#demos">View the demo businesses</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="container">
+        <div class="section-head center">
+          <span class="eyebrow">Frequently asked questions</span>
+          <h2>Questions garage owners usually ask.</h2>
+        </div>
+
+        <div class="faq">
+          <details>
+            <summary>Does TrimTech AI replace my existing phone number?</summary>
+            <p>
+              It can be configured around the way your garage wants to handle calls. The final setup can be tailored so the AI receptionist fits your existing customer journey rather than forcing your business into a generic call-centre process.
+            </p>
+          </details>
+
+          <details>
+            <summary>Can it actually book appointments?</summary>
+            <p>
+              Yes. TrimTech AI can check live availability and create garage appointments in the connected calendar, using the services and booking rules configured for that business.
+            </p>
+          </details>
+
+          <details>
+            <summary>Does it work differently for each garage?</summary>
+            <p>
+              Yes. The platform is business-aware. Each garage can have its own name, greeting, services, pricing, hours, calendar, contact details and operational data while using the shared TrimTech AI platform.
+            </p>
+          </details>
+
+          <details>
+            <summary>Can it handle vehicle information?</summary>
+            <p>
+              The garage workflow can capture a registration and use connected vehicle data to give the business useful vehicle context as part of the booking process.
+            </p>
+          </details>
+
+          <details>
+            <summary>What happens after a booking is made?</summary>
+            <p>
+              The booking appears in the connected systems and the reminder workflow can automatically contact the customer at the appropriate time before their appointment.
+            </p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-inner">
+      <div>
+        <div class="brand">
+          <span class="brand-mark">T</span>
+          <span>TrimTech AI</span>
+        </div>
+        <div style="margin-top:8px;">AI receptionist technology for modern garages.</div>
+      </div>
+
+      <div class="footer-links">
+        <a href="#features">Features</a>
+        <a href="#demos">Demos</a>
+        <a href="#faq">FAQ</a>
+        <a href="#book-demo">Book a demo</a>
+      </div>
+    </div>
+  </footer>
+
+  <a class="mobile-cta" href="#book-demo">Book a free demo →</a>
+</body>
+</html>
