@@ -1,17 +1,172 @@
 from __future__ import annotations
 
+import json
+import os
+from html import escape
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 from flask import Flask, request, send_from_directory
 
 
 BASE_DIR = Path(__file__).resolve().parent
 
+RESEND_API_URL = "https://api.resend.com/emails"
+
+
 app = Flask(__name__)
 
 
 def clean_text(value: str | None, max_length: int = 500) -> str:
     return str(value or "").strip()[:max_length]
+
+
+def send_lead_notification(lead: dict[str, str]) -> tuple[bool, str]:
+    """
+    Send a TrimTech AI demo enquiry notification through Resend.
+
+    Required Render environment variables:
+        RESEND_API_KEY
+        MARKETING_LEAD_EMAIL
+
+    Optional:
+        RESEND_FROM_EMAIL
+
+    Example RESEND_FROM_EMAIL after verifying your domain:
+        TrimTech AI <hello@yourdomain.co.uk>
+    """
+
+    api_key = clean_text(os.getenv("RESEND_API_KEY"), 500)
+    recipient = clean_text(os.getenv("MARKETING_LEAD_EMAIL"), 320)
+    from_email = clean_text(
+        os.getenv("RESEND_FROM_EMAIL"),
+        320,
+    ) or "TrimTech AI <onboarding@resend.dev>"
+
+    if not api_key:
+        return False, "RESEND_API_KEY is not configured."
+
+    if not recipient:
+        return False, "MARKETING_LEAD_EMAIL is not configured."
+
+    name = escape(lead.get("name", ""))
+    business_name = escape(lead.get("business_name", ""))
+    phone = escape(lead.get("phone", ""))
+    email = escape(lead.get("email", ""))
+    contact_method = escape(lead.get("contact_method", ""))
+    garage_size = escape(lead.get("garage_size", "") or "Not supplied")
+    message = escape(lead.get("message", "") or "No additional message").replace(
+        "\n",
+        "<br>",
+    )
+
+    subject = f"New TrimTech AI demo enquiry — {lead.get('business_name') or lead.get('name')}"
+
+    html_body = f"""
+    <div style="margin:0;padding:24px;background:#07111f;font-family:Arial,sans-serif;color:#f7fbff;">
+      <div style="max-width:680px;margin:0 auto;padding:28px;border-radius:22px;background:#0f2034;border:1px solid rgba(255,255,255,.12);">
+        <div style="font-size:13px;font-weight:700;color:#22d3a7;margin-bottom:8px;">
+          NEW TRIMTECH AI LEAD
+        </div>
+
+        <h1 style="margin:0 0 20px;font-size:28px;color:#ffffff;">
+          Demo enquiry received
+        </h1>
+
+        <table style="width:100%;border-collapse:collapse;color:#dce7f0;font-size:15px;">
+          <tr>
+            <td style="padding:9px 0;color:#8fa4b6;width:180px;">Name</td>
+            <td style="padding:9px 0;font-weight:700;">{name}</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 0;color:#8fa4b6;">Garage / business</td>
+            <td style="padding:9px 0;font-weight:700;">{business_name}</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 0;color:#8fa4b6;">Phone</td>
+            <td style="padding:9px 0;font-weight:700;">{phone}</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 0;color:#8fa4b6;">Email</td>
+            <td style="padding:9px 0;font-weight:700;">{email}</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 0;color:#8fa4b6;">Preferred contact</td>
+            <td style="padding:9px 0;font-weight:700;">{contact_method}</td>
+          </tr>
+          <tr>
+            <td style="padding:9px 0;color:#8fa4b6;">Garage size</td>
+            <td style="padding:9px 0;font-weight:700;">{garage_size}</td>
+          </tr>
+        </table>
+
+        <div style="margin-top:22px;padding:18px;border-radius:14px;background:#0a1929;border:1px solid rgba(255,255,255,.08);">
+          <div style="margin-bottom:8px;color:#8fa4b6;font-size:12px;font-weight:700;">
+            MESSAGE
+          </div>
+          <div style="color:#dce7f0;line-height:1.65;">
+            {message}
+          </div>
+        </div>
+
+        <div style="margin-top:22px;font-size:12px;color:#71879b;">
+          Submitted through the TrimTech AI marketing website.
+        </div>
+      </div>
+    </div>
+    """
+
+    payload = {
+        "from": from_email,
+        "to": [recipient],
+        "subject": subject,
+        "html": html_body,
+        "reply_to": lead.get("email") or recipient,
+    }
+
+    request_data = Request(
+        RESEND_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request_data, timeout=15) as response:
+            response_body = response.read().decode("utf-8", errors="replace")
+
+        print(
+            "TRIMTECH MARKETING LEAD EMAIL SENT:",
+            {
+                "recipient": recipient,
+                "response": response_body,
+            },
+            flush=True,
+        )
+
+        return True, ""
+
+    except HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        error_message = f"Resend HTTP {error.code}: {body}"
+
+    except URLError as error:
+        error_message = f"Resend connection error: {error.reason}"
+
+    except Exception as error:
+        error_message = f"Unexpected Resend error: {repr(error)}"
+
+    print(
+        "TRIMTECH MARKETING LEAD EMAIL ERROR:",
+        error_message,
+        flush=True,
+    )
+
+    return False, error_message
 
 
 @app.get("/")
@@ -45,7 +200,7 @@ def demo_page():
 
     if missing_fields:
         return (
-            f"""
+            """
             <!DOCTYPE html>
             <html lang="en-GB">
             <head>
@@ -53,7 +208,7 @@ def demo_page():
               <meta name="viewport" content="width=device-width, initial-scale=1">
               <title>Missing details | TrimTech AI</title>
               <style>
-                body {{
+                body {
                   margin: 0;
                   min-height: 100vh;
                   display: grid;
@@ -62,17 +217,17 @@ def demo_page():
                   font-family: Arial, sans-serif;
                   color: #f7fbff;
                   background: #07111f;
-                }}
-                .card {{
+                }
+                .card {
                   width: min(100%, 620px);
                   padding: 32px;
                   border-radius: 24px;
                   border: 1px solid rgba(255,255,255,.12);
                   background: #0f2034;
-                }}
-                h1 {{ margin-top: 0; }}
-                p {{ color: #9eb0c2; line-height: 1.6; }}
-                a {{
+                }
+                h1 { margin-top: 0; }
+                p { color: #9eb0c2; line-height: 1.6; }
+                a {
                   display: inline-block;
                   margin-top: 12px;
                   padding: 13px 18px;
@@ -81,7 +236,7 @@ def demo_page():
                   background: #22d3a7;
                   text-decoration: none;
                   font-weight: 800;
-                }}
+                }
               </style>
             </head>
             <body>
@@ -107,6 +262,18 @@ def demo_page():
     }
 
     print("TRIMTECH MARKETING LEAD:", lead, flush=True)
+
+    notification_sent, notification_error = send_lead_notification(lead)
+
+    if not notification_sent:
+        print(
+            "TRIMTECH MARKETING LEAD WARNING: enquiry accepted but email notification failed:",
+            notification_error,
+            flush=True,
+        )
+
+    safe_name = escape(name)
+    safe_business_name = escape(business_name)
 
     return f"""
     <!DOCTYPE html>
@@ -225,11 +392,11 @@ def demo_page():
         <div class="mark">✓</div>
         <h1>Your TrimTech AI demo request is in.</h1>
         <p>
-          Thanks {name}. We’ve received your details and will use your preferred contact method
+          Thanks {safe_name}. We’ve received your details and will use your preferred contact method
           to follow up about a TrimTech AI demonstration.
         </p>
 
-        <div class="business">{business_name}</div>
+        <div class="business">{safe_business_name}</div>
 
         <div class="actions">
           <a class="primary" href="/">Back to TrimTech AI</a>
