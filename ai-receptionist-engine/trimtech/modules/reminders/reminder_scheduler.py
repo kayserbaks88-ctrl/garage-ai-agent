@@ -107,12 +107,43 @@ def _resolve_business(
     business: BusinessConfig | None = None,
     business_id: str | None = None,
 ) -> BusinessConfig:
+    """
+    Resolve reminder business context safely.
+
+    The legacy TrimTech Garage is the active configured business and may not
+    exist as an onboarded business instance. Onboarded businesses such as
+    Natalie's Repairs are resolved through load_business_instance().
+
+    This distinction matters for dashboard reminder health: passing
+    business_id="trimtech-garage" must resolve to the active legacy business
+    instead of incorrectly forcing it through the onboarded-instance loader.
+    """
+
     if isinstance(business, BusinessConfig):
         return business
 
     wanted = _text(business_id)
+
     if wanted:
-        return load_business_instance(wanted, refresh=True)
+        try:
+            active = get_active_business()
+
+            if _text(active.business_id).lower() == wanted.lower():
+                return active
+
+        except Exception as error:
+            print(
+                "REMINDER ACTIVE BUSINESS RESOLVE ERROR:",
+                {
+                    "business_id": wanted,
+                    "error": repr(error),
+                },
+            )
+
+        return load_business_instance(
+            wanted,
+            refresh=True,
+        )
 
     return get_active_business()
 
