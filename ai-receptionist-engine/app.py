@@ -12,7 +12,9 @@ from twilio.twiml.messaging_response import MessagingResponse
 from trimtech.integrations.vapi import vapi_bp
 from trimtech.modules.onboarding import onboarding_blueprint
 from trimtech.modules.platform import platform_blueprint
-from trimtech.core.registry import load_business_instance
+from trimtech.core.registry import get_active_business, load_business_instance
+from trimtech.integrations.google_calendar.service import cancel_booking, list_bookings
+from trimtech.modules.onboarding.service import list_onboarding_businesses
 from trimtech.modules.auth import auth_blueprint
 from trimtech.modules.auth.routes import (
     business_access_required,
@@ -84,6 +86,201 @@ def home():
 # WhatsApp
 # =========================================================
 
+def _whatsapp_phone(value: str) -> str:
+    """
+    Convert Twilio's WhatsApp address into the normal phone value expected by
+    the shared calendar integration.
+    """
+    phone = str(value or "").strip()
+
+    if phone.lower().startswith("whatsapp:"):
+        phone = phone.split(":", 1)[1].strip()
+
+    return phone
+
+
+def _garage_business_candidates():
+    """
+    Return every garage business known to the shared TrimTech platform.
+
+    This lets one WhatsApp sender safely handle replies for TrimTech Garage,
+    Natalie's Repairs and future garage customers without routing replies back
+    into the retired garage WhatsApp booking bot.
+    """
+    businesses = []
+    seen = set()
+
+    try:
+        active = get_active_business()
+        businesses.append(active)
+        seen.add(active.business_id)
+    except Exception as error:
+        print("WHATSAPP ACTIVE BUSINESS ERROR:", repr(error))
+
+    try:
+        records = list_onboarding_businesses()
+    except Exception as error:
+        print("WHATSAPP ONBOARDING LIST ERROR:", repr(error))
+        records = []
+
+    for record in records:
+        slug = str(getattr(record, "business_slug", "") or "").strip()
+        if not slug:
+            continue
+
+        try:
+            business = load_business_instance(slug, refresh=True)
+        except Exception as error:
+            print("WHATSAPP BUSINESS LOAD ERROR:", slug, repr(error))
+            continue
+
+        if business.business_id not in seen:
+            businesses.append(business)
+            seen.add(business.business_id)
+
+    return businesses
+
+
+def _garage_upcoming_bookings(phone: str):
+    """
+    Find upcoming bookings for this customer across all shared garage
+    businesses. Each result carries the business that owns the calendar event.
+    """
+    matches = []
+
+    for business in _garage_business_candidates():
+        try:
+            bookings = list_bookings(business, phone)
+        except Exception as error:
+            print(
+                "WHATSAPP BOOKING LOOKUP ERROR:",
+                business.business_id,
+                repr(error),
+            )
+            continue
+
+        for booking in bookings:
+            booking_id = str(booking.get("id") or "").strip()
+            if not booking_id:
+                continue
+
+            matches.append(
+                {
+                    "business": business,
+                    "booking": booking,
+                }
+            )
+
+    def sort_key(item):
+        return str(item["booking"].get("start") or "")
+
+    matches.sort(key=sort_key)
+    return matches
+
+
+def _handle_shared_garage_whatsapp_reply(
+    incoming: str,
+    phone: str,
+) -> str:
+    """
+    Handle replies to garage WhatsApp confirmation/reminder templates.
+
+    Voice/Vapi owns garage bookings now. WhatsApp is used for notifications and
+    simple confirmation/cancellation replies only, so replies must not be sent
+    back into the retired garage_agent session flow.
+    """
+    text = str(incoming or "").strip()
+    lower = text.lower()
+    customer_phone = _whatsapp_phone(phone)
+
+    confirm_words = {
+        "confirm",
+        "confirmed",
+        "yes",
+        "yes please",
+        "yep",
+        "yeah",
+        "ok",
+        "okay",
+    }
+
+    if lower in confirm_words:
+        matches = _garage_upcoming_bookings(customer_phone)
+
+        if len(matches) == 1:
+            business = matches[0]["business"]
+            return (
+                f"Thanks 👍 Your booking with {business.name} is confirmed. "
+                "We look forward to seeing you."
+            )
+
+        if len(matches) > 1:
+            return (
+                "Thanks 👍 Your booking confirmation has been received. "
+                "You currently have more than one upcoming appointment, "
+                "so no booking details have been changed."
+            )
+
+        return (
+            "Thanks 👍 Your confirmation has been received. "
+            "We look forward to seeing you."
+        )
+
+    if lower == "cancel" or lower.startswith("cancel "):
+        matches = _garage_upcoming_bookings(customer_phone)
+
+        if not matches:
+            return (
+                "I couldn't find an upcoming booking for this number. "
+                "Please call the garage if you still need help cancelling."
+            )
+
+        if len(matches) > 1:
+            return (
+                "You have more than one upcoming booking, so I won't cancel "
+                "anything automatically. Please call the garage and we'll "
+                "make sure the correct appointment is changed."
+            )
+
+        match = matches[0]
+        business = match["business"]
+        booking = match["booking"]
+        booking_id = str(booking.get("id") or "").strip()
+
+        try:
+            cancel_booking(business, booking_id)
+        except Exception as error:
+            print(
+                "WHATSAPP BOOKING CANCEL ERROR:",
+                business.business_id,
+                booking_id,
+                repr(error),
+            )
+            return (
+                "Sorry, I couldn't cancel that booking just now. "
+                "Please call the garage and we'll sort it for you."
+            )
+
+        print(
+            "WHATSAPP BOOKING CANCELLED:",
+            {
+                "business_id": business.business_id,
+                "booking_id": booking_id,
+                "phone": customer_phone,
+            },
+        )
+
+        return (
+            f"Done 👍 Your booking with {business.name} has been cancelled."
+        )
+
+    return (
+        "Thanks for your message. Garage bookings are now handled by our AI "
+        "receptionist by phone. If you need to change an appointment, please "
+        "call the garage."
+    )
+
+
 @app.route("/whatsapp", methods=["POST"])
 def whatsapp():
     incoming = request.values.get("Body", "")
@@ -91,9 +288,10 @@ def whatsapp():
     profile_name = request.values.get("ProfileName", "")
 
     if BUSINESS == "garage":
-        from integrations.garage_agent import handle_message
-
-        reply = handle_message(incoming, phone, profile_name)
+        reply = _handle_shared_garage_whatsapp_reply(
+            incoming=incoming,
+            phone=phone,
+        )
 
     elif BUSINESS == "barber":
         from integrations.barber_agent import handle_message
