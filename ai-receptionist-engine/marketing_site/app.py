@@ -170,6 +170,134 @@ def send_lead_notification(lead: dict[str, str]) -> tuple[bool, str]:
     return False, error_message
 
 
+def send_customer_confirmation(lead: dict[str, str]) -> tuple[bool, str]:
+    """
+    Send a branded confirmation email to the customer after a demo enquiry.
+
+    This is deliberately separate from the owner notification. If the customer
+    confirmation fails, the enquiry is still accepted and the owner notification
+    remains unaffected.
+    """
+
+    api_key = clean_text(os.getenv("RESEND_API_KEY"), 500)
+    recipient = clean_text(lead.get("email"), 320)
+    owner_email = clean_text(os.getenv("MARKETING_LEAD_EMAIL"), 320)
+    from_email = clean_text(
+        os.getenv("RESEND_FROM_EMAIL"),
+        320,
+    ) or "TrimTech AI <onboarding@resend.dev>"
+
+    if not api_key:
+        return False, "RESEND_API_KEY is not configured."
+
+    if not recipient:
+        return False, "Customer email is not available."
+
+    name = escape(lead.get("name", "") or "there")
+    business_name = escape(lead.get("business_name", "") or "your garage")
+    contact_method = escape(lead.get("contact_method", "") or "phone")
+
+    subject = "Your TrimTech AI demo request is confirmed"
+
+    html_body = f"""
+    <div style="margin:0;padding:24px;background:#07111f;font-family:Arial,sans-serif;color:#f7fbff;">
+      <div style="max-width:680px;margin:0 auto;padding:28px;border-radius:22px;background:#0f2034;border:1px solid rgba(255,255,255,.12);">
+        <div style="font-size:13px;font-weight:700;color:#22d3a7;margin-bottom:8px;">
+          TRIMTECH AI
+        </div>
+
+        <h1 style="margin:0 0 18px;font-size:30px;line-height:1.2;color:#ffffff;">
+          Your demo request is confirmed
+        </h1>
+
+        <p style="margin:0 0 18px;color:#dce7f0;font-size:16px;line-height:1.7;">
+          Hi {name},
+        </p>
+
+        <p style="margin:0 0 18px;color:#dce7f0;font-size:16px;line-height:1.7;">
+          Thanks for requesting a TrimTech AI demonstration for
+          <strong>{business_name}</strong>. We’ve received your details and will
+          be in touch using your preferred contact method:
+          <strong>{contact_method}</strong>.
+        </p>
+
+        <div style="margin:24px 0;padding:20px;border-radius:16px;background:#0a1929;border:1px solid rgba(255,255,255,.08);">
+          <div style="margin-bottom:10px;color:#22d3a7;font-size:13px;font-weight:700;">
+            WHAT HAPPENS NEXT?
+          </div>
+          <div style="color:#dce7f0;line-height:1.7;font-size:15px;">
+            We’ll have a quick conversation about how your garage currently
+            handles calls, bookings and customer follow-up, then show you how
+            TrimTech AI could fit around the way your business already works.
+          </div>
+        </div>
+
+        <p style="margin:0;color:#8fa4b6;font-size:14px;line-height:1.7;">
+          TrimTech AI<br>
+          AI reception built for busy UK garages<br>
+          <a href="https://trimtechai.com" style="color:#22d3a7;text-decoration:none;">
+            trimtechai.com
+          </a>
+        </p>
+      </div>
+    </div>
+    """
+
+    payload = {
+        "from": from_email,
+        "to": [recipient],
+        "subject": subject,
+        "html": html_body,
+    }
+
+    if owner_email:
+        payload["reply_to"] = owner_email
+
+    request_data = Request(
+        RESEND_API_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "TrimTech-AI-Marketing/1.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request_data, timeout=15) as response:
+            response_body = response.read().decode("utf-8", errors="replace")
+
+        print(
+            "TRIMTECH CUSTOMER CONFIRMATION EMAIL SENT:",
+            {
+                "recipient": recipient,
+                "response": response_body,
+            },
+            flush=True,
+        )
+
+        return True, ""
+
+    except HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        error_message = f"Resend HTTP {error.code}: {body}"
+
+    except URLError as error:
+        error_message = f"Resend connection error: {error.reason}"
+
+    except Exception as error:
+        error_message = f"Unexpected Resend error: {repr(error)}"
+
+    print(
+        "TRIMTECH CUSTOMER CONFIRMATION EMAIL ERROR:",
+        error_message,
+        flush=True,
+    )
+
+    return False, error_message
+
+
 @app.get("/")
 def landing_page():
     return send_from_directory(BASE_DIR, "landing.html")
@@ -270,6 +398,15 @@ def demo_page():
         print(
             "TRIMTECH MARKETING LEAD WARNING: enquiry accepted but email notification failed:",
             notification_error,
+            flush=True,
+        )
+
+    confirmation_sent, confirmation_error = send_customer_confirmation(lead)
+
+    if not confirmation_sent:
+        print(
+            "TRIMTECH CUSTOMER CONFIRMATION WARNING: enquiry accepted but customer confirmation failed:",
+            confirmation_error,
             flush=True,
         )
 
