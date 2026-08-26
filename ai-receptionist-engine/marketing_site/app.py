@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
+import re
 from html import escape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from flask import Flask, request, send_from_directory
@@ -13,6 +16,7 @@ from flask import Flask, request, send_from_directory
 BASE_DIR = Path(__file__).resolve().parent
 
 RESEND_API_URL = "https://api.resend.com/emails"
+TWILIO_MESSAGES_URL = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
 
 
 app = Flask(__name__)
@@ -298,6 +302,90 @@ def send_customer_confirmation(lead: dict[str, str]) -> tuple[bool, str]:
     return False, error_message
 
 
+def normalise_uk_phone(value: str) -> str:
+    raw = clean_text(value, 80)
+    if not raw:
+        return ""
+    compact = re.sub(r"[^\d+]", "", raw)
+    if compact.startswith("0044"):
+        compact = "+44" + compact[4:]
+    elif compact.startswith("44") and not compact.startswith("+44"):
+        compact = "+" + compact
+    elif compact.startswith("0"):
+        compact = "+44" + compact[1:]
+    if not compact.startswith("+"):
+        return ""
+    digits = re.sub(r"\D", "", compact)
+    if len(digits) < 10 or len(digits) > 15:
+        return ""
+    return "+" + digits
+
+
+def send_whatsapp_demo_confirmation(lead: dict[str, str]) -> tuple[bool, str]:
+    if clean_text(lead.get("contact_method"), 40).lower() != "whatsapp":
+        return True, ""
+
+    account_sid = clean_text(os.getenv("TWILIO_ACCOUNT_SID"), 200)
+    auth_token = clean_text(os.getenv("TWILIO_AUTH_TOKEN"), 300)
+    whatsapp_from = clean_text(os.getenv("TWILIO_WHATSAPP_FROM"), 100)
+    content_sid = clean_text(os.getenv("TWILIO_DEMO_CONFIRMATION_CONTENT_SID"), 100)
+
+    if not account_sid:
+        return False, "TWILIO_ACCOUNT_SID is not configured."
+    if not auth_token:
+        return False, "TWILIO_AUTH_TOKEN is not configured."
+    if not whatsapp_from:
+        return False, "TWILIO_WHATSAPP_FROM is not configured."
+    if not content_sid:
+        return False, "TWILIO_DEMO_CONFIRMATION_CONTENT_SID is not configured."
+
+    recipient = normalise_uk_phone(lead.get("phone", ""))
+    if not recipient:
+        return False, "Customer phone number could not be normalised for WhatsApp."
+
+    from_value = whatsapp_from if whatsapp_from.startswith("whatsapp:") else f"whatsapp:{whatsapp_from}"
+    to_value = f"whatsapp:{recipient}"
+    content_variables = json.dumps({
+        "1": clean_text(lead.get("name"), 120) or "there",
+        "2": clean_text(lead.get("business_name"), 160) or "your business",
+    })
+
+    form_data = urlencode({
+        "From": from_value,
+        "To": to_value,
+        "ContentSid": content_sid,
+        "ContentVariables": content_variables,
+    }).encode("utf-8")
+
+    auth = base64.b64encode(f"{account_sid}:{auth_token}".encode("utf-8")).decode("ascii")
+    request_data = Request(
+        TWILIO_MESSAGES_URL.format(account_sid=account_sid),
+        data=form_data,
+        headers={
+            "Authorization": f"Basic {auth}",
+            "Content-Type": "application/x-www-form-urlencoded",
+            "User-Agent": "TrimTech-AI-Marketing/1.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urlopen(request_data, timeout=15) as response:
+            response_body = response.read().decode("utf-8", errors="replace")
+        print("TRIMTECH CUSTOMER WHATSAPP CONFIRMATION SENT:", {"recipient": recipient, "response": response_body}, flush=True)
+        return True, ""
+    except HTTPError as error:
+        body = error.read().decode("utf-8", errors="replace")
+        error_message = f"Twilio HTTP {error.code}: {body}"
+    except URLError as error:
+        error_message = f"Twilio connection error: {error.reason}"
+    except Exception as error:
+        error_message = f"Unexpected Twilio error: {repr(error)}"
+
+    print("TRIMTECH CUSTOMER WHATSAPP CONFIRMATION ERROR:", error_message, flush=True)
+    return False, error_message
+
+
 @app.get("/")
 def landing_page():
     return send_from_directory(BASE_DIR, "landing.html")
@@ -407,6 +495,15 @@ def demo_page():
         print(
             "TRIMTECH CUSTOMER CONFIRMATION WARNING: enquiry accepted but customer confirmation failed:",
             confirmation_error,
+            flush=True,
+        )
+
+    whatsapp_sent, whatsapp_error = send_whatsapp_demo_confirmation(lead)
+
+    if not whatsapp_sent:
+        print(
+            "TRIMTECH CUSTOMER WHATSAPP WARNING: enquiry accepted but WhatsApp confirmation failed:",
+            whatsapp_error,
             flush=True,
         )
 
