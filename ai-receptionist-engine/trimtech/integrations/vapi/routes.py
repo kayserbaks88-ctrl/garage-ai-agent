@@ -18,7 +18,7 @@ from trimtech.integrations.google_calendar.service import (
     timezone,
 )
 from trimtech.modules.onboarding.service import list_onboarding_businesses
-from trimtech.integrations.whatsapp.service import send_booking_confirmation
+from trimtech.modules.reminders.sender import send_booking_confirmation
 
 
 
