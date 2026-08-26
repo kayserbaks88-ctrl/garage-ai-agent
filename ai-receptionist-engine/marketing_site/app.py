@@ -131,6 +131,7 @@ def send_lead_notification(lead: dict[str, str]) -> tuple[bool, str]:
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "User-Agent": "TrimTech-AI-Marketing/1.0",
         },
         method="POST",
     )
