@@ -18,6 +18,7 @@ from trimtech.integrations.google_calendar.service import (
     timezone,
 )
 from trimtech.modules.onboarding.service import list_onboarding_businesses
+from trimtech.integrations.whatsapp.service import send_booking_confirmation
 
 
 vapi_bp = Blueprint("trimtech_vapi", __name__, url_prefix="/vapi")
@@ -635,6 +636,59 @@ def book_appointment():
         ), 200
 
     label = _service_label(business, service_key)
+
+    # Send the approved WhatsApp confirmation only after the booking succeeds.
+    # If WhatsApp fails, keep the calendar booking successful and log the error.
+    if phone:
+        local_start = requested_datetime.astimezone(timezone(business))
+        date_text = (
+            f"{local_start.strftime('%A')} "
+            f"{local_start.day} "
+            f"{local_start.strftime('%B')}"
+        )
+        time_text = (
+            local_start.strftime("%I:%M %p")
+            .lstrip("0")
+            .replace(":00 ", " ")
+            .lower()
+        )
+
+        try:
+            send_booking_confirmation(
+                phone=phone,
+                customer_name=customer_name,
+                service_label=label,
+                registration=registration,
+                date_text=date_text,
+                time_text=time_text,
+            )
+            print(
+                "VAPI BOOKING WHATSAPP CONFIRMATION SENT:",
+                {
+                    "business_id": business.business_id,
+                    "phone": phone,
+                    "service": label,
+                    "registration": registration,
+                    "datetime": requested_datetime.isoformat(),
+                },
+            )
+        except Exception as error:
+            print(
+                "VAPI BOOKING WHATSAPP CONFIRMATION ERROR:",
+                {
+                    "business_id": business.business_id,
+                    "phone": phone,
+                    "error": repr(error),
+                },
+            )
+    else:
+        print(
+            "VAPI BOOKING WHATSAPP CONFIRMATION SKIPPED:",
+            {
+                "business_id": business.business_id,
+                "reason": "missing_customer_phone",
+            },
+        )
 
     return jsonify(
         {
