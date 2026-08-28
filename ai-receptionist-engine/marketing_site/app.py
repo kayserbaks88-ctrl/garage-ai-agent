@@ -519,6 +519,18 @@ def demo_page():
       <meta name="theme-color" content="#07111f">
       <title>Demo Requested | TrimTech AI</title>
 
+      <!-- Google tag (gtag.js) -->
+      <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18387727521"></script>
+      <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){{dataLayer.push(arguments);}}
+        gtag('js', new Date());
+        gtag('config', 'AW-18387727521');
+        gtag('event', 'conversion', {{
+          'send_to': 'AW-18387727521/E7mPCIczI20QkGKH0-pQG'
+        }});
+      </script>
+
       <link rel="preconnect" href="https://fonts.googleapis.com">
       <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
       <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
