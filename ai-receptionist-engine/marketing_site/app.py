@@ -527,7 +527,7 @@ def demo_page():
         gtag('js', new Date());
         gtag('config', 'AW-18387727521');
         gtag('event', 'conversion', {{
-          'send_to': 'AW-18387727521/E7mPCIczI20QkGKH0-pQG'
+          'send_to': 'AW-18387727521/F9nPCLzi2OkcEKHp-b9E'
         }});
       </script>
 
