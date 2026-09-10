@@ -695,6 +695,87 @@
     .call-line strong { display: block; font-size: 13px; }
     .call-line small { color: #8299ad; }
 
+    .garage-dashboard {
+      grid-column: 1 / -1;
+      margin-top: 10px;
+      padding: 20px;
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 28px;
+      background: linear-gradient(180deg, #0f2034, #091624);
+      box-shadow: var(--shadow);
+    }
+
+    .garage-dashboard-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 15px;
+      padding: 2px 2px 13px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .garage-dashboard-head strong { font-size: 15px; }
+    .garage-dashboard-head span { color: #7cebc9; font-size: 11px; }
+
+    .garage-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .garage-stat {
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 16px;
+      background: rgba(255,255,255,.035);
+    }
+
+    .garage-stat small {
+      color: #7990a6;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .04em;
+    }
+
+    .garage-stat strong {
+      display: block;
+      margin-top: 7px;
+      font-size: 23px;
+    }
+
+    .garage-bookings {
+      display: grid;
+      gap: 8px;
+      margin-top: 11px;
+    }
+
+    .garage-booking {
+      display: grid;
+      grid-template-columns: 1.25fr .95fr auto;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 14px;
+      border: 1px solid rgba(255,255,255,.055);
+      border-radius: 13px;
+      color: #a8bac9;
+      background: rgba(255,255,255,.025);
+      font-size: 11px;
+    }
+
+    .garage-booking strong { color: #fff; font-size: 12px; }
+
+    .booking-status {
+      justify-self: end;
+      padding: 5px 8px;
+      border: 1px solid rgba(34,211,167,.15);
+      border-radius: 999px;
+      color: #bafbe8;
+      background: rgba(34,211,167,.08);
+      font-size: 9px;
+      font-weight: 800;
+    }
+
     .features-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -893,6 +974,12 @@
       .demo-card:last-child { grid-column: auto; }
       .product-card { min-height: 0; padding: 23px; }
       .visual-panel { padding: 14px; border-radius: 22px; }
+      .garage-dashboard { padding: 14px; border-radius: 22px; }
+      .garage-dashboard-head { align-items: flex-start; flex-direction: column; }
+      .garage-stats { grid-template-columns: 1fr 1fr; }
+      .garage-stat:last-child { grid-column: 1 / -1; }
+      .garage-booking { grid-template-columns: 1fr auto; }
+      .garage-booking > span:not(.booking-status) { display: none; }
       .poster-card { padding: 8px; border-radius: 21px; }
       .poster-card img { border-radius: 14px; }
       .poster-caption { align-items: flex-start; flex-direction: column; padding: 14px 8px 7px; }
@@ -1150,6 +1237,26 @@
           <div class="call-line"><span class="call-badge">🚘</span><div><strong>Vehicle identified</strong><small>Registration checked • Ford Focus</small></div></div>
           <div class="call-line"><span class="call-badge">📅</span><div><strong>Availability confirmed</strong><small>Thursday at 10:30 selected</small></div></div>
           <div class="call-line"><span class="call-badge">✓</span><div><strong>Appointment booked</strong><small>Calendar updated • Reminder scheduled</small></div></div>
+        </div>
+
+        <div class="garage-dashboard" aria-label="Example TrimTech Garage AI dashboard">
+          <div class="garage-dashboard-head">
+            <strong>TrimTech AI • Garage Dashboard</strong>
+            <span>● Systems healthy</span>
+          </div>
+
+          <div class="garage-stats">
+            <div class="garage-stat"><small>TODAY’S BOOKINGS</small><strong>8</strong></div>
+            <div class="garage-stat"><small>REMINDERS SENT</small><strong>14</strong></div>
+            <div class="garage-stat"><small>CUSTOMERS</small><strong>126</strong></div>
+          </div>
+
+          <div class="garage-bookings">
+            <div class="garage-booking"><strong>MOT • Ford Focus</strong><span>09:30 • Sarah M.</span><span class="booking-status">Booked</span></div>
+            <div class="garage-booking"><strong>Full Service • BMW 3 Series</strong><span>11:00 • Daniel K.</span><span class="booking-status">Confirmed</span></div>
+            <div class="garage-booking"><strong>Diagnostic • VW Golf</strong><span>14:15 • James R.</span><span class="booking-status">Reminder sent</span></div>
+            <div class="garage-booking"><strong>MOT • Vauxhall Corsa</strong><span>16:00 • Emily P.</span><span class="booking-status">Booked</span></div>
+          </div>
         </div>
       </div>
     </section>
