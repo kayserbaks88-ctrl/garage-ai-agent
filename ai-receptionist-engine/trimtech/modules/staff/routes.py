@@ -16,7 +16,7 @@ from flask import (
     url_for,
 )
 
-from trimtech.modules.auth.routes import business_access_required
+from dashboard_auth import dashboard_login_required
 from trimtech.modules.staff.database import (
     StaffDatabaseError,
     execute,
@@ -94,7 +94,7 @@ def _parse_hourly_rate(value: Any) -> Decimal:
 
 
 @staff_blueprint.get("/<business_slug>")
-@business_access_required
+@dashboard_login_required
 def dashboard(business_slug: str):
     """
     Show the live Staff Manager dashboard for one business.
@@ -284,7 +284,7 @@ def dashboard(business_slug: str):
 
 
 @staff_blueprint.post("/<business_slug>/employees")
-@business_access_required
+@dashboard_login_required
 def add_employee(business_slug: str):
     """Add a staff member to the current business."""
     business_id = _business_id(business_slug)
@@ -381,7 +381,7 @@ def add_employee(business_slug: str):
 @staff_blueprint.post(
     "/<business_slug>/employees/<int:employee_id>/status"
 )
-@business_access_required
+@dashboard_login_required
 def change_employee_status(
     business_slug: str,
     employee_id: int,
@@ -425,7 +425,7 @@ def change_employee_status(
 @staff_blueprint.post(
     "/<business_slug>/shifts/<int:shift_id>/approve"
 )
-@business_access_required
+@dashboard_login_required
 def approve_shift(
     business_slug: str,
     shift_id: int,
@@ -469,7 +469,7 @@ def approve_shift(
 @staff_blueprint.post(
     "/<business_slug>/shifts/<int:shift_id>/reject"
 )
-@business_access_required
+@dashboard_login_required
 def reject_shift(
     business_slug: str,
     shift_id: int,
