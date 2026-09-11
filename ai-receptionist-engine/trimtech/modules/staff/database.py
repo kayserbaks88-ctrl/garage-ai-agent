@@ -24,7 +24,9 @@ def _database_url() -> str:
 
     # Older providers sometimes return the retired postgres:// scheme.
     if database_url.startswith("postgres://"):
-        database_url = "postgresql://" + database_url[len("postgres://") :]
+        database_url = (
+            "postgresql://" + database_url[len("postgres://") :]
+        )
 
     return database_url
 
@@ -160,23 +162,39 @@ SCHEMA_STATEMENTS = (
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CONSTRAINT staff_shifts_clock_order_valid
-            CHECK (clock_out_at IS NULL OR clock_out_at >= clock_in_at),
+            CHECK (
+                clock_out_at IS NULL
+                OR clock_out_at >= clock_in_at
+            ),
         CONSTRAINT staff_shifts_approval_status_valid
-            CHECK (approval_status IN ('pending', 'approved', 'rejected'))
+            CHECK (
+                approval_status IN (
+                    'pending',
+                    'approved',
+                    'rejected'
+                )
+            )
     )
     """,
     """
-    CREATE UNIQUE INDEX IF NOT EXISTS staff_one_open_shift_per_employee
-        ON staff_shifts (business_id, employee_id)
-        WHERE clock_out_at IS NULL
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        staff_one_open_shift_per_employee
+    ON staff_shifts (business_id, employee_id)
+    WHERE clock_out_at IS NULL
     """,
     """
-    CREATE INDEX IF NOT EXISTS staff_shifts_business_clock_in_index
-        ON staff_shifts (business_id, clock_in_at DESC)
+    CREATE INDEX IF NOT EXISTS
+        staff_shifts_business_clock_in_index
+    ON staff_shifts (business_id, clock_in_at DESC)
     """,
     """
-    CREATE INDEX IF NOT EXISTS staff_shifts_business_approval_index
-        ON staff_shifts (business_id, approval_status, clock_in_at DESC)
+    CREATE INDEX IF NOT EXISTS
+        staff_shifts_business_approval_index
+    ON staff_shifts (
+        business_id,
+        approval_status,
+        clock_in_at DESC
+    )
     """,
     """
     CREATE TABLE IF NOT EXISTS staff_breaks (
@@ -193,17 +211,107 @@ SCHEMA_STATEMENTS = (
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CONSTRAINT staff_breaks_time_order_valid
-            CHECK (ended_at IS NULL OR ended_at >= started_at)
+            CHECK (
+                ended_at IS NULL
+                OR ended_at >= started_at
+            )
     )
     """,
     """
-    CREATE UNIQUE INDEX IF NOT EXISTS staff_one_open_break_per_shift
-        ON staff_breaks (shift_id)
-        WHERE ended_at IS NULL
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        staff_one_open_break_per_shift
+    ON staff_breaks (shift_id)
+    WHERE ended_at IS NULL
     """,
     """
-    CREATE INDEX IF NOT EXISTS staff_breaks_business_started_index
-        ON staff_breaks (business_id, started_at DESC)
+    CREATE INDEX IF NOT EXISTS
+        staff_breaks_business_started_index
+    ON staff_breaks (business_id, started_at DESC)
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS staff_leave_requests (
+        id BIGSERIAL PRIMARY KEY,
+        business_id VARCHAR(100) NOT NULL,
+        employee_id BIGINT NOT NULL
+            REFERENCES staff_employees(id) ON DELETE RESTRICT,
+        leave_type VARCHAR(20) NOT NULL DEFAULT 'holiday',
+        start_date DATE NOT NULL,
+        end_date DATE NOT NULL,
+        start_half_day BOOLEAN NOT NULL DEFAULT FALSE,
+        end_half_day BOOLEAN NOT NULL DEFAULT FALSE,
+        total_days NUMERIC(6, 2),
+        approval_status VARCHAR(20) NOT NULL DEFAULT 'pending',
+        employee_note TEXT,
+        manager_note TEXT,
+        approved_by BIGINT
+            REFERENCES staff_employees(id) ON DELETE SET NULL,
+        approved_at TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT staff_leave_requests_date_order_valid
+            CHECK (end_date >= start_date),
+        CONSTRAINT staff_leave_requests_total_days_positive
+            CHECK (total_days IS NULL OR total_days > 0),
+        CONSTRAINT staff_leave_requests_type_valid
+            CHECK (
+                leave_type IN (
+                    'holiday',
+                    'sickness',
+                    'unpaid',
+                    'compassionate',
+                    'parental',
+                    'other'
+                )
+            ),
+        CONSTRAINT staff_leave_requests_status_valid
+            CHECK (
+                approval_status IN (
+                    'pending',
+                    'approved',
+                    'rejected',
+                    'cancelled'
+                )
+            )
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS
+        staff_leave_business_dates_index
+    ON staff_leave_requests (
+        business_id,
+        start_date,
+        end_date
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS
+        staff_leave_business_status_index
+    ON staff_leave_requests (
+        business_id,
+        approval_status,
+        start_date
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS
+        staff_leave_employee_index
+    ON staff_leave_requests (
+        business_id,
+        employee_id,
+        start_date DESC
+    )
+    """,
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        staff_leave_exact_request_unique
+    ON staff_leave_requests (
+        business_id,
+        employee_id,
+        leave_type,
+        start_date,
+        end_date
+    )
+    WHERE approval_status IN ('pending', 'approved')
     """,
     """
     CREATE TABLE IF NOT EXISTS staff_payroll_runs (
@@ -225,7 +333,14 @@ SCHEMA_STATEMENTS = (
         CONSTRAINT staff_payroll_runs_period_valid
             CHECK (period_end >= period_start),
         CONSTRAINT staff_payroll_runs_status_valid
-            CHECK (status IN ('draft', 'approved', 'sent', 'paid')),
+            CHECK (
+                status IN (
+                    'draft',
+                    'approved',
+                    'sent',
+                    'paid'
+                )
+            ),
         CONSTRAINT staff_payroll_runs_totals_nonnegative
             CHECK (
                 total_gross_pay >= 0
@@ -270,14 +385,19 @@ SCHEMA_STATEMENTS = (
     )
     """,
     """
-    CREATE INDEX IF NOT EXISTS staff_payslips_business_employee_index
-        ON staff_payslips (business_id, employee_id, created_at DESC)
+    CREATE INDEX IF NOT EXISTS
+        staff_payslips_business_employee_index
+    ON staff_payslips (
+        business_id,
+        employee_id,
+        created_at DESC
+    )
     """,
 )
 
 
 def init_staff_database() -> None:
-    """Create the Staff Manager tables and indexes when they do not exist."""
+    """Create the Staff Manager tables and indexes when absent."""
     try:
         with transaction() as connection:
             with connection.cursor() as cursor:
@@ -287,4 +407,3 @@ def init_staff_database() -> None:
         raise StaffDatabaseError(
             "TrimTech Staff Manager database setup failed."
         ) from error
-
