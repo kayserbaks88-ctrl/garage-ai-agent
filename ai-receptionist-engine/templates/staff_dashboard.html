@@ -296,14 +296,19 @@
                     {% if current_leave %}
                         <div class="table-wrap">
                             <table>
-                                <thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th>Return</th></tr></thead>
+                                <thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th>Action</th></tr></thead>
                                 <tbody>
                                     {% for leave in current_leave %}
                                         <tr>
                                             <td><div class="person"><span class="avatar avatar-holiday">{{ leave.full_name[:1]|upper }}</span><span><strong>{{ leave.full_name }}</strong><span>{{ leave.role|title }}</span></span></div></td>
                                             <td><span class="badge badge-purple">{{ leave.leave_type|replace("_", " ")|title }}</span></td>
                                             <td>{{ leave.start_date.strftime("%d %b") }} – {{ leave.end_date.strftime("%d %b") }}</td>
-                                            <td>{{ (leave.end_date + timedelta(days=1)).strftime("%d %b") if timedelta is defined else "After " ~ leave.end_date.strftime("%d %b") }}</td>
+                                            <td>
+                                                <form method="post" action="{{ url_for('staff.cancel_leave', business_slug=business_slug, leave_id=leave.id) }}">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button class="status-button" type="submit">Cancel</button>
+                                                </form>
+                                            </td>
                                         </tr>
                                     {% endfor %}
                                 </tbody>
