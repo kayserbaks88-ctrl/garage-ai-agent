@@ -96,6 +96,41 @@ def _parse_hourly_rate(value: Any) -> Decimal:
     return hourly_rate
 
 
+def _parse_coordinate(
+    value: Any,
+    label: str,
+    minimum: Decimal,
+    maximum: Decimal,
+) -> Decimal:
+    cleaned = str(value or "").strip()
+
+    try:
+        coordinate = Decimal(cleaned)
+    except (InvalidOperation, ValueError) as error:
+        raise ValueError(f"Enter a valid {label}.") from error
+
+    if coordinate < minimum or coordinate > maximum:
+        raise ValueError(
+            f"{label.capitalize()} must be between {minimum} and {maximum}."
+        )
+
+    return coordinate.quantize(Decimal("0.0000001"))
+
+
+def _parse_radius(value: Any) -> int:
+    cleaned = str(value or "").strip()
+
+    try:
+        radius = int(cleaned)
+    except (TypeError, ValueError) as error:
+        raise ValueError("Enter a valid GPS radius.") from error
+
+    if radius < 10 or radius > 10000:
+        raise ValueError("GPS radius must be between 10 and 10,000 metres.")
+
+    return radius
+
+
 def _parse_date(value: Any, label: str) -> date:
     cleaned = str(value or "").strip()
 
@@ -206,6 +241,27 @@ def dashboard(business_slug: str):
             ORDER BY
                 CASE WHEN status = 'active' THEN 0 ELSE 1 END,
                 full_name ASC
+            """,
+            (business_id,),
+        )
+
+        sites = fetch_all(
+            """
+            SELECT
+                id,
+                name,
+                address,
+                latitude,
+                longitude,
+                allowed_radius_metres,
+                photo_required,
+                active,
+                created_at
+            FROM staff_sites
+            WHERE business_id = %s
+            ORDER BY
+                CASE WHEN active THEN 0 ELSE 1 END,
+                name ASC
             """,
             (business_id,),
         )
@@ -381,6 +437,7 @@ def dashboard(business_slug: str):
             "on_holiday_today": 0,
         }
         employees = []
+        sites = []
         live_shifts = []
         pending_shifts = []
         current_leave = []
@@ -392,6 +449,7 @@ def dashboard(business_slug: str):
         business_slug=business_slug,
         summary=summary,
         employees=employees,
+        sites=sites,
         live_shifts=live_shifts,
         pending_shifts=pending_shifts,
         current_leave=current_leave,
@@ -533,6 +591,131 @@ def change_employee_status(
             flash("That employee could not be found.", "error")
         else:
             flash("Employee status updated.", "success")
+
+    except StaffDatabaseError as error:
+        flash(str(error), "error")
+
+    return redirect(url_for("staff.dashboard", business_slug=business_slug))
+
+
+@staff_blueprint.post("/<business_slug>/sites")
+@dashboard_login_required
+def add_site(business_slug: str):
+    """Add a GPS-verified work site to the current business."""
+    business_id = _business_id(business_slug)
+    name = _clean_text(request.form.get("name"), 150)
+    address = _clean_text(request.form.get("address"), 1000)
+    photo_required = request.form.get("photo_required") == "on"
+
+    if not name:
+        flash("Enter the site name.", "error")
+        return redirect(url_for("staff.dashboard", business_slug=business_slug))
+
+    try:
+        latitude = _parse_coordinate(
+            request.form.get("latitude"),
+            "latitude",
+            Decimal("-90"),
+            Decimal("90"),
+        )
+        longitude = _parse_coordinate(
+            request.form.get("longitude"),
+            "longitude",
+            Decimal("-180"),
+            Decimal("180"),
+        )
+        radius = _parse_radius(request.form.get("allowed_radius_metres"))
+
+        existing_site = fetch_one(
+            """
+            SELECT id
+            FROM staff_sites
+            WHERE business_id = %s
+              AND LOWER(name) = LOWER(%s)
+            """,
+            (business_id, name),
+        )
+
+        if existing_site:
+            flash("A site with that name already exists.", "error")
+            return redirect(
+                url_for("staff.dashboard", business_slug=business_slug)
+            )
+
+        execute(
+            """
+            INSERT INTO staff_sites (
+                business_id,
+                name,
+                address,
+                latitude,
+                longitude,
+                allowed_radius_metres,
+                photo_required,
+                active
+            )
+            VALUES (
+                %s,
+                %s,
+                NULLIF(%s, ''),
+                %s,
+                %s,
+                %s,
+                %s,
+                TRUE
+            )
+            """,
+            (
+                business_id,
+                name,
+                address,
+                latitude,
+                longitude,
+                radius,
+                photo_required,
+            ),
+        )
+
+    except ValueError as error:
+        flash(str(error), "error")
+    except StaffDatabaseError as error:
+        flash(str(error), "error")
+    else:
+        flash(f"{name} has been added as a work site.", "success")
+
+    return redirect(url_for("staff.dashboard", business_slug=business_slug))
+
+
+@staff_blueprint.post("/<business_slug>/sites/<int:site_id>/status")
+@dashboard_login_required
+def change_site_status(business_slug: str, site_id: int):
+    """Activate or deactivate a work site without deleting its history."""
+    business_id = _business_id(business_slug)
+    new_status = _clean_text(request.form.get("status"), 20).lower()
+
+    if new_status not in {"active", "inactive"}:
+        flash("Select a valid site status.", "error")
+        return redirect(url_for("staff.dashboard", business_slug=business_slug))
+
+    active = new_status == "active"
+
+    try:
+        updated_rows = execute(
+            """
+            UPDATE staff_sites
+            SET
+                active = %s,
+                updated_at = NOW()
+            WHERE id = %s
+              AND business_id = %s
+            """,
+            (active, site_id, business_id),
+        )
+
+        if updated_rows == 0:
+            flash("That work site could not be found.", "error")
+        else:
+            flash("Work site status updated.", "success")
 
     except StaffDatabaseError as error:
         flash(str(error), "error")

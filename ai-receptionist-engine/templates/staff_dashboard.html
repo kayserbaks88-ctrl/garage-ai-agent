@@ -165,8 +165,10 @@
 
         details.add-panel { border-color: rgba(34, 197, 94, 0.22); background: rgba(34, 197, 94, 0.055); }
         details.holiday-panel { border-color: rgba(167, 139, 250, 0.28); background: rgba(167, 139, 250, 0.055); }
+        details.site-panel { border-color: rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.055); }
         details.add-panel summary { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; cursor: pointer; color: #bbf7d0; font-weight: 850; list-style: none; }
         details.holiday-panel summary { color: #ddd6fe; }
+        details.site-panel summary { color: #bae6fd; }
         details.add-panel summary::-webkit-details-marker { display: none; }
         .add-content { padding: 0 20px 20px; }
         .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
@@ -174,6 +176,7 @@
         .field-wide { grid-column: 1 / -1; }
         label { color: #cbd5e1; font-size: 12px; font-weight: 750; }
         input, select, textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; outline: none; padding: 10px 12px; color: var(--text); background: #091625; }
+        input[type="checkbox"] { width: 18px; min-height: 18px; margin: 0 7px 0 0; padding: 0; vertical-align: middle; accent-color: var(--green); }
         textarea { min-height: 72px; resize: vertical; }
         input:focus, select:focus, textarea:focus { border-color: rgba(34, 197, 94, 0.7); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1); }
         option { background: #091625; }
@@ -386,6 +389,60 @@
 
                 <article class="card">
                     <header class="card-header">
+                        <div><h2>Work sites</h2><p>Locations approved for staff GPS check-in</p></div>
+                        <span class="count">{{ sites|length }}</span>
+                    </header>
+                    {% if sites %}
+                        <div class="table-wrap">
+                            <table>
+                                <thead><tr><th>Site</th><th>GPS</th><th>Radius</th><th>Proof</th><th>Status</th><th>Action</th></tr></thead>
+                                <tbody>
+                                    {% for site in sites %}
+                                        <tr>
+                                            <td>
+                                                <div class="person">
+                                                    <span class="avatar">{{ site.name[:1]|upper }}</span>
+                                                    <span>
+                                                        <strong>{{ site.name }}</strong>
+                                                        <span>{{ site.address or "No address supplied" }}</span>
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td>{{ site.latitude }}, {{ site.longitude }}</td>
+                                            <td>{{ site.allowed_radius_metres }}m</td>
+                                            <td>
+                                                {% if site.photo_required %}
+                                                    <span class="badge badge-amber">Photo</span>
+                                                {% else %}
+                                                    <span class="badge badge-grey">GPS only</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if site.active %}
+                                                    <span class="badge badge-green">Active</span>
+                                                {% else %}
+                                                    <span class="badge badge-grey">Inactive</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <form class="small-form" method="post" action="{{ url_for('staff.change_site_status', business_slug=business_slug, site_id=site.id) }}">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <input type="hidden" name="status" value="{% if site.active %}inactive{% else %}active{% endif %}">
+                                                    <button class="status-button" type="submit">{% if site.active %}Deactivate{% else %}Activate{% endif %}</button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="empty"><span class="empty-icon">⌖</span><h3>No work sites yet</h3><p>Add the first approved location before connecting staff GPS check-in.</p></div>
+                    {% endif %}
+                </article>
+
+                <article class="card">
+                    <header class="card-header">
                         <div><h2>Upcoming holidays</h2><p>Approved future leave</p></div>
                         <span class="count count-holiday">{{ upcoming_leave|length }}</span>
                     </header>
@@ -432,6 +489,26 @@
                                 <div class="field field-wide"><label for="payroll_number">Payroll number</label><input id="payroll_number" name="payroll_number" type="text" maxlength="50" placeholder="Optional"></div>
                             </div>
                             <div class="form-actions"><button class="button-primary" type="submit">Add employee</button></div>
+                        </form>
+                    </div>
+                </details>
+
+                <details class="add-panel site-panel">
+                    <summary><span>⌖ Add work site</span><span>Open</span></summary>
+                    <div class="add-content">
+                        <form method="post" action="{{ url_for('staff.add_site', business_slug=business_slug) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <div class="form-grid">
+                                <div class="field field-wide"><label for="site_name">Site name</label><input id="site_name" name="name" type="text" maxlength="150" placeholder="e.g. Riverside Apartments" required></div>
+                                <div class="field field-wide"><label for="site_address">Address</label><textarea id="site_address" name="address" maxlength="1000" placeholder="Full site address"></textarea></div>
+                                <div class="field"><label for="site_latitude">Latitude</label><input id="site_latitude" name="latitude" type="number" min="-90" max="90" step="0.0000001" placeholder="53.4808000" required></div>
+                                <div class="field"><label for="site_longitude">Longitude</label><input id="site_longitude" name="longitude" type="number" min="-180" max="180" step="0.0000001" placeholder="-2.2426000" required></div>
+                                <div class="field field-wide"><label for="site_radius">Allowed GPS radius (metres)</label><input id="site_radius" name="allowed_radius_metres" type="number" min="10" max="10000" step="1" value="250" required></div>
+                                <div class="field field-wide">
+                                    <label for="photo_required"><input id="photo_required" name="photo_required" type="checkbox"> Require a site photo when staff clock in</label>
+                                </div>
+                            </div>
+                            <div class="form-actions"><button class="button-primary" type="submit">Add work site</button></div>
                         </form>
                     </div>
                 </details>
