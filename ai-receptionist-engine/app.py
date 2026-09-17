@@ -13,6 +13,7 @@ from trimtech.integrations.vapi import vapi_bp
 from trimtech.modules.onboarding import onboarding_blueprint
 from trimtech.modules.platform import platform_blueprint
 from trimtech.modules.staff.routes import staff_blueprint
+from trimtech.modules.staff.whatsapp import staff_whatsapp_blueprint
 from trimtech.core.registry import get_active_business, load_business_instance
 from trimtech.integrations.google_calendar.service import cancel_booking, list_bookings
 from trimtech.modules.onboarding.service import list_onboarding_businesses
@@ -68,6 +69,7 @@ app.register_blueprint(auth_blueprint)
 app.register_blueprint(onboarding_blueprint)
 app.register_blueprint(platform_blueprint)
 app.register_blueprint(staff_blueprint)
+app.register_blueprint(staff_whatsapp_blueprint)
 
 # =========================================================
 # Health check

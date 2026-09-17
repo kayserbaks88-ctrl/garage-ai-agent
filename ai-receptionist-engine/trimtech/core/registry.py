@@ -190,7 +190,16 @@ class BusinessRegistry:
             )
 
         except ModuleNotFoundError as error:
-            if error.name == module_path:
+            missing_name = error.name or ""
+            type_package = (
+                f"trimtech.businesses.{normalised_type}"
+            )
+
+            if missing_name in {
+                module_path,
+                type_package,
+                f"{type_package}.config",
+            }:
                 raise LookupError(
                     f"Unknown business type: "
                     f"{normalised_type}"
