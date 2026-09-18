@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hmac
 import secrets
+import threading
+import time
+from functools import wraps
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -10,12 +13,15 @@ from flask import (
     Blueprint,
     abort,
     flash,
+    g,
     redirect,
     render_template,
     request,
     session,
     url_for,
 )
+
+from psycopg2 import Error as PostgreSQLError
 
 from dashboard_auth import dashboard_login_required
 from trimtech.modules.staff.database import (
@@ -1067,3 +1073,314 @@ def cancel_leave(business_slug: str, leave_id: int):
         flash(str(error), "error")
 
     return redirect(url_for("staff.dashboard", business_slug=business_slug))
+
+# Employee portal. These sessions never grant manager/dashboard access.
+_EMPLOYEE_SESSION_KEY = "_staff_employee_auth"
+_EMPLOYEE_SESSION_SECONDS = 8 * 60 * 60
+_EMPLOYEE_LOGIN_WINDOW = 15 * 60
+_employee_login_attempts: dict[tuple[str, ...], list[float]] = {}
+_employee_login_lock = threading.Lock()
+
+
+def _employee_login_allowed(business_id: str, phone: str) -> bool:
+    """Bound login attempts per account and address in this worker process.
+
+    Multi-worker deployments should also enforce a shared limit at the proxy
+    or application layer. No database or schema changes are needed here.
+    """
+    now = time.monotonic()
+    keys = (
+        (("account", business_id, phone), 5),
+        (("address", request.remote_addr or "unknown"), 30),
+    )
+    with _employee_login_lock:
+        for key in list(_employee_login_attempts):
+            recent = [
+                attempt for attempt in _employee_login_attempts[key]
+                if now - attempt < _EMPLOYEE_LOGIN_WINDOW
+            ]
+            if recent:
+                _employee_login_attempts[key] = recent
+            else:
+                del _employee_login_attempts[key]
+        if any(
+            len(_employee_login_attempts.get(key, [])) >= limit
+            for key, limit in keys
+        ):
+            return False
+        # Bound memory and fail closed if the limiter is at capacity.
+        missing = sum(key not in _employee_login_attempts for key, _ in keys)
+        if len(_employee_login_attempts) + missing > 8192:
+            return False
+        for key, _ in keys:
+            _employee_login_attempts.setdefault(key, []).append(now)
+    return True
+
+
+def _current_employee(business_slug: str) -> dict[str, Any] | None:
+    """Recheck business membership and active status on protected requests."""
+    auth = session.get(_EMPLOYEE_SESSION_KEY)
+    if not isinstance(auth, dict):
+        session.pop(_EMPLOYEE_SESSION_KEY, None)
+        return None
+    business_id = _business_id(business_slug)
+    if auth.get("business_id") != business_id:
+        return None
+    employee_id = auth.get("employee_id")
+    issued_at = auth.get("issued_at")
+    if (
+        type(employee_id) is not int
+        or employee_id <= 0
+        or type(issued_at) is not int
+        or not 0 <= time.time() - issued_at < _EMPLOYEE_SESSION_SECONDS
+    ):
+        session.pop(_EMPLOYEE_SESSION_KEY, None)
+        return None
+    employee = fetch_one(
+        """
+        SELECT id, business_id, full_name, phone, email, role, status
+        FROM staff_employees
+        WHERE id = %s AND business_id = %s AND status = 'active'
+        """,
+        (employee_id, business_id),
+    )
+    if not employee:
+        session.pop(_EMPLOYEE_SESSION_KEY, None)
+    return employee
+
+
+def employee_login_required(view_function):
+    @wraps(view_function)
+    def protected_view(business_slug: str, *args, **kwargs):
+        try:
+            employee = _current_employee(business_slug)
+        except (StaffDatabaseError, PostgreSQLError):
+            abort(503, description="Employee access is temporarily unavailable.")
+        if employee is None:
+            return redirect(url_for(
+                "staff.employee_login", business_slug=business_slug,
+            ))
+        g.staff_employee = employee
+        return view_function(business_slug, *args, **kwargs)
+    return protected_view
+
+
+@staff_blueprint.after_request
+def _prevent_employee_page_caching(response):
+    if request.endpoint in {
+        "staff.employee_login", "staff.employee_home", "staff.employee_logout",
+    }:
+        response.headers["Cache-Control"] = "no-store, private"
+    return response
+
+
+@staff_blueprint.route(
+    "/<business_slug>/employee/login", methods=["GET", "POST"],
+)
+def employee_login(business_slug: str):
+    """Authenticate using the existing phone and nonempty payroll number.
+
+    Template: staff_employee_login.html; form fields: phone, payroll_number,
+    csrf_token. Use csrf_token() just as in the manager templates.
+    """
+    business_id = _business_id(business_slug)
+    error_message = ""
+    phone_value = ""
+    status_code = 200
+    try:
+        if request.method == "GET":
+            if _current_employee(business_slug) is not None:
+                return redirect(url_for(
+                    "staff.employee_home", business_slug=business_slug,
+                ))
+        else:
+            # The existing blueprint before_request validates CSRF first.
+            raw_phone = request.form.get("phone", "").strip()
+            payroll_number = request.form.get("payroll_number", "").strip()
+            phone_value = raw_phone[:40]
+            # Match the manager's normalization, without truncating credentials.
+            phone = "".join(c for c in raw_phone if c.isdigit() or c == "+")
+            valid_input = (
+                0 < len(raw_phone) <= 100
+                and 0 < len(phone) <= 40
+                and any(c.isdigit() for c in phone)
+                and 0 < len(payroll_number) <= 60
+            )
+            if not _employee_login_allowed(business_id, phone[:40]):
+                error_message = "Too many login attempts. Please try again in 15 minutes."
+                status_code = 429
+            else:
+                employee = None
+                if valid_input:
+                    employee = fetch_one(
+                        """
+                        SELECT id, payroll_number
+                        FROM staff_employees
+                        WHERE business_id = %s AND phone = %s
+                          AND status = 'active'
+                        """,
+                        (business_id, phone),
+                    )
+                stored_payroll = str((employee or {}).get("payroll_number") or "")
+                matches = hmac.compare_digest(
+                    payroll_number.encode("utf-8"),
+                    stored_payroll.encode("utf-8"),
+                )
+                if employee and valid_input and stored_payroll and matches:
+                    # Keep unrelated manager session keys intact; never store
+                    # phone/payroll credentials in the signed session cookie.
+                    session[_EMPLOYEE_SESSION_KEY] = {
+                        "employee_id": int(employee["id"]),
+                        "business_id": business_id,
+                        "issued_at": int(time.time()),
+                    }
+                    return redirect(url_for(
+                        "staff.employee_home", business_slug=business_slug,
+                    ))
+                error_message = "Phone number or payroll number is incorrect."
+                status_code = 401
+    except (StaffDatabaseError, PostgreSQLError):
+        error_message = "Employee login is temporarily unavailable. Please try again later."
+        status_code = 503
+
+    return render_template(
+        "staff_employee_login.html",
+        business_slug=business_slug,
+        error_message=error_message,
+        phone_value=phone_value,
+        csrf_token=_get_csrf_token,
+    ), status_code
+
+
+@staff_blueprint.post("/<business_slug>/employee/logout")
+def employee_logout(business_slug: str):
+    """CSRF-protected logout for this business, preserving manager access."""
+    auth = session.get(_EMPLOYEE_SESSION_KEY)
+    if isinstance(auth, dict) and auth.get("business_id") == _business_id(business_slug):
+        session.pop(_EMPLOYEE_SESSION_KEY, None)
+    return redirect(url_for("staff.employee_login", business_slug=business_slug))
+
+
+@staff_blueprint.get("/<business_slug>/employee")
+@employee_login_required
+def employee_home(business_slug: str):
+    """Read-only first-stage portal; clock/leave actions are added later.
+
+    Hours are elapsed clocked hours (including open/rejected shifts, before
+    break deductions), not approved payroll hours. Week boundaries and leave
+    dates use the database timezone, as the existing manager dashboard does.
+    """
+    employee = g.staff_employee
+    parameters = (_business_id(business_slug), employee["id"])
+    try:
+        current_shift = fetch_one(
+            """
+            SELECT id, site_name, clock_in_at, approval_status
+            FROM staff_shifts
+            WHERE business_id = %s AND employee_id = %s
+              AND clock_out_at IS NULL
+            ORDER BY clock_in_at DESC
+            LIMIT 1
+            """,
+            parameters,
+        )
+        hours_summary = fetch_one(
+            """
+            WITH period AS (
+                SELECT DATE_TRUNC('week', NOW()) AS week_start,
+                       NOW() AS as_of
+            )
+            SELECT period.week_start::date AS week_start,
+                   (period.week_start + INTERVAL '6 days')::date AS week_end,
+                   period.as_of,
+                   COALESCE((
+                       SELECT ROUND(SUM(GREATEST(0, EXTRACT(EPOCH FROM (
+                           LEAST(COALESCE(shift.clock_out_at, period.as_of), period.as_of)
+                           - GREATEST(shift.clock_in_at, period.week_start)
+                       ))) / 3600)::numeric, 2)
+                       FROM staff_shifts AS shift
+                       WHERE shift.business_id = %s AND shift.employee_id = %s
+                         AND shift.clock_in_at < period.as_of
+                         AND COALESCE(shift.clock_out_at, period.as_of) > period.week_start
+                   ), 0) AS hours_this_week
+            FROM period
+            """,
+            parameters,
+        ) or {}
+        leave_summary = fetch_one(
+            """
+            SELECT COUNT(*) FILTER (
+                       WHERE approval_status = 'pending'
+                   ) AS pending_count,
+                   COUNT(*) FILTER (
+                       WHERE approval_status = 'approved' AND start_date > CURRENT_DATE
+                   ) AS upcoming_count,
+                   COUNT(*) FILTER (
+                       WHERE approval_status = 'approved'
+                         AND CURRENT_DATE BETWEEN start_date AND end_date
+                   ) AS current_count,
+                   COALESCE(SUM(total_days) FILTER (
+                       WHERE approval_status = 'pending'
+                   ), 0) AS pending_days,
+                   COALESCE(SUM(total_days) FILTER (
+                       WHERE approval_status = 'approved' AND start_date > CURRENT_DATE
+                   ), 0) AS upcoming_days
+            FROM staff_leave_requests
+            WHERE business_id = %s AND employee_id = %s
+            """,
+            parameters,
+        ) or {}
+        # Counts above cover all records; lists are bounded for the home page.
+        pending_leave = fetch_all(
+            """
+            SELECT id, leave_type, start_date, end_date, total_days, approval_status
+            FROM staff_leave_requests
+            WHERE business_id = %s AND employee_id = %s AND approval_status = 'pending'
+            ORDER BY start_date ASC, id ASC
+            LIMIT 20
+            """,
+            parameters,
+        )
+        upcoming_leave = fetch_all(
+            """
+            SELECT id, leave_type, start_date, end_date, total_days, approval_status
+            FROM staff_leave_requests
+            WHERE business_id = %s AND employee_id = %s
+              AND approval_status = 'approved' AND start_date > CURRENT_DATE
+            ORDER BY start_date ASC, id ASC
+            LIMIT 20
+            """,
+            parameters,
+        )
+        current_leave = fetch_all(
+            """
+            SELECT id, leave_type, start_date, end_date, total_days, approval_status
+            FROM staff_leave_requests
+            WHERE business_id = %s AND employee_id = %s
+              AND approval_status = 'approved'
+              AND CURRENT_DATE BETWEEN start_date AND end_date
+            ORDER BY start_date ASC, id ASC
+            LIMIT 20
+            """,
+            parameters,
+        )
+    except (StaffDatabaseError, PostgreSQLError):
+        abort(503, description="Your employee summary is temporarily unavailable.")
+
+    return render_template(
+        "staff_employee_home.html",
+        business_slug=business_slug,
+        employee=employee,
+        current_shift=current_shift,
+        is_clocked_in=current_shift is not None,
+        hours_this_week=hours_summary.get("hours_this_week", Decimal("0")),
+        week_start=hours_summary.get("week_start"),
+        week_end=hours_summary.get("week_end"),
+        as_of=hours_summary.get("as_of"),
+        leave_summary=leave_summary,
+        pending_leave=pending_leave,
+        upcoming_leave=upcoming_leave,
+        current_leave=current_leave,
+        csrf_token=_get_csrf_token,
+    )
+

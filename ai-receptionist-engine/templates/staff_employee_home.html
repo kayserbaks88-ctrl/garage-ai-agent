@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#07111f">
+    <title>My home | Staff Manager</title>
+    <style>
+        :root { color-scheme: dark; }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; color: #f8fafc; background: radial-gradient(circle at top right, rgba(34,197,94,.12), transparent 34rem), #07111f; font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.6; }
+        .shell { width: min(100%, 1080px); margin: auto; padding: 24px 20px 40px; }
+        .topbar, .brand, .actions, .section-heading { display: flex; align-items: center; gap: 12px; }
+        .topbar, .section-heading { justify-content: space-between; flex-wrap: wrap; }
+        .topbar { margin-bottom: 32px; }
+        .brand-mark { display: grid; place-items: center; width: 46px; height: 46px; flex-shrink: 0; border-radius: 14px; background: linear-gradient(145deg, #4ade80, #16a34a); color: #052e16; font-size: 21px; font-weight: 900; }
+        .brand strong, .brand small { display: block; }
+        .brand small, .muted { color: #a8b7cb; }
+        button, a { -webkit-tap-highlight-color: transparent; }
+        .button { display: inline-flex; min-height: 46px; align-items: center; justify-content: center; padding: 10px 16px; border: 1px solid #586b83; border-radius: 12px; color: #f8fafc; background: #12243a; font: inherit; font-weight: 700; text-decoration: none; cursor: pointer; }
+        .button:hover { background: #1c344f; }
+        a:focus-visible, button:focus-visible { outline: 3px solid #38bdf8; outline-offset: 3px; }
+        .skip { position: absolute; left: 20px; top: -100px; }
+        .skip:focus { top: 10px; }
+        h1, h2, h3, p { margin-top: 0; }
+        h1 { margin-bottom: 8px; font-size: clamp(28px, 5vw, 42px); line-height: 1.2; letter-spacing: -.035em; overflow-wrap: anywhere; }
+        h2 { margin-bottom: 0; font-size: 20px; }
+        h3 { margin-bottom: 6px; font-size: 16px; }
+        .eyebrow { margin-bottom: 8px; color: #86efac; font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+        .intro { margin-bottom: 26px; color: #a8b7cb; overflow-wrap: anywhere; }
+        .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 18px; }
+        .card { min-width: 0; padding: 24px; border: 1px solid rgba(148,163,184,.23); border-radius: 20px; background: #0d1b2d; box-shadow: 0 18px 45px rgba(0,0,0,.15); }
+        .section-heading { margin-bottom: 18px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 750; color: #dbeafe; background: #193452; }
+        .badge-green { color: #bbf7d0; background: #123c2c; }
+        .badge-amber { color: #fde68a; background: #453416; }
+        .status { margin-bottom: 12px; font-size: 26px; font-weight: 800; }
+        .status-on { color: #86efac; }
+        .hours { margin-bottom: 6px; font-size: 44px; font-weight: 850; line-height: 1.2; letter-spacing: -.035em; }
+        .hours span { font-size: 17px; color: #a8b7cb; font-weight: 500; letter-spacing: normal; }
+        .note { color: #a8b7cb; font-size: 13px; margin-bottom: 0; }
+        .leave-list { list-style: none; margin: 0; padding: 0; }
+        .leave-list li { padding: 16px 0; border-top: 1px solid rgba(148,163,184,.2); overflow-wrap: anywhere; }
+        .leave-list li:first-child { padding-top: 0; border-top: 0; }
+        .leave-list li:last-child { padding-bottom: 0; }
+        .leave-list p { margin-bottom: 4px; }
+        .empty { margin-bottom: 0; color: #a8b7cb; }
+        .profile { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .profile dt { color: #a8b7cb; font-size: 13px; }
+        .profile dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+        .spaced { margin-bottom: 18px; }
+        footer { margin-top: 24px; color: #a8b7cb; font-size: 13px; }
+        @media (max-width: 640px) { .grid, .profile { grid-template-columns: 1fr; } .shell { padding: 20px 16px 32px; } .card { padding: 20px; } .actions { width: 100%; } .actions > a, .actions > form { flex: 1; } .actions button { width: 100%; } }
+    </style>
+</head>
+<body>
+    {% macro date_text(value) -%}
+        {% if value %}<time datetime="{{ value.isoformat() }}">{{ value.strftime('%d %b %Y') }}</time>{% else %}Not available{% endif %}
+    {%- endmacro %}
+    {% macro leave_list(records, empty_message) %}
+        {% if records %}
+        <ul class="leave-list">
+            {% for leave in records %}
+            <li>
+                <h3>{{ leave.leave_type | replace('_', ' ') | title }}</h3>
+                <p>{{ date_text(leave.start_date) }}{% if leave.end_date != leave.start_date %} – {{ date_text(leave.end_date) }}{% endif %}</p>
+                <p class="note">{% if leave.total_days is not none %}{{ '%g' | format(leave.total_days) }} {{ 'day' if leave.total_days == 1 else 'days' }}{% else %}Duration not recorded{% endif %}</p>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}<p class="empty">{{ empty_message }}</p>{% endif %}
+    {% endmacro %}
+    <a class="button skip" href="#main">Skip to my summary</a>
+    <div class="shell">
+        <header class="topbar">
+            <div class="brand">
+                <div class="brand-mark" aria-hidden="true">S</div>
+                <div><strong>Staff Manager</strong><small>TrimTech AI · Employee portal</small></div>
+            </div>
+            <nav class="actions" aria-label="Employee account">
+                <a class="button" href="{{ url_for('staff.employee_home', business_slug=business_slug) }}">Refresh</a>
+                <form method="post" action="{{ url_for('staff.employee_logout', business_slug=business_slug) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="button">Sign out</button>
+                </form>
+            </nav>
+        </header>
+        <main id="main">
+            <p class="eyebrow">My employee home</p>
+            <h1>Hello, {{ employee.full_name }}</h1>
+            <p class="intro">Your work summary for <strong>{{ business_slug }}</strong>.</p>
+            <div class="grid">
+                <section class="card" aria-labelledby="status-heading">
+                    <div class="section-heading"><h2 id="status-heading">Clock-in status</h2></div>
+                    {% if is_clocked_in and current_shift %}
+                    <p class="status status-on">Clocked in</p>
+                    <p>{{ current_shift.site_name or 'Work site not recorded' }}</p>
+                    {% if current_shift.clock_in_at %}
+                    <p class="note">Since <time datetime="{{ current_shift.clock_in_at.isoformat() }}">{{ current_shift.clock_in_at.strftime('%d %b %Y at %H:%M %Z') }}</time></p>
+                    {% endif %}
+                    {% else %}
+                    <p class="status">Clocked out</p>
+                    <p class="note">You have no open shift.</p>
+                    {% endif %}
+                </section>
+                <section class="card" aria-labelledby="hours-heading">
+                    <div class="section-heading"><h2 id="hours-heading">This week’s hours</h2></div>
+                    <p class="hours">{{ '%.2f' | format(hours_this_week) }} <span>hours</span></p>
+                    <p class="muted">{{ date_text(week_start) }} – {{ date_text(week_end) }}</p>
+                    <p class="note">Total clocked time, including open shifts and shifts awaiting approval or rejected. Breaks have not been deducted. Approved pay hours may differ.</p>
+                </section>
+            </div>
+            {% if current_leave %}
+            <section class="card spaced" aria-labelledby="current-heading">
+                <div class="section-heading"><h2 id="current-heading">On leave now</h2><span class="badge badge-green">Approved</span></div>
+                {{ leave_list(current_leave, 'No current leave.') }}
+                {% if leave_summary.get('current_count', 0) > current_leave | length %}<p class="note">Showing {{ current_leave | length }} of {{ leave_summary.get('current_count', 0) }} records.</p>{% endif %}
+            </section>
+            {% endif %}
+            <div class="grid">
+                <section class="card" aria-labelledby="upcoming-heading">
+                    <div class="section-heading"><h2 id="upcoming-heading">Upcoming leave</h2><span class="badge badge-green">{{ leave_summary.get('upcoming_count', 0) }} approved</span></div>
+                    {{ leave_list(upcoming_leave, 'No upcoming approved leave.') }}
+                    {% if leave_summary.get('upcoming_count', 0) > upcoming_leave | length %}<p class="note">Showing the first {{ upcoming_leave | length }} of {{ leave_summary.get('upcoming_count', 0) }} records.</p>{% endif %}
+                </section>
+                <section class="card" aria-labelledby="pending-heading">
+                    <div class="section-heading"><h2 id="pending-heading">Pending leave</h2><span class="badge badge-amber">{{ leave_summary.get('pending_count', 0) }} pending</span></div>
+                    {{ leave_list(pending_leave, 'No leave requests awaiting approval.') }}
+                    {% if leave_summary.get('pending_count', 0) > pending_leave | length %}<p class="note">Showing the first {{ pending_leave | length }} of {{ leave_summary.get('pending_count', 0) }} records.</p>{% endif %}
+                </section>
+            </div>
+            <section class="card" aria-labelledby="profile-heading">
+                <div class="section-heading"><h2 id="profile-heading">My details</h2><span class="badge">{{ employee.role | title }}</span></div>
+                <dl class="profile">
+                    <div><dt>Full name</dt><dd>{{ employee.full_name }}</dd></div>
+                    <div><dt>Phone number</dt><dd>{{ employee.phone or 'Not recorded' }}</dd></div>
+                    <div><dt>Email address</dt><dd>{{ employee.email or 'Not recorded' }}</dd></div>
+                    <div><dt>Business</dt><dd>{{ business_slug }}</dd></div>
+                </dl>
+            </section>
+        </main>
+        <footer>
+            {% if as_of %}<p>Summary updated <time datetime="{{ as_of.isoformat() }}">{{ as_of.strftime('%d %b %Y at %H:%M %Z') }}</time>. Refresh to see changes.</p>{% endif %}
+            <p>This page shows your records. Continue using your usual process to clock in or out and request leave. Contact your manager if anything looks incorrect.</p>
+        </footer>
+    </div>
+</body>
+</html>
