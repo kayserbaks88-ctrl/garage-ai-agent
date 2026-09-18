@@ -130,6 +130,12 @@ def dashboard(business_slug: str):
                    hours_this_week=0, on_holiday_today=0)
     employees, sites, live_shifts, pending_shifts = [], [], [], []
     current_leave, upcoming_leave, pending_leave = [], [], []
+    review = _review_options()
+    approval_total = 0
+    profile = None
+    profile_shifts, profile_leave = [], []
+    profile_total = 0
+    profile_page = _page_arg("profile_page")
     try:
         init_staff_database()
         summary = fetch_one("""
@@ -139,7 +145,7 @@ def dashboard(business_slug: str):
               (SELECT COUNT(*) FROM staff_shifts
                WHERE business_id=%s AND clock_out_at IS NULL) AS staff_clocked_in,
               (SELECT COUNT(*) FROM staff_shifts
-               WHERE business_id=%s AND approval_status='pending') AS shifts_waiting_approval,
+               WHERE business_id=%s AND approval_status='pending' AND clock_out_at IS NOT NULL) AS shifts_waiting_approval,
               (SELECT COALESCE(ROUND(SUM(EXTRACT(EPOCH FROM
                  (COALESCE(clock_out_at,NOW())-clock_in_at))/3600)::numeric,1),0)
                FROM staff_shifts WHERE business_id=%s
@@ -175,9 +181,28 @@ def dashboard(business_slug: str):
             ORDER BY CASE WHEN shift.clock_out_at IS NULL THEN 0 ELSE 1 END,
                      shift.clock_in_at DESC
         """, (business_id,))
-        pending_shifts = fetch_all(shift_query + """
-            AND shift.approval_status='pending' ORDER BY shift.clock_in_at LIMIT 20
-        """, (business_id,))
+        where, params = _review_where(business_id, review)
+        approval_total = (fetch_one("SELECT COUNT(*) AS total FROM staff_shifts AS shift "
+            "JOIN staff_employees AS employee ON employee.id=shift.employee_id "
+            "AND employee.business_id=shift.business_id WHERE " + where, params) or {}).get("total", 0)
+        review["page"] = min(review["page"], max(1, (approval_total + 19) // 20))
+        pending_shifts = fetch_all(_SHIFT_REVIEW_SQL + " WHERE " + where +
+            " ORDER BY shift.clock_in_at, shift.id LIMIT 20 OFFSET %s",
+            params + ((review["page"] - 1) * 20,))
+        profile_id = request.args.get("employee", type=int)
+        if profile_id:
+            profile = next((e for e in employees if e["id"] == profile_id), None)
+            if profile is None:
+                abort(404)
+            profile_total = (fetch_one("SELECT COUNT(*) AS total FROM staff_shifts "
+                "WHERE business_id=%s AND employee_id=%s", (business_id, profile_id)) or {}).get("total", 0)
+            profile_page = min(profile_page, max(1, (profile_total + 19) // 20))
+            profile_shifts = fetch_all(_SHIFT_REVIEW_SQL +
+                " WHERE shift.business_id=%s AND shift.employee_id=%s "
+                "ORDER BY shift.clock_in_at DESC,shift.id DESC LIMIT 20 OFFSET %s",
+                (business_id, profile_id, (profile_page - 1) * 20))
+            profile_leave = fetch_all("SELECT * FROM staff_leave_requests WHERE business_id=%s "
+                "AND employee_id=%s ORDER BY start_date DESC,id DESC LIMIT 30", (business_id, profile_id))
         leave_query = """
             SELECT leave_request.id, leave_request.employee_id, employee.full_name,
                    employee.role, leave_request.leave_type, leave_request.start_date,
@@ -210,6 +235,10 @@ def dashboard(business_slug: str):
         employees=employees, sites=sites, live_shifts=live_shifts,
         pending_shifts=pending_shifts, current_leave=current_leave,
         upcoming_leave=upcoming_leave, pending_leave=pending_leave, csrf_token=_get_csrf_token,
+        review=review, approval_total=approval_total, profile=profile,
+        profile_shifts=profile_shifts, profile_leave=profile_leave,
+        profile_total=profile_total, profile_page=profile_page,
+        page_link=_dashboard_page_link,
     )
 
 
@@ -312,9 +341,9 @@ def change_site_status(business_slug: str, site_id: int):
 def approve_shift(business_slug: str, shift_id: int):
     try:
         count = execute("""UPDATE staff_shifts SET approval_status='approved',approved_at=NOW(),
-            manager_note=NULLIF(%s,'') WHERE id=%s AND business_id=%s AND clock_out_at IS NOT NULL""",
+            manager_note=NULLIF(%s,'') WHERE id=%s AND business_id=%s AND clock_out_at IS NOT NULL AND approval_status='pending'""",
             (_clean_text(request.form.get("manager_note"), 500), shift_id, _business_id(business_slug)))
-        flash("Shift approved." if count else "Only completed shifts can be approved.",
+        flash("Shift approved." if count else "Only completed pending shifts can be approved.",
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
@@ -330,8 +359,9 @@ def reject_shift(business_slug: str, shift_id: int):
         return _manager_redirect(business_slug)
     try:
         count = execute("""UPDATE staff_shifts SET approval_status='rejected',approved_at=NOW(),
-            manager_note=%s WHERE id=%s AND business_id=%s""", (note, shift_id, _business_id(business_slug)))
-        flash("Shift rejected." if count else "That shift could not be found.", "success" if count else "error")
+            manager_note=%s WHERE id=%s AND business_id=%s AND clock_out_at IS NOT NULL
+            AND approval_status='pending'""", (note, shift_id, _business_id(business_slug)))
+        flash("Shift rejected." if count else "That completed pending shift could not be found.", "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
     return _manager_redirect(business_slug)
@@ -505,7 +535,7 @@ def employee_login_required(view_function):
 
 @staff_blueprint.after_request
 def _prevent_employee_page_caching(response):
-    if (request.endpoint or "").startswith("staff.employee_"):
+    if (request.endpoint or "").startswith("staff."):
         response.headers["Cache-Control"] = "no-store, private"
     return response
 
@@ -584,6 +614,7 @@ def employee_home(business_slug: str):
                        AND COALESCE(shift.clock_out_at,period.as_of)>period.week_start),0) AS hours_this_week
             FROM period
         """, parameters) or {}
+        today_summary = _today_hours(*parameters)
         leave_summary = fetch_one("""SELECT
             COUNT(*) FILTER (WHERE approval_status='pending') AS pending_count,
             COUNT(*) FILTER (WHERE approval_status='approved' AND start_date>CURRENT_DATE) AS upcoming_count,
@@ -619,6 +650,7 @@ def employee_home(business_slug: str):
         as_of=hours_summary.get("as_of"), leave_summary=leave_summary, pending_leave=pending_leave,
         upcoming_leave=upcoming_leave, current_leave=current_leave, csrf_token=_get_csrf_token,
         sites=sites, current_break=current_break, leave_history=leave_history,
+        today_summary=today_summary,
     )
 
 
@@ -828,3 +860,163 @@ def employee_cancel_leave(business_slug: str, leave_id: int):
     except _DB_ERRORS:
         _database_message()
     return _employee_redirect(business_slug)
+
+
+# Manager review and profile tools. Every database operation remains business-scoped.
+def _page_arg(name):
+    return min(1000000, max(1, request.args.get(name, 1, type=int) or 1))
+
+
+def _dashboard_page_link(**changes):
+    allowed = {"q", "site", "from_date", "to_date", "page", "employee", "profile_page"}
+    args = {k: v for k, v in request.args.items() if k in allowed}
+    args.update(changes)
+    return url_for("staff.dashboard", business_slug=request.view_args["business_slug"], **args)
+
+
+def _review_options():
+    result = {"q": request.args.get("q", "").strip()[:150],
+              "site": request.args.get("site", "").strip(),
+              "from_date": request.args.get("from_date", "").strip(),
+              "to_date": request.args.get("to_date", "").strip(), "page": _page_arg("page")}
+    try:
+        if result["site"]:
+            if int(result["site"]) <= 0:
+                raise ValueError()
+        for key in ("from_date", "to_date"):
+            if result[key]:
+                _parse_date(result[key], key.replace("_", " "))
+        if result["from_date"] and result["to_date"] and result["from_date"] > result["to_date"]:
+            raise ValueError()
+    except ValueError:
+        abort(400, description="Check the site and date filters.")
+    return result
+
+
+def _review_where(business_id, review):
+    parts = ["shift.business_id=%s", "shift.clock_out_at IS NOT NULL", "shift.approval_status='pending'"]
+    params = [business_id]
+    if review["q"]:
+        parts.append("POSITION(LOWER(%s) IN LOWER(employee.full_name)) > 0")
+        params.append(review["q"])
+    if review["site"]:
+        parts.append("shift.site_id=%s")
+        params.append(int(review["site"]))
+    for key, op in (("from_date", ">="), ("to_date", "<=")):
+        if review[key]:
+            parts.append("(shift.clock_in_at AT TIME ZONE 'Europe/London')::date " + op + " %s")
+            params.append(_parse_date(review[key], key))
+    return " AND ".join(parts), tuple(params)
+
+
+_SHIFT_REVIEW_SQL = """
+    SELECT shift.id,shift.employee_id,employee.full_name,shift.site_name,
+           shift.clock_in_at,shift.clock_out_at,shift.approval_status,shift.manager_note,
+           ROUND(EXTRACT(EPOCH FROM (COALESCE(shift.clock_out_at,NOW())-shift.clock_in_at))/3600,2) AS hours_worked,
+           ROUND(LEAST(EXTRACT(EPOCH FROM (COALESCE(shift.clock_out_at,NOW())-shift.clock_in_at)),
+                       COALESCE(b.unpaid_seconds,0))/3600,2) AS unpaid_hours,
+           ROUND(GREATEST(0,EXTRACT(EPOCH FROM (COALESCE(shift.clock_out_at,NOW())-shift.clock_in_at))
+                       -COALESCE(b.unpaid_seconds,0))/3600,2) AS net_hours
+    FROM staff_shifts AS shift JOIN staff_employees AS employee
+      ON employee.id=shift.employee_id AND employee.business_id=shift.business_id
+    LEFT JOIN LATERAL (
+      SELECT SUM(GREATEST(0,EXTRACT(EPOCH FROM
+        (LEAST(COALESCE(br.ended_at,NOW()),COALESCE(shift.clock_out_at,NOW()))
+         -GREATEST(br.started_at,shift.clock_in_at))))) AS unpaid_seconds
+      FROM staff_breaks AS br WHERE br.business_id=shift.business_id
+        AND br.employee_id=shift.employee_id AND br.shift_id=shift.id AND NOT br.paid
+    ) AS b ON TRUE
+"""
+
+
+@staff_blueprint.post("/<business_slug>/shifts/approve-selected")
+@dashboard_login_required
+def approve_selected_shifts(business_slug):
+    try:
+        raw_ids = request.form.getlist("shift_ids")
+        if not 1 <= len(raw_ids) <= 20:
+            raise ValueError("Select between 1 and 20 completed shifts on this page.")
+        try:
+            ids = sorted({int(value) for value in raw_ids})
+            if any(value <= 0 for value in ids):
+                raise ValueError()
+        except ValueError as error:
+            raise ValueError("The shift selection is invalid. Refresh and try again.") from error
+        # One conditional statement prevents reapproval and never touches other businesses.
+        count = execute("""UPDATE staff_shifts SET approval_status='approved',approved_at=NOW(),updated_at=NOW()
+            WHERE business_id=%s AND id=ANY(%s) AND clock_out_at IS NOT NULL
+              AND approval_status='pending'""", (_business_id(business_slug), ids))
+        flash(f"{count} completed shift(s) approved. {len(ids)-count} unavailable or already reviewed.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    except _DB_ERRORS:
+        _database_message()
+    return _manager_redirect(business_slug)
+
+
+@staff_blueprint.post("/<business_slug>/employees/<int:employee_id>/edit")
+@dashboard_login_required
+def edit_employee(business_slug, employee_id):
+    business_id = _business_id(business_slug)
+    try:
+        name = _clean_text(request.form.get("full_name"),150)
+        phone = _clean_phone(request.form.get("phone"))
+        email = _clean_text(request.form.get("email"),254).lower()
+        role = _clean_text(request.form.get("role"),20)
+        if not name or not any(c.isdigit() for c in phone):
+            raise ValueError("Enter a full name and phone number.")
+        if role not in {"staff","manager","owner"}:
+            raise ValueError("Select a valid role.")
+        if email and ("@" not in email or any(c.isspace() for c in email)):
+            raise ValueError("Enter a valid email address.")
+        rate = _parse_hourly_rate(request.form.get("hourly_rate"))
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("SELECT id FROM staff_employees WHERE id=%s AND business_id=%s FOR UPDATE",
+                               (employee_id,business_id))
+                if not cursor.fetchone():
+                    abort(404)
+                cursor.execute("SELECT id FROM staff_employees WHERE business_id=%s AND phone=%s AND id<>%s",
+                               (business_id,phone,employee_id))
+                if cursor.fetchone():
+                    raise ValueError("Another employee already uses that phone number.")
+                # A blank payroll field preserves the existing login credential.
+                payroll = _clean_text(request.form.get("payroll_number"),50)
+                cursor.execute("""UPDATE staff_employees SET full_name=%s,phone=%s,email=NULLIF(%s,''),
+                    role=%s,hourly_rate=%s,payroll_number=COALESCE(NULLIF(%s,''),payroll_number),updated_at=NOW()
+                    WHERE id=%s AND business_id=%s""", (name,phone,email,role,rate,payroll,employee_id,business_id))
+        flash("Employee details updated. Rate changes do not create or recalculate payslips.", "success")
+    except ValueError as error:
+        flash(str(error), "error")
+    except _DB_ERRORS:
+        _database_message()
+    return redirect(url_for("staff.dashboard", business_slug=business_slug,employee=employee_id,_anchor="profile"))
+
+
+def _today_hours(business_id, employee_id):
+    # Timestamp bounds use UK midnight, including 23/25-hour daylight-saving days.
+    # Each break is clipped to its own shift and today's interval before subtraction.
+    return fetch_one("""
+        WITH period AS (
+          SELECT (DATE_TRUNC('day',NOW() AT TIME ZONE 'Europe/London')
+                  AT TIME ZONE 'Europe/London') AS day_start,NOW() AS as_of
+        ), clipped AS (
+          SELECT s.id,s.employee_id,s.business_id,
+                 GREATEST(s.clock_in_at,p.day_start) AS begins,
+                 LEAST(COALESCE(s.clock_out_at,p.as_of),p.as_of) AS ends
+          FROM staff_shifts s CROSS JOIN period p
+          WHERE s.business_id=%s AND s.employee_id=%s AND s.clock_in_at<p.as_of
+            AND COALESCE(s.clock_out_at,p.as_of)>p.day_start
+        ), amounts AS (
+          SELECT GREATEST(0,EXTRACT(EPOCH FROM (c.ends-c.begins))) AS elapsed,
+                 LEAST(GREATEST(0,EXTRACT(EPOCH FROM (c.ends-c.begins))),
+                   COALESCE((SELECT SUM(GREATEST(0,EXTRACT(EPOCH FROM
+                     (LEAST(COALESCE(b.ended_at,c.ends),c.ends)-GREATEST(b.started_at,c.begins)))))
+                     FROM staff_breaks b WHERE b.business_id=c.business_id AND b.employee_id=c.employee_id
+                       AND b.shift_id=c.id AND NOT b.paid),0)) AS unpaid
+          FROM clipped c
+        ) SELECT ROUND(COALESCE(SUM(elapsed),0)/3600,2) AS elapsed_hours,
+                 ROUND(COALESCE(SUM(unpaid),0)/3600,2) AS unpaid_hours,
+                 ROUND(COALESCE(SUM(elapsed-unpaid),0)/3600,2) AS net_hours
+          FROM amounts
+    """, (business_id,employee_id)) or {"elapsed_hours":0,"unpaid_hours":0,"net_hours":0}
