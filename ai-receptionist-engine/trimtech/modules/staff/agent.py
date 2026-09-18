@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import math
+import json
+import os
 import re
 import threading
 import time
@@ -9,6 +11,7 @@ from decimal import Decimal
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from openai import OpenAI
 from psycopg2.extras import RealDictCursor
 
 from trimtech.modules.staff.database import (
@@ -241,9 +244,64 @@ def _looks_like_cancel(text: str) -> bool:
 def _looks_like_thanks(text: str) -> bool:
     return text in {"thanks", "thank you", "cheers", "nice one", "great", "perfect"}
 
+def _ai_intent(text: Any) -> str | None:
+    """Use AI to understand natural Staff Manager messages."""
+    if not os.getenv("OPENAI_API_KEY"):
+        return None
+
+    try:
+        client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            temperature=0,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You classify messages for a UK staff management assistant. "
+                        "Return ONLY one of these intents: "
+                        "greeting, help, clock_in, clock_out, break_start, break_end, "
+                        "status, holiday_request, working_now, staff_report, payroll, "
+                        "cancel, thanks, unknown."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": str(text or ""),
+                },
+            ],
+        )
+
+        intent = (response.choices[0].message.content or "").strip().lower()
+
+        allowed = {
+            "greeting", "help", "clock_in", "clock_out",
+            "break_start", "break_end", "status",
+            "holiday_request", "working_now",
+            "staff_report", "payroll", "cancel",
+            "thanks", "unknown",
+        }
+
+        return intent if intent in allowed else None
+
+    except Exception:
+        return None
 
 def _intent(text: Any) -> str:
     value = _normalise_words(text)
+    
+    ai_intent = _ai_intent(value)
+    if ai_intent and ai_intent != "unknown":
+        # Translate classifier labels into the existing message-handler routes.
+        return {
+            "clock_in": "start",
+            "clock_out": "finish",
+            "holiday_request": "leave",
+            "working_now": "on_site",
+            "staff_report": "report",
+        }.get(ai_intent, ai_intent)
+
     if not value:
         return "unknown"
     if _looks_like_cancel(value):
@@ -789,7 +847,7 @@ def handle_message(
             if pending_reply:
                 return pending_reply
 
-        if _looks_like_thanks(normalised):
+        if intent == "thanks" or _looks_like_thanks(normalised):
             return f"You're welcome, {first_name} 👍"
         if intent in {"greeting", "help"}:
             return _menu(employee)
