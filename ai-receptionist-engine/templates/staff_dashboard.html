@@ -1,601 +1,90 @@
 <!DOCTYPE html>
 <html lang="en-GB">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#07111f">
-    <title>Staff Manager | TrimTech AI</title>
-
-    <style>
-        :root {
-            --page: #07111f;
-            --panel: #0d1b2d;
-            --panel-soft: #12243a;
-            --line: rgba(148, 163, 184, 0.18);
-            --text: #f8fafc;
-            --muted: #94a3b8;
-            --green: #22c55e;
-            --amber: #f59e0b;
-            --red: #ef4444;
-            --blue: #38bdf8;
-            --purple: #a78bfa;
-            --shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
-            --radius: 20px;
-        }
-
-        * { box-sizing: border-box; }
-        html { scroll-behavior: smooth; }
-
-        body {
-            min-height: 100vh;
-            margin: 0;
-            color: var(--text);
-            background:
-                radial-gradient(circle at top right, rgba(34, 197, 94, 0.13), transparent 34rem),
-                var(--page);
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        }
-
-        button, input, select, textarea { font: inherit; }
-        a { color: inherit; text-decoration: none; }
-        h1, h2, h3, p { margin-top: 0; }
-
-        .shell {
-            width: min(1450px, 100%);
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .topbar, .hero, .card-header, .row-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .topbar { margin-bottom: 24px; }
-        .brand { display: flex; align-items: center; gap: 12px; }
-
-        .brand-mark, .avatar, .empty-icon {
-            display: grid;
-            place-items: center;
-        }
-
-        .brand-mark {
-            width: 46px;
-            height: 46px;
-            border-radius: 14px;
-            color: #052e16;
-            background: linear-gradient(145deg, #4ade80, #16a34a);
-            box-shadow: 0 10px 28px rgba(34, 197, 94, 0.24);
-            font-size: 21px;
-            font-weight: 900;
-        }
-
-        .brand-copy strong, .brand-copy span { display: block; }
-        .brand-copy strong { font-size: 17px; }
-        .brand-copy span { margin-top: 3px; color: var(--muted); font-size: 13px; }
-
-        .button, button {
-            display: inline-flex;
-            min-height: 42px;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            border: 0;
-            border-radius: 12px;
-            padding: 10px 15px;
-            cursor: pointer;
-            font-weight: 750;
-            transition: transform 150ms ease, background 150ms ease;
-        }
-
-        .button:hover, button:hover { transform: translateY(-1px); }
-        .button-primary { color: #052e16; background: var(--green); }
-        .button-secondary { color: var(--text); border: 1px solid var(--line); background: rgba(15, 31, 51, 0.82); }
-        .button-danger { color: #fee2e2; border: 1px solid rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.13); }
-
-        .hero { align-items: flex-end; margin-bottom: 22px; }
-        .eyebrow { margin-bottom: 8px; color: #86efac; font-size: 12px; font-weight: 850; letter-spacing: 0.12em; text-transform: uppercase; }
-        h1 { margin-bottom: 7px; font-size: clamp(28px, 5vw, 46px); line-height: 1.05; letter-spacing: -0.04em; }
-        .hero-copy { max-width: 720px; margin-bottom: 0; color: var(--muted); line-height: 1.65; }
-
-        .live-pill {
-            display: inline-flex;
-            flex-shrink: 0;
-            align-items: center;
-            gap: 9px;
-            border: 1px solid rgba(34, 197, 94, 0.27);
-            border-radius: 999px;
-            padding: 9px 13px;
-            color: #bbf7d0;
-            background: rgba(34, 197, 94, 0.09);
-            font-size: 13px;
-            font-weight: 800;
-        }
-
-        .live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.12); }
-        .alerts { display: grid; gap: 10px; margin-bottom: 18px; }
-        .alert { border: 1px solid var(--line); border-radius: 14px; padding: 13px 15px; background: var(--panel); box-shadow: var(--shadow); }
-        .alert-success { color: #bbf7d0; border-color: rgba(34, 197, 94, 0.3); }
-        .alert-error { color: #fecaca; border-color: rgba(239, 68, 68, 0.35); }
-
-        .metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 13px; margin-bottom: 20px; }
-        .metric { position: relative; overflow: hidden; min-height: 135px; border: 1px solid var(--line); border-radius: var(--radius); padding: 19px; background: linear-gradient(145deg, rgba(255, 255, 255, 0.025), transparent), var(--panel); box-shadow: var(--shadow); }
-        .metric::after { position: absolute; top: -30px; right: -28px; width: 92px; height: 92px; border-radius: 50%; background: rgba(56, 189, 248, 0.07); content: ""; }
-        .metric-holiday::after { background: rgba(167, 139, 250, 0.12); }
-        .metric-label { display: block; min-height: 34px; margin-bottom: 10px; color: var(--muted); font-size: 13px; font-weight: 750; }
-        .metric-value { display: block; font-size: 31px; font-weight: 900; letter-spacing: -0.035em; }
-        .metric-note { display: block; margin-top: 7px; color: var(--muted); font-size: 12px; }
-
-        .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.8fr); gap: 18px; align-items: start; }
-        .column { display: grid; gap: 18px; }
-        .card, details.add-panel { overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius); background: rgba(13, 27, 45, 0.94); box-shadow: var(--shadow); }
-        .card-header { padding: 19px 20px; border-bottom: 1px solid var(--line); }
-        .card-header h2 { margin-bottom: 4px; font-size: 18px; }
-        .card-header p { margin-bottom: 0; color: var(--muted); font-size: 13px; }
-
-        .count { display: grid; min-width: 34px; height: 34px; place-items: center; border-radius: 11px; color: #bbf7d0; background: rgba(34, 197, 94, 0.12); font-size: 13px; font-weight: 900; }
-        .count-holiday { color: #ddd6fe; background: rgba(167, 139, 250, 0.13); }
-        .table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 15px 20px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: middle; }
-        th { color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: 0.08em; text-transform: uppercase; }
-        td { font-size: 14px; }
-        tbody tr:last-child td { border-bottom: 0; }
-
-        .person { display: flex; align-items: center; gap: 11px; }
-        .avatar { width: 38px; height: 38px; flex: 0 0 38px; border-radius: 12px; color: #052e16; background: linear-gradient(145deg, #86efac, #22c55e); font-size: 14px; font-weight: 900; }
-        .avatar-holiday { color: #2e1065; background: linear-gradient(145deg, #ddd6fe, #a78bfa); }
-        .person strong, .person span { display: block; }
-        .person span { margin-top: 3px; color: var(--muted); font-size: 12px; }
-
-        .badge { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 6px 9px; font-size: 11px; font-weight: 850; text-transform: capitalize; }
-        .badge-green { color: #bbf7d0; background: rgba(34, 197, 94, 0.13); }
-        .badge-amber { color: #fde68a; background: rgba(245, 158, 11, 0.13); }
-        .badge-red { color: #fecaca; background: rgba(239, 68, 68, 0.13); }
-        .badge-grey { color: #cbd5e1; background: rgba(148, 163, 184, 0.12); }
-        .badge-purple { color: #ddd6fe; background: rgba(167, 139, 250, 0.14); }
-        .status-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
-
-        .empty { padding: 32px 20px; text-align: center; }
-        .empty-icon { width: 52px; height: 52px; margin: 0 auto 14px; border-radius: 16px; color: #86efac; background: rgba(34, 197, 94, 0.1); font-size: 23px; }
-        .empty h3 { margin-bottom: 7px; font-size: 16px; }
-        .empty p { max-width: 440px; margin: 0 auto; color: var(--muted); font-size: 13px; line-height: 1.55; }
-
-        details.add-panel { border-color: rgba(34, 197, 94, 0.22); background: rgba(34, 197, 94, 0.055); }
-        details.holiday-panel { border-color: rgba(167, 139, 250, 0.28); background: rgba(167, 139, 250, 0.055); }
-        details.site-panel { border-color: rgba(56, 189, 248, 0.3); background: rgba(56, 189, 248, 0.055); }
-        details.add-panel summary { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px; cursor: pointer; color: #bbf7d0; font-weight: 850; list-style: none; }
-        details.holiday-panel summary { color: #ddd6fe; }
-        details.site-panel summary { color: #bae6fd; }
-        details.add-panel summary::-webkit-details-marker { display: none; }
-        .add-content { padding: 0 20px 20px; }
-        .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 13px; }
-        .field { display: grid; gap: 7px; }
-        .field-wide { grid-column: 1 / -1; }
-        label { color: #cbd5e1; font-size: 12px; font-weight: 750; }
-        input, select, textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 11px; outline: none; padding: 10px 12px; color: var(--text); background: #091625; }
-        input[type="checkbox"] { width: 18px; min-height: 18px; margin: 0 7px 0 0; padding: 0; vertical-align: middle; accent-color: var(--green); }
-        textarea { min-height: 72px; resize: vertical; }
-        input:focus, select:focus, textarea:focus { border-color: rgba(34, 197, 94, 0.7); box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1); }
-        option { background: #091625; }
-        .form-actions { display: flex; justify-content: flex-end; margin-top: 15px; }
-
-        .item-list { display: grid; }
-        .item { padding: 17px 20px; border-bottom: 1px solid var(--line); }
-        .item:last-child { border-bottom: 0; }
-        .row-top { align-items: flex-start; }
-        .item-name { margin-bottom: 5px; font-size: 14px; font-weight: 850; }
-        .item-meta { margin-bottom: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
-        .hours { color: #bae6fd; font-size: 14px; font-weight: 900; white-space: nowrap; }
-        .item-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: 13px; }
-        .item-actions form { display: grid; gap: 8px; }
-        .item-actions button { width: 100%; min-height: 38px; padding: 8px 10px; font-size: 12px; }
-        .reject-form { grid-column: 1 / -1; grid-template-columns: 1fr auto !important; }
-        .reject-form input { min-height: 38px; }
-        .small-form { display: inline; }
-        .status-button { min-height: 32px; border: 1px solid var(--line); padding: 6px 9px; color: var(--text); background: var(--panel-soft); font-size: 11px; }
-        .footer { padding: 25px 0 8px; color: var(--muted); text-align: center; font-size: 12px; }
-
-        @media (max-width: 1150px) {
-            .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-        }
-
-        @media (max-width: 900px) {
-            .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-            .dashboard-grid { grid-template-columns: 1fr; }
-        }
-
-        @media (max-width: 680px) {
-            .shell { padding: 14px; }
-            .topbar { align-items: flex-start; }
-            .brand-copy span { display: none; }
-            .hero { display: grid; align-items: start; }
-            .metric { min-height: 120px; padding: 16px; }
-            .metric-value { font-size: 26px; }
-            .card-header { padding: 16px; }
-            th, td { padding: 13px 16px; }
-            .form-grid { grid-template-columns: 1fr; }
-            .field-wide { grid-column: auto; }
-            .hide-mobile { display: none; }
-        }
-
-        @media (max-width: 430px) {
-            .metrics { gap: 10px; }
-            .metric-label { min-height: 34px; }
-            .button { min-height: 39px; padding: 8px 10px; }
-        }
-    </style>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#07111f">
+<title>Staff Manager | TrimTech AI</title>
+<style>
+:root{color-scheme:dark;--page:#07111f;--panel:#0d1b2d;--line:#293a4e;--text:#f8fafc;--muted:#a6b5c8;--green:#22c55e}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#10372a,transparent 38rem),var(--page);color:var(--text);font-family:Inter,system-ui,-apple-system,sans-serif;line-height:1.5}a{color:#a7f3d0}h1,h2,h3,p{margin:0 0 12px}h1{font-size:clamp(28px,4vw,44px);letter-spacing:-.04em}h2{font-size:21px}h3{font-size:17px}button,input,select,textarea{font:inherit}button,.button{display:inline-flex;justify-content:center;align-items:center;min-height:44px;padding:10px 15px;border:1px solid var(--line);border-radius:11px;background:#182b40;color:var(--text);font-weight:700;cursor:pointer;text-decoration:none}button:hover,.button:hover{border-color:#86efac}.primary{background:var(--green);color:#052e16;border-color:var(--green)}.danger{background:#43202a;color:#fecaca}.link{background:none;padding:0;border:0;color:#a7f3d0;text-align:left;text-decoration:underline}.shell{max-width:1450px;margin:auto;padding:24px}.topbar,.row,.heading,.actions,.pager{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.topbar,.heading{justify-content:space-between}.topbar{margin-bottom:28px}.brand{display:flex;align-items:center;gap:12px;color:var(--text);text-decoration:none}.mark{display:grid;place-items:center;background:var(--green);color:#052e16;font-weight:900;font-size:24px;width:46px;height:46px;border-radius:14px}.muted,.help{color:var(--muted)}.help{font-size:13px}.eyebrow{color:#86efac;letter-spacing:.13em;text-transform:uppercase;font-size:12px;font-weight:800}.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:24px 0}.metric,.card{background:var(--panel);border:1px solid var(--line);border-radius:18px}.metric{padding:18px;text-decoration:none;color:var(--text)}.metric span{display:block;color:var(--muted);font-size:13px}.metric strong{display:block;font-size:30px;margin:8px 0}.card{margin-bottom:20px;overflow:hidden;scroll-margin-top:16px}.heading,.body{padding:20px}.heading{border-bottom:1px solid var(--line)}.heading p{margin:0}.heading h2{margin-bottom:3px}.grid{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:20px;align-items:start}.form-grid,.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.wide{grid-column:1/-1}.field{display:grid;gap:6px}label{font-size:13px;color:#cbd5e1;font-weight:700}input,select,textarea{width:100%;min-width:0;padding:10px 12px;min-height:44px;border:1px solid var(--line);border-radius:10px;background:#081523;color:var(--text)}input[type=checkbox]{width:20px;min-height:20px;accent-color:var(--green);vertical-align:middle}textarea{min-height:80px;resize:vertical}:focus-visible{outline:3px solid #38bdf8;outline-offset:3px}.filters{display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr auto;gap:12px;align-items:end;padding:20px}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px 18px;border-bottom:1px solid var(--line);vertical-align:top}th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}td{font-size:14px}td small{display:block;color:var(--muted);margin-top:3px}.badge{display:inline-block;padding:5px 10px;border-radius:99px;background:#20344a;color:#cbd5e1;font-size:12px;font-weight:750;white-space:nowrap}.active,.approved{background:#123d2d;color:#a7f3d0}.pending{background:#493a15;color:#fde68a}.rejected{background:#43202a;color:#fecaca}.empty{padding:28px 20px;text-align:center;color:var(--muted)}.alert{padding:15px;border-radius:12px;border:1px solid #b45359;margin-bottom:12px;background:#3b1c29}.alert.success{border-color:#22c55e;background:#123d2d}.pager{justify-content:space-between;padding:16px 20px}.item{padding:18px 20px;border-bottom:1px solid var(--line)}.item:last-child{border:0}.item .actions{margin-top:12px}.reject{display:flex;gap:8px;margin-top:10px}.reject input{flex:1}.count{background:#123d2d;color:#a7f3d0;padding:6px 12px;border-radius:10px;font-weight:800}details>summary{padding:18px 20px;cursor:pointer;font-weight:750;color:#a7f3d0}details .body{padding-top:0}.details-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin:0 0 20px}.details-list dt{font-size:12px;color:var(--muted)}.details-list dd{margin:3px 0 0;overflow-wrap:anywhere}.footer{padding:20px;text-align:center;font-size:12px;color:var(--muted)}[hidden]{display:none!important}button:disabled{opacity:.5;cursor:default}.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}nav.actions{margin:18px 0}time{white-space:nowrap}.review-actions{min-width:200px}.review-actions details>summary{padding:10px 0}.profile-name{font-weight:750}.status-form{margin:0}.directory-tools{padding:20px;display:flex;gap:12px;flex-wrap:wrap}.directory-tools input{max-width:420px}.directory-tools select{max-width:200px}
+@media(max-width:1050px){.metrics{grid-template-columns:repeat(3,1fr)}.filters{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}}
+@media(max-width:620px){.shell{padding:14px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric{padding:14px}.metric strong{font-size:25px}.form-grid,.details-list{grid-template-columns:1fr}.filters{grid-template-columns:1fr 1fr}.filters .search-field{grid-column:1/-1}.heading,.body{padding:16px}.topbar .brand small{display:none}.reject{flex-wrap:wrap}.directory-table thead{display:none}.directory-table tr{display:block;border-bottom:1px solid var(--line);padding:12px 16px}.directory-table td{display:block;padding:5px 0;border:0}.directory-table td[data-label]::before{content:attr(data-label) ': ';color:var(--muted)}.directory-table .status-form{display:inline-block}.details-list{gap:10px}.profile-name{font-size:16px}}
+</style>
 </head>
-
 <body>
-    <main class="shell">
-        <header class="topbar">
-            <a class="brand" href="/dashboard/{{ business_slug }}">
-                <span class="brand-mark">T</span>
-                <span class="brand-copy">
-                    <strong>TrimTech Staff Manager</strong>
-                    <span>People, attendance, holidays and payroll</span>
-                </span>
-            </a>
-            <a class="button button-secondary" href="/dashboard/{{ business_slug }}">← Dashboard</a>
-        </header>
-
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                <section class="alerts">
-                    {% for category, message in messages %}
-                        <div class="alert {% if category == 'success' %}alert-success{% else %}alert-error{% endif %}">{{ message }}</div>
-                    {% endfor %}
-                </section>
-            {% endif %}
-        {% endwith %}
-
-        <section class="hero">
-            <div>
-                <p class="eyebrow">{{ business_slug|replace("-", " ") }}</p>
-                <h1>Staff control centre</h1>
-                <p class="hero-copy">See who is working or away, review completed shifts and keep employee records ready for payroll.</p>
-            </div>
-            <span class="live-pill"><span class="live-dot"></span> Live workforce</span>
-        </section>
-
-        <section class="metrics">
-            <article class="metric">
-                <span class="metric-label">Active employees</span>
-                <strong class="metric-value">{{ summary.active_employees or 0 }}</strong>
-                <span class="metric-note">Currently on your staff list</span>
-            </article>
-            <article class="metric">
-                <span class="metric-label">Clocked in now</span>
-                <strong class="metric-value">{{ summary.staff_clocked_in or 0 }}</strong>
-                <span class="metric-note">Live open shifts</span>
-            </article>
-            <article class="metric metric-holiday">
-                <span class="metric-label">On holiday today</span>
-                <strong class="metric-value">{{ summary.on_holiday_today or 0 }}</strong>
-                <span class="metric-note">Approved holidays</span>
-            </article>
-            <article class="metric">
-                <span class="metric-label">Waiting approval</span>
-                <strong class="metric-value">{{ (summary.shifts_waiting_approval or 0) + (pending_leave|length) }}</strong>
-                <span class="metric-note">Shifts and leave requests</span>
-            </article>
-            <article class="metric">
-                <span class="metric-label">Hours this week</span>
-                <strong class="metric-value">{{ summary.hours_this_week or 0 }}</strong>
-                <span class="metric-note">Including live shifts</span>
-            </article>
-        </section>
-
-        <section class="dashboard-grid">
-            <div class="column">
-                <article class="card">
-                    <header class="card-header">
-                        <div><h2>Who’s away today</h2><p>Approved holiday and leave</p></div>
-                        <span class="count count-holiday">{{ current_leave|length }}</span>
-                    </header>
-                    {% if current_leave %}
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th>Action</th></tr></thead>
-                                <tbody>
-                                    {% for leave in current_leave %}
-                                        <tr>
-                                            <td><div class="person"><span class="avatar avatar-holiday">{{ leave.full_name[:1]|upper }}</span><span><strong>{{ leave.full_name }}</strong><span>{{ leave.role|title }}</span></span></div></td>
-                                            <td><span class="badge badge-purple">{{ leave.leave_type|replace("_", " ")|title }}</span></td>
-                                            <td>{{ leave.start_date.strftime("%d %b") }} – {{ leave.end_date.strftime("%d %b") }}</td>
-                                            <td>
-                                                <form method="post" action="{{ url_for('staff.cancel_leave', business_slug=business_slug, leave_id=leave.id) }}">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button class="status-button" type="submit">Cancel</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">☀</span><h3>Nobody is away today</h3><p>Approved holidays will appear here automatically.</p></div>
-                    {% endif %}
-                </article>
-
-                <article class="card">
-                    <header class="card-header">
-                        <div><h2>Today’s attendance</h2><p>Live and completed shifts for today</p></div>
-                        <span class="count">{{ live_shifts|length }}</span>
-                    </header>
-                    {% if live_shifts %}
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Employee</th><th>Site</th><th>Clock in</th><th>Hours</th><th>Status</th></tr></thead>
-                                <tbody>
-                                    {% for shift in live_shifts %}
-                                        <tr>
-                                            <td><div class="person"><span class="avatar">{{ shift.full_name[:1]|upper }}</span><span><strong>{{ shift.full_name }}</strong><span>{{ shift.role|title }}</span></span></div></td>
-                                            <td>{{ shift.site_name or "Not supplied" }}</td>
-                                            <td>{{ shift.clock_in_at.strftime("%H:%M") if shift.clock_in_at else "—" }}</td>
-                                            <td><strong>{{ shift.hours_worked or 0 }}</strong></td>
-                                            <td>
-                                                {% if not shift.clock_out_at %}<span class="badge badge-green"><span class="status-dot"></span> Clocked in</span>
-                                                {% elif shift.approval_status == "approved" %}<span class="badge badge-green">Approved</span>
-                                                {% elif shift.approval_status == "rejected" %}<span class="badge badge-red">Rejected</span>
-                                                {% else %}<span class="badge badge-amber">Pending</span>{% endif %}
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">◷</span><h3>No attendance recorded today</h3><p>Staff shifts will appear here as soon as an employee clocks in.</p></div>
-                    {% endif %}
-                </article>
-
-                <article class="card">
-                    <header class="card-header">
-                        <div><h2>Employees</h2><p>Your active and inactive staff records</p></div>
-                        <span class="count">{{ employees|length }}</span>
-                    </header>
-                    {% if employees %}
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Employee</th><th>Role</th><th class="hide-mobile">Rate</th><th>Status</th><th>Action</th></tr></thead>
-                                <tbody>
-                                    {% for employee in employees %}
-                                        <tr>
-                                            <td><div class="person"><span class="avatar">{{ employee.full_name[:1]|upper }}</span><span><strong>{{ employee.full_name }}</strong><span>{{ employee.phone }}</span></span></div></td>
-                                            <td>{{ employee.role|title }}</td>
-                                            <td class="hide-mobile">£{{ "%.2f"|format(employee.hourly_rate) }}</td>
-                                            <td>{% if employee.status == "active" %}<span class="badge badge-green">Active</span>{% else %}<span class="badge badge-grey">Inactive</span>{% endif %}</td>
-                                            <td>
-                                                <form class="small-form" method="post" action="{{ url_for('staff.change_employee_status', business_slug=business_slug, employee_id=employee.id) }}">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <input type="hidden" name="status" value="{% if employee.status == 'active' %}inactive{% else %}active{% endif %}">
-                                                    <button class="status-button" type="submit">{% if employee.status == "active" %}Deactivate{% else %}Activate{% endif %}</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">♙</span><h3>No employees yet</h3><p>Add your first employee using the form.</p></div>
-                    {% endif %}
-                </article>
-
-                <article class="card">
-                    <header class="card-header">
-                        <div><h2>Work sites</h2><p>Locations approved for staff GPS check-in</p></div>
-                        <span class="count">{{ sites|length }}</span>
-                    </header>
-                    {% if sites %}
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Site</th><th>GPS</th><th>Radius</th><th>Proof</th><th>Status</th><th>Action</th></tr></thead>
-                                <tbody>
-                                    {% for site in sites %}
-                                        <tr>
-                                            <td>
-                                                <div class="person">
-                                                    <span class="avatar">{{ site.name[:1]|upper }}</span>
-                                                    <span>
-                                                        <strong>{{ site.name }}</strong>
-                                                        <span>{{ site.address or "No address supplied" }}</span>
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td>{{ site.latitude }}, {{ site.longitude }}</td>
-                                            <td>{{ site.allowed_radius_metres }}m</td>
-                                            <td>
-                                                {% if site.photo_required %}
-                                                    <span class="badge badge-amber">Photo</span>
-                                                {% else %}
-                                                    <span class="badge badge-grey">GPS only</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                {% if site.active %}
-                                                    <span class="badge badge-green">Active</span>
-                                                {% else %}
-                                                    <span class="badge badge-grey">Inactive</span>
-                                                {% endif %}
-                                            </td>
-                                            <td>
-                                                <form class="small-form" method="post" action="{{ url_for('staff.change_site_status', business_slug=business_slug, site_id=site.id) }}">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <input type="hidden" name="status" value="{% if site.active %}inactive{% else %}active{% endif %}">
-                                                    <button class="status-button" type="submit">{% if site.active %}Deactivate{% else %}Activate{% endif %}</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">⌖</span><h3>No work sites yet</h3><p>Add the first approved location before connecting staff GPS check-in.</p></div>
-                    {% endif %}
-                </article>
-
-                <article class="card">
-                    <header class="card-header">
-                        <div><h2>Upcoming holidays</h2><p>Approved future leave</p></div>
-                        <span class="count count-holiday">{{ upcoming_leave|length }}</span>
-                    </header>
-                    {% if upcoming_leave %}
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Days</th><th>Action</th></tr></thead>
-                                <tbody>
-                                    {% for leave in upcoming_leave %}
-                                        <tr>
-                                            <td><div class="person"><span class="avatar avatar-holiday">{{ leave.full_name[:1]|upper }}</span><span><strong>{{ leave.full_name }}</strong><span>{{ leave.role|title }}</span></span></div></td>
-                                            <td><span class="badge badge-purple">{{ leave.leave_type|title }}</span></td>
-                                            <td>{{ leave.start_date.strftime("%d %b %Y") }} – {{ leave.end_date.strftime("%d %b %Y") }}</td>
-                                            <td>{{ leave.total_days or "—" }}</td>
-                                            <td>
-                                                <form method="post" action="{{ url_for('staff.cancel_leave', business_slug=business_slug, leave_id=leave.id) }}">
-                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                                    <button class="status-button" type="submit">Cancel</button>
-                                                </form>
-                                            </td>
-                                        </tr>
-                                    {% endfor %}
-                                </tbody>
-                            </table>
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">☀</span><h3>No upcoming holidays</h3><p>Add approved leave from the holiday form.</p></div>
-                    {% endif %}
-                </article>
-            </div>
-
-            <aside class="column">
-                <details class="add-panel">
-                    <summary><span>＋ Add employee</span><span>Open</span></summary>
-                    <div class="add-content">
-                        <form method="post" action="{{ url_for('staff.add_employee', business_slug=business_slug) }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <div class="form-grid">
-                                <div class="field field-wide"><label for="full_name">Full name</label><input id="full_name" name="full_name" type="text" maxlength="150" required></div>
-                                <div class="field field-wide"><label for="phone">Mobile number</label><input id="phone" name="phone" type="tel" maxlength="30" placeholder="07..." required></div>
-                                <div class="field field-wide"><label for="email">Email address</label><input id="email" name="email" type="email" maxlength="255"></div>
-                                <div class="field"><label for="role">Role</label><select id="role" name="role"><option value="staff">Staff</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div>
-                                <div class="field"><label for="hourly_rate">Hourly rate (£)</label><input id="hourly_rate" name="hourly_rate" type="number" min="0" step="0.01" placeholder="12.50" required></div>
-                                <div class="field field-wide"><label for="payroll_number">Payroll number</label><input id="payroll_number" name="payroll_number" type="text" maxlength="50" placeholder="Optional"></div>
-                            </div>
-                            <div class="form-actions"><button class="button-primary" type="submit">Add employee</button></div>
-                        </form>
-                    </div>
-                </details>
-
-                <details class="add-panel site-panel">
-                    <summary><span>⌖ Add work site</span><span>Open</span></summary>
-                    <div class="add-content">
-                        <form method="post" action="{{ url_for('staff.add_site', business_slug=business_slug) }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <div class="form-grid">
-                                <div class="field field-wide"><label for="site_name">Site name</label><input id="site_name" name="name" type="text" maxlength="150" placeholder="e.g. Riverside Apartments" required></div>
-                                <div class="field field-wide"><label for="site_address">Address</label><textarea id="site_address" name="address" maxlength="1000" placeholder="Full site address"></textarea></div>
-                                <div class="field"><label for="site_latitude">Latitude</label><input id="site_latitude" name="latitude" type="number" min="-90" max="90" step="0.0000001" placeholder="53.4808000" required></div>
-                                <div class="field"><label for="site_longitude">Longitude</label><input id="site_longitude" name="longitude" type="number" min="-180" max="180" step="0.0000001" placeholder="-2.2426000" required></div>
-                                <div class="field field-wide"><label for="site_radius">Allowed GPS radius (metres)</label><input id="site_radius" name="allowed_radius_metres" type="number" min="10" max="10000" step="1" value="250" required></div>
-                                <div class="field field-wide">
-                                    <label for="photo_required"><input id="photo_required" name="photo_required" type="checkbox"> Require a site photo when staff clock in</label>
-                                </div>
-                            </div>
-                            <div class="form-actions"><button class="button-primary" type="submit">Add work site</button></div>
-                        </form>
-                    </div>
-                </details>
-
-                <details class="add-panel holiday-panel">
-                    <summary><span>☀ Add holiday or leave</span><span>Open</span></summary>
-                    <div class="add-content">
-                        <form method="post" action="{{ url_for('staff.add_leave', business_slug=business_slug) }}">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <div class="form-grid">
-                                <div class="field field-wide">
-                                    <label for="leave_employee_id">Employee</label>
-                                    <select id="leave_employee_id" name="employee_id" required>
-                                        <option value="">Select employee</option>
-                                        {% for employee in employees if employee.status == "active" %}<option value="{{ employee.id }}">{{ employee.full_name }}</option>{% endfor %}
-                                    </select>
-                                </div>
-                                <div class="field field-wide">
-                                    <label for="leave_type">Leave type</label>
-                                    <select id="leave_type" name="leave_type"><option value="holiday">Holiday</option><option value="sickness">Sickness</option><option value="unpaid">Unpaid leave</option><option value="compassionate">Compassionate leave</option><option value="parental">Parental leave</option><option value="other">Other</option></select>
-                                </div>
-                                <div class="field"><label for="start_date">Start date</label><input id="start_date" name="start_date" type="date" required></div>
-                                <div class="field"><label for="end_date">End date</label><input id="end_date" name="end_date" type="date" required></div>
-                                <div class="field field-wide"><label for="employee_note">Note</label><textarea id="employee_note" name="employee_note" maxlength="1000" placeholder="Optional"></textarea></div>
-                            </div>
-                            <div class="form-actions"><button class="button-primary" type="submit">Add approved leave</button></div>
-                        </form>
-                    </div>
-                </details>
-
-                <article class="card">
-                    <header class="card-header"><div><h2>Holiday requests</h2><p>Pending manager approval</p></div><span class="count count-holiday">{{ pending_leave|length }}</span></header>
-                    {% if pending_leave %}
-                        <div class="item-list">
-                            {% for leave in pending_leave %}
-                                <section class="item">
-                                    <div class="row-top"><div><h3 class="item-name">{{ leave.full_name }}</h3><p class="item-meta">{{ leave.leave_type|title }} · {{ leave.start_date.strftime("%d %b") }} – {{ leave.end_date.strftime("%d %b %Y") }}<br>{{ leave.total_days or "—" }} working days</p></div><span class="badge badge-amber">Pending</span></div>
-                                    {% if leave.employee_note %}<p class="item-meta">“{{ leave.employee_note }}”</p>{% endif %}
-                                    <div class="item-actions">
-                                        <form method="post" action="{{ url_for('staff.approve_leave', business_slug=business_slug, leave_id=leave.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-primary" type="submit">Approve</button></form>
-                                        <form class="reject-form" method="post" action="{{ url_for('staff.reject_leave', business_slug=business_slug, leave_id=leave.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="manager_note" type="text" maxlength="1000" placeholder="Reason for rejection" required><button class="button-danger" type="submit">Reject</button></form>
-                                    </div>
-                                </section>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">✓</span><h3>No holiday requests waiting</h3><p>Employee WhatsApp requests will appear here.</p></div>
-                    {% endif %}
-                </article>
-
-                <article class="card">
-                    <header class="card-header"><div><h2>Shift approvals</h2><p>Review completed staff hours</p></div><span class="count">{{ pending_shifts|length }}</span></header>
-                    {% if pending_shifts %}
-                        <div class="item-list">
-                            {% for shift in pending_shifts %}
-                                <section class="item">
-                                    <div class="row-top"><div><h3 class="item-name">{{ shift.full_name }}</h3><p class="item-meta">{{ shift.site_name or "No site" }}<br>{{ shift.clock_in_at.strftime("%d %b, %H:%M") }}{% if shift.clock_out_at %} – {{ shift.clock_out_at.strftime("%H:%M") }}{% endif %}</p></div><span class="hours">{{ shift.hours_worked or 0 }} hrs</span></div>
-                                    <div class="item-actions">
-                                        <form method="post" action="{{ url_for('staff.approve_shift', business_slug=business_slug, shift_id=shift.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-primary" type="submit">Approve</button></form>
-                                        <form class="reject-form" method="post" action="{{ url_for('staff.reject_shift', business_slug=business_slug, shift_id=shift.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input name="manager_note" type="text" maxlength="500" placeholder="Reason for rejection" required><button class="button-danger" type="submit">Reject</button></form>
-                                    </div>
-                                </section>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">✓</span><h3>Everything is up to date</h3><p>There are no completed shifts waiting for approval.</p></div>
-                    {% endif %}
-                </article>
-
-                <article class="card">
-                    <header class="card-header"><div><h2>Currently working</h2><p>Employees with an open shift</p></div></header>
-                    {% set open_shift_count = namespace(value=0) %}
-                    {% for shift in live_shifts %}{% if not shift.clock_out_at %}{% set open_shift_count.value = open_shift_count.value + 1 %}{% endif %}{% endfor %}
-                    {% if open_shift_count.value %}
-                        <div class="item-list">
-                            {% for shift in live_shifts if not shift.clock_out_at %}
-                                <section class="item"><div class="row-top"><div><h3 class="item-name">{{ shift.full_name }}</h3><p class="item-meta">{{ shift.site_name or "No site supplied" }}<br>Started {{ shift.clock_in_at.strftime("%H:%M") }}</p></div><span class="badge badge-green"><span class="status-dot"></span> Live</span></div></section>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="empty"><span class="empty-icon">○</span><h3>Nobody is clocked in</h3><p>Live staff will appear here automatically.</p></div>
-                    {% endif %}
-                </article>
-            </aside>
-        </section>
-
-        <footer class="footer">TrimTech AI · Staff Manager · Secure business access</footer>
-    </main>
-</body>
-</html>
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+{% macro stamp(value) %}{% if value %}<time datetime="{{ value.isoformat() }}" data-time>{{ value.strftime('%d %b %Y %H:%M') }}</time>{% else %}—{% endif %}{% endmacro %}
+{% macro person(id,name) %}<a class="profile-name" href="{{ url_for('staff.dashboard',business_slug=business_slug,employee=id,_anchor='profile') }}">{{ name }}</a>{% endmacro %}
+{% macro status(value) %}<span class="badge {{ value }}">{{ value|replace('_',' ')|title }}</span>{% endmacro %}
+{% macro leave_table(rows,cancel=false) %}
+{% if rows %}<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Leave</th><th>Dates</th><th>Days</th><th>Status</th>{% if cancel %}<th>Action</th>{% endif %}</tr></thead><tbody>
+{% for l in rows %}<tr><td>{{ person(l.employee_id,l.full_name) if l.full_name is defined else profile.full_name }}</td><td>{{ l.leave_type|title }}</td><td>{{ l.start_date.strftime('%d %b %Y') }} – {{ l.end_date.strftime('%d %b %Y') }}</td><td>{{ l.total_days or '—' }}</td><td>{{ status(l.approval_status) }}</td>{% if cancel %}<td><form method="post" action="{{ url_for('staff.cancel_leave',business_slug=business_slug,leave_id=l.id) }}" data-confirm="Cancel this leave record?">{{ csrf() }}<button type="submit">Cancel</button></form></td>{% endif %}</tr>{% endfor %}
+</tbody></table></div>{% else %}<p class="empty">No leave records to show.</p>{% endif %}
+{% endmacro %}
+<main class="shell">
+<header class="topbar"><a class="brand" href="{{ url_for('staff.dashboard',business_slug=business_slug) }}"><span class="mark">S</span><span><strong>TrimTech Staff Manager</strong><br><small class="muted">People, attendance and leave</small></span></a><a class="button" href="/dashboard/{{ business_slug }}">← Dashboard</a></header>
+{% for category,message in get_flashed_messages(with_categories=true) %}<div role="status" class="alert {{ 'success' if category=='success' else '' }}">{{ message }}</div>{% endfor %}
+<p class="eyebrow">{{ business_slug|replace('-',' ') }}</p><h1>Staff control centre</h1><p class="muted">See who is working, review completed shifts and open employee profiles.</p>
+<nav class="actions" aria-label="Staff sections"><a class="button" href="#approvals">Shift approvals</a><a class="button" href="#employees">Employees</a><a class="button" href="#attendance">Attendance</a><a class="button" href="#leave">Leave</a><a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Employee portal</a></nav>
+<section class="metrics" aria-label="Workforce summary">
+<a class="metric" href="#employees"><span>Active employees</span><strong>{{ summary.active_employees or 0 }}</strong><span>Staff records</span></a>
+<a class="metric" href="#attendance"><span>Clocked in now</span><strong>{{ summary.staff_clocked_in or 0 }}</strong><span>Open shifts</span></a>
+<a class="metric" href="#away"><span>On holiday today</span><strong>{{ summary.on_holiday_today or 0 }}</strong><span>Approved holidays</span></a>
+<a class="metric" href="#approvals"><span>Shifts awaiting approval</span><strong>{{ summary.shifts_waiting_approval or 0 }}</strong><span>Completed shifts only</span></a>
+<article class="metric"><span>Hours this week</span><strong>{{ summary.hours_this_week or 0 }}</strong><span>Clocked time before breaks</span></article>
+</section>
+{% if profile %}
+<section class="card" id="profile">
+<header class="heading"><div><p class="eyebrow">Employee profile</p><h2>{{ profile.full_name }}</h2></div><div class="actions">{{ status(profile.status) }}<a class="button" href="{{ url_for('staff.dashboard',business_slug=business_slug,_anchor='employees') }}">Close profile</a></div></header>
+<div class="body"><dl class="details-list"><div><dt>Phone</dt><dd>{{ profile.phone }}</dd></div><div><dt>Email</dt><dd>{{ profile.email or 'Not supplied' }}</dd></div><div><dt>Role</dt><dd>{{ profile.role|title }}</dd></div><div><dt>Hourly rate</dt><dd>£{{ '%.2f'|format(profile.hourly_rate) }}</dd></div><div><dt>Payroll login number</dt><dd>{{ 'Set' if profile.payroll_number else 'Not set' }}</dd></div><div><dt>Joined</dt><dd>{{ profile.created_at.strftime('%d %b %Y') }}</dd></div></dl>
+<details><summary>Edit employee details</summary>
+<form method="post" action="{{ url_for('staff.edit_employee',business_slug=business_slug,employee_id=profile.id) }}">{{ csrf() }}
+<div class="form-grid"><div class="field"><label for="edit-name">Full name</label><input id="edit-name" name="full_name" maxlength="150" value="{{ profile.full_name }}" required></div><div class="field"><label for="edit-phone">Phone</label><input id="edit-phone" name="phone" type="tel" maxlength="30" value="{{ profile.phone }}" required></div><div class="field"><label for="edit-email">Email</label><input id="edit-email" name="email" type="email" maxlength="254" value="{{ profile.email or '' }}"></div><div class="field"><label for="edit-role">Role</label><select id="edit-role" name="role">{% for role in ['staff','manager','owner'] %}<option value="{{ role }}" {{ 'selected' if role==profile.role else '' }}>{{ role|title }}</option>{% endfor %}</select></div><div class="field"><label for="edit-rate">Hourly rate (£)</label><input id="edit-rate" name="hourly_rate" type="number" min="0" max="99999999.99" step="0.01" value="{{ profile.hourly_rate }}" required></div><div class="field"><label for="edit-payroll">New payroll login number</label><input id="edit-payroll" name="payroll_number" type="password" autocomplete="new-password" maxlength="50"><small class="help">Leave blank to keep the existing number. Changing this or the phone changes future sign-in details.</small></div></div><p class="help">Rate changes update the staff record. Payroll and payslip generation are not available yet.</p><button class="primary" type="submit">Save employee</button></form></details></div>
+<header class="heading"><h3>Shift history and breaks</h3><span class="count">{{ profile_total }}</span></header>
+{% if profile_shifts %}<div class="table-wrap"><table><thead><tr><th>Site</th><th>Clock in / out</th><th>Clocked hours</th><th>Unpaid breaks</th><th>After breaks</th><th>Status</th></tr></thead><tbody>{% for s in profile_shifts %}<tr><td>{{ s.site_name }}</td><td>{{ stamp(s.clock_in_at) }}<br>{{ stamp(s.clock_out_at) }}</td><td>{{ s.hours_worked }}</td><td>{{ s.unpaid_hours }} hrs</td><td>{{ s.net_hours }} hrs</td><td>{{ status(s.approval_status) if s.clock_out_at else status('on shift') }}{% if s.manager_note %}<small>{{ s.manager_note }}</small>{% endif %}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty">No shifts recorded.</p>{% endif %}
+<div class="pager">{% if profile_page>1 %}<a class="button" href="{{ page_link(profile_page=profile_page-1,_anchor='profile') }}">Previous</a>{% endif %}<span class="help">Page {{ profile_page }} · 20 shifts per page</span>{% if profile_page*20<profile_total %}<a class="button" href="{{ page_link(profile_page=profile_page+1,_anchor='profile') }}">Next</a>{% endif %}</div>
+<header class="heading"><h3>Leave history</h3><p class="help">Latest 30 records</p></header>{{ leave_table(profile_leave) }}
+</section>
+{% endif %}
+<section class="card" id="approvals">
+<header class="heading"><div><h2>Shift approvals</h2><p class="muted">Completed pending shifts · dates and times shown in UK time</p></div><span class="count">{{ approval_total }} matching</span></header>
+<form method="get" action="{{ url_for('staff.dashboard',business_slug=business_slug,_anchor='approvals') }}" class="filters">
+<div class="field search-field"><label for="q">Employee name</label><input id="q" name="q" value="{{ review.q }}" maxlength="150" placeholder="Search employees"></div>
+<div class="field"><label for="site-filter">Site</label><select id="site-filter" name="site"><option value="">All sites</option>{% for site in sites %}<option value="{{ site.id }}" {{ 'selected' if review.site==site.id|string else '' }}>{{ site.name }}</option>{% endfor %}</select></div>
+<div class="field"><label for="from-date">Shift starts from</label><input id="from-date" name="from_date" type="date" value="{{ review.from_date }}"></div><div class="field"><label for="to-date">Through</label><input id="to-date" name="to_date" type="date" value="{{ review.to_date }}"></div><div class="actions"><button class="primary" type="submit">Filter</button><a href="{{ url_for('staff.dashboard',business_slug=business_slug,_anchor='approvals') }}">Reset</a></div></form>
+{% if pending_shifts %}
+<form id="bulk-approve" method="post" action="{{ url_for('staff.approve_selected_shifts',business_slug=business_slug) }}" data-confirm="Approve the selected completed shifts?">{{ csrf() }}<div class="body row"><label><input id="select-all" type="checkbox"> Select this page</label><button class="primary" type="submit" id="approve-selected">Approve selected</button><span id="selected-count" class="help" aria-live="polite">Select up to 20 shifts</span></div></form>
+<div class="table-wrap"><table><thead><tr><th>Select</th><th>Employee / site</th><th>Clock in / out</th><th>Clocked</th><th>Unpaid breaks</th><th>After breaks</th><th>Review</th></tr></thead><tbody>
+{% for shift in pending_shifts %}<tr><td><input form="bulk-approve" type="checkbox" name="shift_ids" value="{{ shift.id }}" aria-label="Select shift for {{ shift.full_name }}" class="shift-select"></td><td>{{ person(shift.employee_id,shift.full_name) }}<small>{{ shift.site_name or 'No site' }}</small></td><td>{{ stamp(shift.clock_in_at) }}<br>{{ stamp(shift.clock_out_at) }}</td><td>{{ shift.hours_worked }} hrs</td><td>{{ shift.unpaid_hours }} hrs</td><td><strong>{{ shift.net_hours }} hrs</strong></td><td class="review-actions"><form method="post" action="{{ url_for('staff.approve_shift',business_slug=business_slug,shift_id=shift.id) }}">{{ csrf() }}<button class="primary" type="submit">Approve</button></form><details><summary>Reject shift</summary><form class="reject" method="post" action="{{ url_for('staff.reject_shift',business_slug=business_slug,shift_id=shift.id) }}">{{ csrf() }}<label class="visually-hidden" for="reject-{{ shift.id }}">Reason for rejection</label><input id="reject-{{ shift.id }}" name="manager_note" maxlength="500" placeholder="Reason" required><button class="danger" type="submit">Reject</button></form></details></td></tr>{% endfor %}
+</tbody></table></div>
+{% else %}<p class="empty">No completed pending shifts match these filters. Open shifts appear in attendance below.</p>{% endif %}
+<div class="pager">{% if review.page>1 %}<a class="button" href="{{ page_link(page=review.page-1,_anchor='approvals') }}">Previous</a>{% endif %}<span class="help">Page {{ review.page }} · 20 shifts per page · Approval does not generate a payslip.</span>{% if review.page*20<approval_total %}<a class="button" href="{{ page_link(page=review.page+1,_anchor='approvals') }}">Next</a>{% endif %}</div>
+</section>
+<section class="card" id="employees"><header class="heading"><div><h2>Employees</h2><p class="muted">Tap a name to view their profile, hours and leave.</p></div><span class="count">{{ employees|length }}</span></header>
+<div class="directory-tools"><label class="visually-hidden" for="employee-search">Search employee name or phone</label><input id="employee-search" placeholder="Search name or phone"><label class="visually-hidden" for="employee-status">Employee status</label><select id="employee-status"><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+<div class="table-wrap"><table class="directory-table"><thead><tr><th>Employee</th><th>Role</th><th>Hourly rate</th><th>Status</th><th>Action</th></tr></thead><tbody id="employee-rows">{% for e in employees %}<tr data-search="{{ (e.full_name ~ ' ' ~ e.phone)|lower }}" data-status="{{ e.status }}"><td>{{ person(e.id,e.full_name) }}<small>{{ e.phone }}</small></td><td data-label="Role">{{ e.role|title }}</td><td data-label="Rate">£{{ '%.2f'|format(e.hourly_rate) }}</td><td>{{ status(e.status) }}</td><td><form class="status-form" method="post" action="{{ url_for('staff.change_employee_status',business_slug=business_slug,employee_id=e.id) }}" data-confirm="Change this employee's active status?">{{ csrf() }}<input type="hidden" name="status" value="{{ 'inactive' if e.status=='active' else 'active' }}"><button type="submit">{{ 'Deactivate' if e.status=='active' else 'Activate' }}</button></form></td></tr>{% endfor %}</tbody></table></div><p class="empty" id="employee-empty" {{ 'hidden' if employees else '' }}>No matching employees.</p><div class="pager" id="employee-pager" hidden><button type="button" id="employee-prev">Previous</button><span class="help" id="employee-page" aria-live="polite"></span><button type="button" id="employee-next">Next</button></div></section>
+<div class="grid"><div>
+<section class="card" id="attendance"><header class="heading"><div><h2>Today's attendance</h2><p class="help">Today's starts and all open shifts. Hours shown before break deductions.</p></div><span class="count">{{ live_shifts|length }}</span></header>{% if live_shifts %}<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Site</th><th>Clock in</th><th>Hours</th><th>Status</th></tr></thead><tbody>{% for s in live_shifts %}<tr><td>{{ person(s.employee_id,s.full_name) }}</td><td>{{ s.site_name }}</td><td>{{ stamp(s.clock_in_at) }}</td><td>{{ s.hours_worked }}</td><td>{{ status(s.approval_status) if s.clock_out_at else status('on shift') }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="empty">No attendance recorded today.</p>{% endif %}</section>
+<section class="card" id="away"><header class="heading"><h2>Who's away today</h2><span class="count">{{ current_leave|length }}</span></header>{{ leave_table(current_leave,true) }}</section>
+<section class="card" id="leave"><header class="heading"><div><h2>Upcoming leave</h2><p class="help">Next 20 approved records</p></div></header>{{ leave_table(upcoming_leave,true) }}</section>
+<section class="card"><header class="heading"><div><h2>Leave requests</h2><p class="help">Next 20 requests awaiting a decision</p></div></header>{% for l in pending_leave %}<section class="item"><h3>{{ person(l.employee_id,l.full_name) }}</h3><p>{{ l.leave_type|title }} · {{ l.start_date.strftime('%d %b %Y') }} – {{ l.end_date.strftime('%d %b %Y') }}<br>{{ l.total_days or '—' }} working days</p>{% if l.employee_note %}<p class="help">{{ l.employee_note }}</p>{% endif %}<form method="post" action="{{ url_for('staff.approve_leave',business_slug=business_slug,leave_id=l.id) }}">{{ csrf() }}<button class="primary" type="submit">Approve leave</button></form><form class="reject" method="post" action="{{ url_for('staff.reject_leave',business_slug=business_slug,leave_id=l.id) }}">{{ csrf() }}<label class="visually-hidden" for="leave-reject-{{ l.id }}">Reason for rejection</label><input id="leave-reject-{{ l.id }}" name="manager_note" maxlength="1000" required placeholder="Reason for rejection"><button class="danger" type="submit">Reject</button></form></section>{% else %}<p class="empty">No leave requests waiting. Requests from the employee portal appear here.</p>{% endfor %}</section>
+<section class="card" id="sites"><header class="heading"><h2>Work sites</h2><span class="count">{{ sites|length }}</span></header>{% for site in sites %}<div class="item"><div class="heading" style="padding:0;border:0"><h3>{{ site.name }}</h3>{{ status('active' if site.active else 'inactive') }}</div><p class="help">{{ site.address or 'No address supplied' }}<br>GPS: {{ site.latitude }}, {{ site.longitude }} · Radius: {{ site.allowed_radius_metres }}m<br>{{ 'Photo required — portal photo upload not available' if site.photo_required else 'GPS only' }}</p><form method="post" action="{{ url_for('staff.change_site_status',business_slug=business_slug,site_id=site.id) }}">{{ csrf() }}<input type="hidden" name="status" value="{{ 'inactive' if site.active else 'active' }}"><button type="submit">{{ 'Deactivate' if site.active else 'Activate' }}</button></form></div>{% else %}<p class="empty">No work sites yet.</p>{% endfor %}</section>
+</div><aside>
+<details class="card"><summary>＋ Add employee</summary><div class="body"><form method="post" action="{{ url_for('staff.add_employee',business_slug=business_slug) }}">{{ csrf() }}<div class="form-grid"><div class="field wide"><label for="full-name">Full name</label><input id="full-name" name="full_name" maxlength="150" required></div><div class="field wide"><label for="phone">Mobile number</label><input id="phone" name="phone" type="tel" maxlength="30" required></div><div class="field wide"><label for="email">Email</label><input id="email" name="email" type="email" maxlength="254"></div><div class="field"><label for="role">Role</label><select id="role" name="role"><option value="staff">Staff</option><option value="manager">Manager</option><option value="owner">Owner</option></select></div><div class="field"><label for="rate">Hourly rate (£)</label><input id="rate" name="hourly_rate" type="number" min="0" step="0.01" required></div><div class="field wide"><label for="payroll">Payroll login number</label><input id="payroll" name="payroll_number" maxlength="50"><small class="help">Required for employee portal sign-in. You can set it later from their profile.</small></div></div><div class="actions" style="margin-top:16px"><button class="primary" type="submit">Add employee</button></div></form></div></details>
+<details class="card"><summary>⌖ Add work site</summary><div class="body"><form method="post" action="{{ url_for('staff.add_site',business_slug=business_slug) }}">{{ csrf() }}<div class="form-grid"><div class="field wide"><label for="site-name">Site name</label><input id="site-name" name="name" maxlength="150" required></div><div class="field wide"><label for="site-address">Address (optional)</label><textarea id="site-address" name="address" maxlength="1000"></textarea></div><div class="wide"><button type="button" id="use-location">Use my current location</button><p class="help" id="location-message" role="status">Use this while at the work site, or enter its coordinates below. Review before saving.</p></div><div class="field"><label for="latitude">Latitude</label><input id="latitude" name="latitude" type="number" min="-90" max="90" step="0.0000001" required></div><div class="field"><label for="longitude">Longitude</label><input id="longitude" name="longitude" type="number" min="-180" max="180" step="0.0000001" required></div><div class="field wide"><label for="radius">Allowed GPS radius (metres)</label><input id="radius" name="allowed_radius_metres" type="number" min="10" max="10000" value="250" required></div></div><p class="help">GPS-only site. Photo upload is not available in the employee portal yet.</p><button class="primary" type="submit">Add work site</button></form></div></details>
+<details class="card"><summary>☀ Add approved leave</summary><div class="body"><form method="post" action="{{ url_for('staff.add_leave',business_slug=business_slug) }}">{{ csrf() }}<div class="form-grid"><div class="field wide"><label for="leave-employee">Employee</label><select id="leave-employee" name="employee_id" required><option value="">Choose employee</option>{% for e in employees if e.status=='active' %}<option value="{{ e.id }}">{{ e.full_name }}</option>{% endfor %}</select></div><div class="field wide"><label for="leave-type">Leave type</label><select id="leave-type" name="leave_type">{% for t in ['holiday','sickness','unpaid','compassionate','parental','other'] %}<option value="{{ t }}">{{ t|title }}</option>{% endfor %}</select></div><div class="field"><label for="leave-start">Start date</label><input id="leave-start" name="start_date" type="date" required></div><div class="field"><label for="leave-end">End date</label><input id="leave-end" name="end_date" type="date" required></div><div class="field wide"><label for="leave-note">Note</label><textarea id="leave-note" name="employee_note" maxlength="1000"></textarea></div></div><p class="help">Counts Monday–Friday, including bank holidays. Both dates included.</p><button class="primary" type="submit">Add approved leave</button></form></div></details>
+<section class="card"><div class="body"><h2>Payroll &amp; payslips</h2><p class="muted">Not available yet.</p><p class="help">You can review shifts and record hourly rates now. Payroll calculations, deductions, payslip PDFs and sending will be added separately.</p></div></section>
+</aside></div><footer class="footer">TrimTech AI · Staff Manager · Refresh to see the latest records</footer>
+</main>
+<script>
+'use strict';
+document.querySelectorAll('[data-time]').forEach(el=>{const d=new Date(el.dateTime);if(!Number.isNaN(d.getTime()))el.textContent=new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}).format(d);});
+document.querySelectorAll('form[data-confirm]').forEach(form=>form.addEventListener('submit',event=>{if(!window.confirm(form.dataset.confirm))event.preventDefault();}));
+const boxes=[...document.querySelectorAll('.shift-select')],all=document.getElementById('select-all'),bulk=document.getElementById('approve-selected');
+function selection(){const n=boxes.filter(b=>b.checked).length;if(bulk)bulk.disabled=n===0;if(all){all.checked=n===boxes.length&&n>0;all.indeterminate=n>0&&n<boxes.length;}const c=document.getElementById('selected-count');if(c)c.textContent=n+' selected';}
+if(all)all.addEventListener('change',()=>{boxes.forEach(b=>b.checked=all.checked);selection();});boxes.forEach(b=>b.addEventListener('change',selection));selection();
+const rows=[...document.querySelectorAll('#employee-rows tr')],search=document.getElementById('employee-search'),state=document.getElementById('employee-status');let employeePage=1;
+function directory(){const q=search.value.trim().toLowerCase(),matches=rows.filter(r=>r.dataset.search.includes(q)&&(!state.value||r.dataset.status===state.value));const pages=Math.max(1,Math.ceil(matches.length/20));employeePage=Math.min(employeePage,pages);rows.forEach(r=>r.hidden=true);matches.slice((employeePage-1)*20,employeePage*20).forEach(r=>r.hidden=false);document.getElementById('employee-page').textContent='Page '+employeePage+' of '+pages+' · '+matches.length+' employees';document.getElementById('employee-empty').hidden=matches.length>0;document.getElementById('employee-pager').hidden=false;document.getElementById('employee-prev').disabled=employeePage<=1;document.getElementById('employee-next').disabled=employeePage>=pages;}
+search.addEventListener('input',()=>{employeePage=1;directory();});state.addEventListener('change',()=>{employeePage=1;directory();});document.getElementById('employee-prev').addEventListener('click',()=>{employeePage--;directory();});document.getElementById('employee-next').addEventListener('click',()=>{employeePage++;directory();});directory();
+const locationButton=document.getElementById('use-location'),locationMessage=document.getElementById('location-message');locationButton.addEventListener('click',()=>{if(!navigator.geolocation){locationMessage.textContent='Location is unavailable. Enter the site coordinates manually.';return;}locationButton.disabled=true;locationMessage.textContent='Getting your location…';navigator.geolocation.getCurrentPosition(position=>{locationButton.disabled=false;const c=position.coords,limit=Math.min(100,Number(document.getElementById('radius').value)||100);if(!Number.isFinite(c.accuracy)||c.accuracy>limit){locationMessage.textContent='Location is too approximate. Try outside or enter verified site coordinates.';return;}document.getElementById('latitude').value=c.latitude.toFixed(7);document.getElementById('longitude').value=c.longitude.toFixed(7);locationMessage.textContent='Coordinates filled. Reported accuracy: '+Math.round(c.accuracy)+' metres. Check you are at the intended site, then save.';},error=>{locationButton.disabled=false;locationMessage.textContent=error.code===1?'Location permission denied. Allow access or enter coordinates manually.':'Could not obtain your location. Try again or enter coordinates manually.';},{enableHighAccuracy:true,maximumAge:0,timeout:20000});});
+</script>
+</body></html>
