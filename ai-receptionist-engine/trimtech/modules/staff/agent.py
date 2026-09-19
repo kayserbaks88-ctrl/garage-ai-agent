@@ -564,14 +564,19 @@ def _break_action(business_id: str, employee: dict[str, Any], start: bool) -> st
         )
         if existing:
             return f"You're already on a break, {first_name} — it started at {_format_time(existing['started_at'])}."
+        settings = fetch_one(
+            "SELECT break_policy FROM staff_business_settings WHERE business_id = %s",
+            (business_id,),
+        ) or {}
+        paid = settings.get("break_policy") == "paid"
         with transaction() as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
                 cursor.execute(
                     """
-                    INSERT INTO staff_breaks (business_id, shift_id, employee_id)
-                    VALUES (%s, %s, %s) RETURNING started_at
+                    INSERT INTO staff_breaks (business_id, shift_id, employee_id, paid)
+                    VALUES (%s, %s, %s, %s) RETURNING started_at
                     """,
-                    (business_id, shift["id"], employee["id"]),
+                    (business_id, shift["id"], employee["id"], paid),
                 )
                 started = cursor.fetchone()["started_at"]
         return f"Break started at {_format_time(started)}, {first_name} 👍 Say “back from break” when you return."

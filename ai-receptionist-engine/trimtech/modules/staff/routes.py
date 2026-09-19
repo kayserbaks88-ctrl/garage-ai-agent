@@ -22,6 +22,9 @@ from trimtech.modules.staff.database import (
     StaffDatabaseError, execute, fetch_all, fetch_one,
     init_staff_database, transaction,
 )
+from trimtech.modules.staff.payroll import (
+    PayrollError, generate_payroll_run, period_dates,
+)
 
 
 staff_blueprint = Blueprint("staff", __name__, url_prefix="/staff")
@@ -135,6 +138,8 @@ def dashboard(business_slug: str):
     profile = None
     profile_shifts, profile_leave = [], []
     profile_total = 0
+    break_policy = "unpaid"
+    payroll_runs = []
     profile_page = _page_arg("profile_page")
     try:
         init_staff_database()
@@ -227,6 +232,12 @@ def dashboard(business_slug: str):
             AND leave_request.approval_status='pending'
             ORDER BY leave_request.start_date, employee.full_name LIMIT 20
         """, (business_id,))
+        settings = fetch_one("SELECT break_policy FROM staff_business_settings WHERE business_id=%s", (business_id,))
+        break_policy = (settings or {}).get("break_policy") or "unpaid"
+        payroll_runs = fetch_all("""
+            SELECT id,period_start,period_end,status,total_gross_pay,total_deductions,total_net_pay,created_at
+            FROM staff_payroll_runs WHERE business_id=%s ORDER BY period_end DESC,id DESC LIMIT 20
+        """, (business_id,))
     except _DB_ERRORS:
         current_app.logger.exception("Staff dashboard could not load")
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
@@ -239,6 +250,7 @@ def dashboard(business_slug: str):
         profile_shifts=profile_shifts, profile_leave=profile_leave,
         profile_total=profile_total, profile_page=profile_page,
         page_link=_dashboard_page_link,
+        break_policy=break_policy, payroll_runs=payroll_runs,
     )
 
 
@@ -331,6 +343,23 @@ def change_site_status(business_slug: str, site_id: int):
             WHERE id=%s AND business_id=%s""", (status == "active", site_id, _business_id(business_slug)))
         flash("Work site status updated." if count else "That work site could not be found.",
               "success" if count else "error")
+    except _DB_ERRORS:
+        _database_message()
+    return _manager_redirect(business_slug)
+
+
+@staff_blueprint.post("/<business_slug>/settings/break-policy")
+@dashboard_login_required
+def update_break_policy(business_slug: str):
+    policy = _clean_text(request.form.get("break_policy"), 20).lower()
+    if policy not in {"paid", "unpaid"}:
+        flash("Select whether new breaks are paid or unpaid.", "error")
+        return _manager_redirect(business_slug)
+    try:
+        execute("""INSERT INTO staff_business_settings (business_id,break_policy)
+            VALUES (%s,%s) ON CONFLICT (business_id) DO UPDATE SET break_policy=EXCLUDED.break_policy,updated_at=NOW()""",
+            (_business_id(business_slug), policy))
+        flash(f"New breaks will be recorded as {policy}.", "success")
     except _DB_ERRORS:
         _database_message()
     return _manager_redirect(business_slug)
@@ -632,6 +661,16 @@ def employee_home(business_slug: str):
         current_leave = fetch_all(leave_query + """AND approval_status='approved'
             AND CURRENT_DATE BETWEEN start_date AND end_date ORDER BY start_date,id LIMIT 20""", parameters)
         leave_history = fetch_all(leave_query + "ORDER BY created_at DESC,id DESC LIMIT 30", parameters)
+        payslips = fetch_all("""
+            SELECT payslip.id,payslip.worked_minutes,payslip.paid_break_minutes,
+                   payslip.unpaid_break_minutes,payslip.payable_minutes,payslip.hourly_rate,
+                   payslip.gross_pay,payslip.deductions,payslip.net_pay,
+                   run.period_start,run.period_end,run.status
+            FROM staff_payslips AS payslip
+            JOIN staff_payroll_runs AS run ON run.id=payslip.payroll_run_id
+            WHERE payslip.business_id=%s AND payslip.employee_id=%s
+            ORDER BY run.period_end DESC,payslip.id DESC LIMIT 20
+        """, parameters)
         sites = fetch_all("""SELECT id,name,address,photo_required,allowed_radius_metres FROM staff_sites
             WHERE business_id=%s AND active=TRUE ORDER BY name""", (parameters[0],))
         current_break = None
@@ -651,6 +690,7 @@ def employee_home(business_slug: str):
         upcoming_leave=upcoming_leave, current_leave=current_leave, csrf_token=_get_csrf_token,
         sites=sites, current_break=current_break, leave_history=leave_history,
         today_summary=today_summary,
+        payslips=payslips,
     )
 
 
@@ -796,14 +836,18 @@ def employee_break_start(business_slug: str):
         with transaction() as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
                 _locked_open_shift(cursor, business_id, employee_id, shift_id)
+                cursor.execute("""INSERT INTO staff_business_settings (business_id)
+                    VALUES (%s) ON CONFLICT (business_id) DO NOTHING""", (business_id,))
+                cursor.execute("SELECT break_policy FROM staff_business_settings WHERE business_id=%s", (business_id,))
+                break_policy = cursor.fetchone()["break_policy"]
                 cursor.execute("""INSERT INTO staff_breaks
                     (business_id,employee_id,shift_id,started_at,paid)
-                    VALUES (%s,%s,%s,clock_timestamp(),FALSE)
+                    VALUES (%s,%s,%s,clock_timestamp(),%s)
                     ON CONFLICT (shift_id) WHERE ended_at IS NULL DO NOTHING""",
-                    (business_id, employee_id, shift_id))
+                    (business_id, employee_id, shift_id, break_policy == "paid"))
                 if cursor.rowcount != 1:
                     raise ValueError("You already have an open break.")
-        flash("Unpaid break started.", "success")
+        flash("Break started.", "success")
     except ValueError as error:
         flash(str(error), "error")
     except _DB_ERRORS:
@@ -949,6 +993,39 @@ def approve_selected_shifts(business_slug):
         flash(f"{count} completed shift(s) approved. {len(ids)-count} unavailable or already reviewed.", "success")
     except ValueError as error:
         flash(str(error), "error")
+    except _DB_ERRORS:
+        _database_message()
+    return _manager_redirect(business_slug)
+
+
+@staff_blueprint.post("/<business_slug>/payroll/generate")
+@dashboard_login_required
+def generate_payroll(business_slug: str):
+    try:
+        period_start = period_dates(request.form.get("period_start"), "start date")
+        period_end = period_dates(request.form.get("period_end"), "end date")
+        with transaction() as connection:
+            result = generate_payroll_run(connection, _business_id(business_slug), period_start, period_end)
+        flash(
+            f"Draft payroll created for {result['shift_count']} approved shift(s) and "
+            f"{result['payslip_count']} employee(s). Gross pay: £{result['total_gross_pay']:.2f}.",
+            "success",
+        )
+    except PayrollError as error:
+        flash(str(error), "error")
+    except _DB_ERRORS:
+        _database_message()
+    return _manager_redirect(business_slug)
+
+
+@staff_blueprint.post("/<business_slug>/payroll/<int:run_id>/approve")
+@dashboard_login_required
+def approve_payroll(business_slug: str, run_id: int):
+    try:
+        count = execute("""UPDATE staff_payroll_runs SET status='approved',approved_at=NOW(),updated_at=NOW()
+            WHERE id=%s AND business_id=%s AND status='draft'""", (run_id, _business_id(business_slug)))
+        flash("Payroll run approved." if count else "That draft payroll run could not be found.",
+              "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
     return _manager_redirect(business_slug)

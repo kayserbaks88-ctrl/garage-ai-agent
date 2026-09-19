@@ -94,6 +94,16 @@ def execute(
 
 SCHEMA_STATEMENTS = (
     """
+    CREATE TABLE IF NOT EXISTS staff_business_settings (
+        business_id VARCHAR(100) PRIMARY KEY,
+        break_policy VARCHAR(20) NOT NULL DEFAULT 'unpaid',
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT staff_business_settings_break_policy_valid
+            CHECK (break_policy IN ('paid', 'unpaid'))
+    )
+    """,
+    """
     CREATE TABLE IF NOT EXISTS staff_employees (
         id BIGSERIAL PRIMARY KEY,
         business_id VARCHAR(100) NOT NULL,
@@ -392,6 +402,22 @@ SCHEMA_STATEMENTS = (
         employee_id,
         created_at DESC
     )
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS staff_payslip_shifts (
+        shift_id BIGINT PRIMARY KEY
+            REFERENCES staff_shifts(id) ON DELETE RESTRICT,
+        payroll_run_id BIGINT NOT NULL
+            REFERENCES staff_payroll_runs(id) ON DELETE RESTRICT,
+        payslip_id BIGINT NOT NULL
+            REFERENCES staff_payslips(id) ON DELETE RESTRICT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS
+        staff_payslip_shifts_run_index
+    ON staff_payslip_shifts (payroll_run_id, shift_id)
     """,
 )
 

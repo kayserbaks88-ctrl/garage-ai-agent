@@ -107,7 +107,7 @@
           {% else %}
             <form method="post" action="{{ url_for('staff.employee_break_start', business_slug=business_slug) }}" data-submit-once>
               <input type="hidden" name="csrf_token" value="{{ token }}"><input type="hidden" name="shift_id" value="{{ current_shift.id }}">
-              <button class="full" type="submit">Start unpaid break</button>
+              <button class="full" type="submit">Start break</button>
             </form>
           {% endif %}
           <div class="divider"></div>
@@ -167,6 +167,11 @@
       {% if leave_history %}
       <section class="card span"><details><summary>Recent leave requests</summary><ul class="records">{% for item in leave_history %}<li class="record"><div class="section-head"><strong>{{ item.leave_type | capitalize }}</strong><span class="pill {{ item.approval_status }}">{{ item.approval_status | capitalize }}</span></div><p>{{ date_text(item.start_date) }} – {{ date_text(item.end_date) }}</p>{% if item.manager_note %}<p class="help">Manager: {{ item.manager_note }}</p>{% endif %}</li>{% endfor %}</ul><p class="help">Showing up to 30 recent requests. Contact your manager to change approved leave.</p></details></section>
       {% endif %}
+      <section class="card span" aria-labelledby="payslips-title">
+        <div class="section-head"><h2 id="payslips-title">Payslips</h2><span class="pill">Phase 1</span></div>
+        <p class="help">These figures use completed manager-approved shifts. Statutory deductions are not calculated in this phase.</p>
+        {% if payslips %}<ul class="records">{% for payslip in payslips %}<li class="record"><strong>{{ date_text(payslip.period_start) }} – {{ date_text(payslip.period_end) }}</strong><p>{{ payslip.payable_minutes }} payable minutes · £{{ '%.2f'|format(payslip.hourly_rate) }} per hour</p><p class="help">Gross: £{{ '%.2f'|format(payslip.gross_pay) }} · Deductions: £{{ '%.2f'|format(payslip.deductions) }} · Net: £{{ '%.2f'|format(payslip.net_pay) }}</p></li>{% endfor %}</ul>{% else %}<p class="muted">No payslips are available yet.</p>{% endif %}
+      </section>
       <section class="card span"><div class="section-head"><h2>My details</h2><span class="pill">{{ employee.role | capitalize }}</span></div><dl class="details"><div><dt>Full name</dt><dd>{{ employee.full_name }}</dd></div><div><dt>Phone number</dt><dd>{{ employee.phone or 'Not supplied' }}</dd></div><div><dt>Email address</dt><dd>{{ employee.email or 'Not supplied' }}</dd></div><div><dt>Business</dt><dd>{{ business_slug }}</dd></div></dl><p class="help">Contact your manager if your details need updating.</p></section>
     </div>
   </main>
