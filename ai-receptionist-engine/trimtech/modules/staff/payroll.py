@@ -108,6 +108,7 @@ def calculate_shift_pay(
     payable_minutes = max(0, worked_minutes - unpaid_break_minutes)
     hourly_rate = Decimal(str(shift.get("hourly_rate") or "0")).quantize(MONEY)
     gross_pay = (Decimal(payable_minutes) / Decimal("60") * hourly_rate).quantize(MONEY, rounding=ROUND_HALF_UP)
+    deductions = Decimal("0.00")
     return ShiftPay(
         shift_id=int(shift["id"]),
         employee_id=int(shift["employee_id"]),
@@ -117,6 +118,8 @@ def calculate_shift_pay(
         payable_minutes=payable_minutes,
         hourly_rate=hourly_rate,
         gross_pay=gross_pay,
+        deductions=deductions,
+        net_pay=(gross_pay - deductions).quantize(MONEY, rounding=ROUND_HALF_UP),
     )
 
 
@@ -220,6 +223,9 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
         for employee_id, totals in employee_totals.items():
             for key in ("gross_pay", "deductions", "net_pay"):
                 totals[key] = totals[key].quantize(MONEY, rounding=ROUND_HALF_UP)
+            totals["net_pay"] = (totals["gross_pay"] - totals["deductions"]).quantize(
+                MONEY, rounding=ROUND_HALF_UP
+            )
             cursor.execute(
                 """INSERT INTO staff_payslips
                    (business_id,payroll_run_id,employee_id,worked_minutes,

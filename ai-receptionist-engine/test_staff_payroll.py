@@ -37,6 +37,7 @@ class StaffPayrollTests(unittest.TestCase):
         self.assertEqual(result.unpaid_break_minutes, 30)
         self.assertEqual(result.payable_minutes, 450)
         self.assertEqual(result.gross_pay, Decimal("112.50"))
+        self.assertEqual(result.net_pay, Decimal("112.50"))
 
     def test_paid_break_does_not_reduce_payable_minutes(self):
         result = calculate_shift_pay(
