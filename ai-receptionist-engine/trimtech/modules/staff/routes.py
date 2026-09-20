@@ -23,7 +23,8 @@ from trimtech.modules.staff.database import (
     init_staff_database, transaction,
 )
 from trimtech.modules.staff.payroll import (
-    PayrollError, generate_payroll_run, period_dates,
+    PayrollError, generate_payroll_run, parse_shift_datetime, period_dates,
+    validate_shift_edit,
 )
 
 
@@ -140,6 +141,7 @@ def dashboard(business_slug: str):
     profile_total = 0
     break_policy = "unpaid"
     payroll_runs = []
+    edit_shift = None
     profile_page = _page_arg("profile_page")
     try:
         init_staff_database()
@@ -194,6 +196,26 @@ def dashboard(business_slug: str):
         pending_shifts = fetch_all(_SHIFT_REVIEW_SQL + " WHERE " + where +
             " ORDER BY shift.clock_in_at, shift.id LIMIT 20 OFFSET %s",
             params + ((review["page"] - 1) * 20,))
+        edit_shift_id = request.args.get("edit_shift", type=int)
+        if edit_shift_id:
+            edit_shift = fetch_one("""
+                SELECT shift.id,shift.employee_id,employee.full_name,shift.site_name,
+                       shift.clock_in_at,shift.clock_out_at,shift.approval_status,
+                       shift.adjustment_reason
+                FROM staff_shifts AS shift
+                JOIN staff_employees AS employee
+                  ON employee.id=shift.employee_id AND employee.business_id=shift.business_id
+                WHERE shift.id=%s AND shift.business_id=%s
+                  AND shift.clock_out_at IS NOT NULL AND shift.approval_status='pending'
+                  AND NOT EXISTS (SELECT 1 FROM staff_payslip_shifts claimed
+                                  WHERE claimed.shift_id=shift.id)
+            """, (edit_shift_id, business_id))
+            if edit_shift:
+                edit_shift["breaks"] = fetch_all("""
+                    SELECT id,started_at,ended_at,paid,note
+                    FROM staff_breaks WHERE business_id=%s AND shift_id=%s
+                    ORDER BY started_at,id
+                """, (business_id, edit_shift_id))
         profile_id = request.args.get("employee", type=int)
         if profile_id:
             profile = next((e for e in employees if e["id"] == profile_id), None)
@@ -251,6 +273,7 @@ def dashboard(business_slug: str):
         profile_total=profile_total, profile_page=profile_page,
         page_link=_dashboard_page_link,
         break_policy=break_policy, payroll_runs=payroll_runs,
+        edit_shift=edit_shift,
     )
 
 
@@ -971,6 +994,68 @@ _SHIFT_REVIEW_SQL = """
         AND br.employee_id=shift.employee_id AND br.shift_id=shift.id AND NOT br.paid
     ) AS b ON TRUE
 """
+
+
+@staff_blueprint.post("/<business_slug>/shifts/<int:shift_id>/edit")
+@dashboard_login_required
+def edit_shift(business_slug: str, shift_id: int):
+    business_id = _business_id(business_slug)
+    try:
+        clock_in_at = parse_shift_datetime(request.form.get("clock_in_at"), "clock-in time")
+        clock_out_at = parse_shift_datetime(request.form.get("clock_out_at"), "clock-out time")
+        adjustment_reason = _clean_text(request.form.get("adjustment_reason"), 1000)
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT id,employee_id,clock_in_at,clock_out_at,approval_status
+                    FROM staff_shifts WHERE id=%s AND business_id=%s FOR UPDATE
+                """, (shift_id, business_id))
+                shift = cursor.fetchone()
+                if not shift:
+                    raise ValueError("That shift could not be found.")
+                if not shift["clock_out_at"] or shift["approval_status"] != "pending":
+                    raise ValueError("Only completed pending shifts can be edited before approval.")
+                cursor.execute("""
+                    SELECT 1 FROM staff_payslip_shifts WHERE shift_id=%s FOR SHARE
+                """, (shift_id,))
+                if cursor.fetchone():
+                    raise ValueError("This shift is locked because it is already allocated to payroll.")
+                cursor.execute("""
+                    SELECT id,started_at,ended_at,paid FROM staff_breaks
+                    WHERE business_id=%s AND shift_id=%s ORDER BY started_at,id FOR UPDATE
+                """, (business_id, shift_id))
+                existing_breaks = [dict(row) for row in cursor.fetchall()]
+                edited_breaks = []
+                for break_record in existing_breaks:
+                    prefix = f"break_{break_record['id']}_"
+                    edited_breaks.append({
+                        "id": break_record["id"],
+                        "started_at": parse_shift_datetime(request.form.get(prefix + "started_at"), "break start"),
+                        "ended_at": parse_shift_datetime(request.form.get(prefix + "ended_at"), "break end"),
+                    })
+                validate_shift_edit(clock_in_at, clock_out_at, edited_breaks)
+                cursor.execute("""
+                    UPDATE staff_shifts
+                    SET clock_in_at=%s,clock_out_at=%s,adjustment_reason=NULLIF(%s,''),updated_at=NOW()
+                    WHERE id=%s AND business_id=%s AND approval_status='pending'
+                      AND clock_out_at IS NOT NULL
+                      AND NOT EXISTS (SELECT 1 FROM staff_payslip_shifts WHERE shift_id=%s)
+                """, (clock_in_at, clock_out_at, adjustment_reason, shift_id, business_id, shift_id))
+                if cursor.rowcount != 1:
+                    raise ValueError("That shift changed while you were editing it. Refresh and try again.")
+                for break_record in edited_breaks:
+                    cursor.execute("""
+                        UPDATE staff_breaks SET started_at=%s,ended_at=%s,updated_at=NOW()
+                        WHERE id=%s AND shift_id=%s AND business_id=%s
+                    """, (break_record["started_at"], break_record["ended_at"],
+                          break_record["id"], shift_id, business_id))
+        flash("Shift correction saved. Review the updated payable time before approval.", "success")
+    except (ValueError, PayrollError) as error:
+        flash(str(error), "error")
+    except _DB_ERRORS:
+        _database_message()
+    return redirect(url_for("staff.dashboard", business_slug=business_slug,
+                            _anchor="approvals"))
 
 
 @staff_blueprint.post("/<business_slug>/shifts/approve-selected")

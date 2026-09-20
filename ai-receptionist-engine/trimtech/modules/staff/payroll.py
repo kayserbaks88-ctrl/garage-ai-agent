@@ -4,14 +4,49 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Iterable, Mapping
+from zoneinfo import ZoneInfo
 
 
 
 MONEY = Decimal("0.01")
+UK_TIMEZONE = ZoneInfo("Europe/London")
 
 
 class PayrollError(ValueError):
     """Raised when a payroll run cannot be safely generated or changed."""
+
+
+def parse_shift_datetime(value: Any, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(str(value or "").strip())
+    except ValueError as error:
+        raise PayrollError(f"Enter a valid {label}.") from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UK_TIMEZONE)
+    return parsed.astimezone(UK_TIMEZONE)
+
+
+def validate_shift_edit(
+    clock_in_at: datetime,
+    clock_out_at: datetime,
+    breaks: Iterable[Mapping[str, Any]],
+) -> None:
+    if clock_out_at <= clock_in_at:
+        raise PayrollError("Clock-out must be after clock-in.")
+    intervals = []
+    for break_record in breaks:
+        started_at = break_record.get("started_at")
+        ended_at = break_record.get("ended_at")
+        if not started_at or not ended_at:
+            raise PayrollError("Every break must have a start and end time.")
+        if ended_at <= started_at:
+            raise PayrollError("Break end must be after break start.")
+        if started_at < clock_in_at or ended_at > clock_out_at:
+            raise PayrollError("Breaks must fall within the shift.")
+        intervals.append((started_at, ended_at))
+    for previous, current in zip(sorted(intervals), sorted(intervals)[1:]):
+        if current[0] < previous[1]:
+            raise PayrollError("Breaks cannot overlap.")
 
 
 @dataclass(frozen=True)

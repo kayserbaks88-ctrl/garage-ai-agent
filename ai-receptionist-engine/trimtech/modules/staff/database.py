@@ -169,6 +169,7 @@ SCHEMA_STATEMENTS = (
             REFERENCES staff_employees(id) ON DELETE SET NULL,
         approved_at TIMESTAMPTZ,
         manager_note TEXT,
+        adjustment_reason TEXT,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         CONSTRAINT staff_shifts_clock_order_valid
@@ -185,6 +186,10 @@ SCHEMA_STATEMENTS = (
                 )
             )
     )
+    """,
+    """
+    ALTER TABLE staff_shifts
+        ADD COLUMN IF NOT EXISTS adjustment_reason TEXT
     """,
     """
     CREATE UNIQUE INDEX IF NOT EXISTS
