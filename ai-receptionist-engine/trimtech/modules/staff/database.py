@@ -427,13 +427,20 @@ SCHEMA_STATEMENTS = (
 )
 
 
-def init_staff_database() -> None:
-    """Create the Staff Manager tables and indexes when absent."""
+def init_staff_database(*, migrate: bool = False) -> None:
+    """Check the deployed schema without silently repairing schema drift."""
+    from trimtech.modules.staff import migrations
     try:
         with transaction() as connection:
             with connection.cursor() as cursor:
-                for statement in SCHEMA_STATEMENTS:
-                    cursor.execute(statement)
+                if migrate:
+                    cursor.execute("SELECT to_regclass('staff_schema_migrations')")
+                    if cursor.fetchone()[0] is None:
+                        for statement in SCHEMA_STATEMENTS:
+                            cursor.execute(statement)
+                    migrations.migrate(cursor)
+                else:
+                    migrations.verify(cursor)
     except psycopg2.Error as error:
         raise StaffDatabaseError(
             "TrimTech Staff Manager database setup failed."

@@ -26,6 +26,7 @@ from trimtech.modules.staff.payroll import (
     PayrollError, generate_payroll_run, parse_shift_datetime, period_dates,
     validate_shift_edit,
 )
+from trimtech.modules.staff import agency
 
 
 staff_blueprint = Blueprint("staff", __name__, url_prefix="/staff")
@@ -142,9 +143,11 @@ def dashboard(business_slug: str):
     break_policy = "unpaid"
     payroll_runs = []
     edit_shift = None
+    agency_settings = {"organisation_mode": "fixed", "travel_enabled": False}
     profile_page = _page_arg("profile_page")
     try:
         init_staff_database()
+        agency_settings = agency.settings(business_id)
         summary = fetch_one("""
             SELECT
               (SELECT COUNT(*) FROM staff_employees
@@ -168,7 +171,7 @@ def dashboard(business_slug: str):
         """, (business_id,))
         sites = fetch_all("""
             SELECT id, name, address, latitude, longitude, allowed_radius_metres,
-                   photo_required, active, created_at
+                   photo_required, active, created_at, client_reference
             FROM staff_sites WHERE business_id=%s
             ORDER BY CASE WHEN active THEN 0 ELSE 1 END, name
         """, (business_id,))
@@ -199,18 +202,18 @@ def dashboard(business_slug: str):
         edit_shift_id = request.args.get("edit_shift", type=int)
         if edit_shift_id:
             edit_shift = fetch_one("""
-                SELECT shift.id,shift.employee_id,employee.full_name,shift.site_name,
-                       shift.clock_in_at,shift.clock_out_at,shift.approval_status,
-                       shift.adjustment_reason
+                SELECT shift.*,employee.full_name
                 FROM staff_shifts AS shift
                 JOIN staff_employees AS employee
                   ON employee.id=shift.employee_id AND employee.business_id=shift.business_id
                 WHERE shift.id=%s AND shift.business_id=%s
-                  AND shift.clock_out_at IS NOT NULL AND shift.approval_status='pending'
-                  AND NOT EXISTS (SELECT 1 FROM staff_payslip_shifts claimed
-                                  WHERE claimed.shift_id=shift.id)
+                  AND shift.clock_out_at IS NOT NULL
             """, (edit_shift_id, business_id))
             if edit_shift:
+                edit_shift["travel"] = fetch_one("SELECT * FROM staff_shift_travel WHERE shift_id=%s AND business_id=%s",
+                                                (edit_shift_id, business_id))
+                edit_shift["audit"] = fetch_all("SELECT * FROM staff_audit WHERE business_id=%s AND entity_type='shift' AND entity_id=%s ORDER BY id DESC LIMIT 20",
+                                               (business_id, edit_shift_id))
                 edit_shift["breaks"] = fetch_all("""
                     SELECT id,started_at,ended_at,paid,note
                     FROM staff_breaks WHERE business_id=%s AND shift_id=%s
@@ -257,7 +260,7 @@ def dashboard(business_slug: str):
         settings = fetch_one("SELECT break_policy FROM staff_business_settings WHERE business_id=%s", (business_id,))
         break_policy = (settings or {}).get("break_policy") or "unpaid"
         payroll_runs = fetch_all("""
-            SELECT id,period_start,period_end,status,total_gross_pay,total_deductions,total_net_pay,created_at
+            SELECT id,period_start,period_end,status,total_gross_pay,total_deductions,total_net_pay,created_at,needs_recalculation
             FROM staff_payroll_runs WHERE business_id=%s ORDER BY period_end DESC,id DESC LIMIT 20
         """, (business_id,))
     except _DB_ERRORS:
@@ -274,6 +277,7 @@ def dashboard(business_slug: str):
         page_link=_dashboard_page_link,
         break_policy=break_policy, payroll_runs=payroll_runs,
         edit_shift=edit_shift,
+        agency_settings=agency_settings, uk_input=agency.uk_input,
     )
 
 
@@ -342,10 +346,11 @@ def add_site(business_slug: str):
                      (business_id, name)):
             raise ValueError("A site with that name already exists.")
         execute("""INSERT INTO staff_sites
-            (business_id,name,address,latitude,longitude,allowed_radius_metres,photo_required,active)
-            VALUES (%s,%s,NULLIF(%s,''),%s,%s,%s,%s,TRUE)""",
+            (business_id,name,address,latitude,longitude,allowed_radius_metres,photo_required,active,client_reference)
+            VALUES (%s,%s,NULLIF(%s,''),%s,%s,%s,%s,TRUE,NULLIF(%s,''))""",
             (business_id, name, _clean_text(request.form.get("address"), 1000), latitude,
-             longitude, radius, request.form.get("photo_required") == "on"))
+             longitude, radius, request.form.get("photo_required") == "on",
+             _clean_text(request.form.get("client_reference"), 160)))
         flash(f"{name} has been added as a work site.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -651,6 +656,10 @@ def employee_home(business_slug: str):
     employee = g.staff_employee
     parameters = (_business_id(business_slug), employee["id"])
     try:
+        agency_settings = agency.settings(parameters[0])
+        assignments = agency.upcoming_assignments(*parameters) if agency_settings["organisation_mode"] == "agency" else []
+        travel_origin = agency.origin_for_employee(*parameters) if (
+            agency_settings["organisation_mode"] == "agency" or agency_settings["travel_enabled"]) else None
         current_shift = fetch_one("""SELECT id,site_id,site_name,clock_in_at,approval_status
             FROM staff_shifts WHERE business_id=%s AND employee_id=%s AND clock_out_at IS NULL
             ORDER BY clock_in_at DESC LIMIT 1""", parameters)
@@ -691,7 +700,7 @@ def employee_home(business_slug: str):
                    run.period_start,run.period_end,run.status
             FROM staff_payslips AS payslip
             JOIN staff_payroll_runs AS run ON run.id=payslip.payroll_run_id
-            WHERE payslip.business_id=%s AND payslip.employee_id=%s
+            WHERE payslip.business_id=%s AND payslip.employee_id=%s AND NOT run.needs_recalculation
             ORDER BY run.period_end DESC,payslip.id DESC LIMIT 20
         """, parameters)
         sites = fetch_all("""SELECT id,name,address,photo_required,allowed_radius_metres FROM staff_sites
@@ -714,6 +723,7 @@ def employee_home(business_slug: str):
         sites=sites, current_break=current_break, leave_history=leave_history,
         today_summary=today_summary,
         payslips=payslips,
+        agency_settings=agency_settings, assignments=assignments, travel_origin=travel_origin,
     )
 
 
@@ -776,28 +786,38 @@ def _verified_location(site):
 def employee_clock_in(business_slug: str):
     business_id, employee_id = _business_id(business_slug), g.staff_employee["id"]
     try:
-        site_id = _positive_form_id("site_id", "Work site")
         with transaction() as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                config = agency.locked_settings(cursor, business_id)
                 _lock_employee(cursor, business_id, employee_id)
+                assignment = None
+                if config["organisation_mode"] == "agency":
+                    assignment = agency.resolve_assignment(cursor, business_id, employee_id,
+                        _positive_form_id("assignment_id", "Assignment"))
+                    site_id = assignment["site_id"]
+                else:
+                    site_id = _positive_form_id("site_id", "Work site")
                 cursor.execute("""SELECT id FROM staff_shifts WHERE business_id=%s AND employee_id=%s
                     AND clock_out_at IS NULL""", (business_id, employee_id))
                 if cursor.fetchone():
                     raise ValueError("You are already clocked in. Refresh to see your current shift.")
-                cursor.execute("""SELECT id,name,latitude,longitude,allowed_radius_metres,photo_required
+                cursor.execute("""SELECT id,name,address,latitude,longitude,allowed_radius_metres,photo_required
                     FROM staff_sites WHERE id=%s AND business_id=%s AND active=TRUE FOR SHARE""", (site_id, business_id))
                 site = cursor.fetchone()
                 if not site:
                     raise ValueError("That active work site could not be found.")
                 latitude, longitude = _verified_location(site)
+                evidence = agency.gps_evidence(request.form, required=config["organisation_mode"] == "agency")
                 cursor.execute("""INSERT INTO staff_shifts
                     (business_id,employee_id,site_id,site_name,clock_in_at,
                      clock_in_latitude,clock_in_longitude,approval_status)
                     VALUES (%s,%s,%s,%s,clock_timestamp(),%s,%s,'pending')
-                    ON CONFLICT (business_id,employee_id) WHERE clock_out_at IS NULL DO NOTHING""",
+                    ON CONFLICT (business_id,employee_id) WHERE clock_out_at IS NULL DO NOTHING RETURNING id""",
                     (business_id, employee_id, site["id"], site["name"], latitude, longitude))
                 if cursor.rowcount != 1:
                     raise ValueError("You are already clocked in. Refresh to see your shift.")
+                agency.snapshot_shift(cursor, business_id, employee_id, cursor.fetchone()["id"],
+                                      site, assignment, config, evidence)
         flash(f"Clocked in at {site['name']}.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -808,7 +828,7 @@ def employee_clock_in(business_slug: str):
 
 def _locked_open_shift(cursor, business_id: str, employee_id: int, shift_id: int):
     _lock_employee(cursor, business_id, employee_id)
-    cursor.execute("""SELECT id,site_id,site_name,clock_in_at FROM staff_shifts
+    cursor.execute("""SELECT * FROM staff_shifts
         WHERE id=%s AND business_id=%s AND employee_id=%s AND clock_out_at IS NULL FOR UPDATE""",
         (shift_id, business_id, employee_id))
     shift = cursor.fetchone()
@@ -825,6 +845,7 @@ def employee_clock_out(business_slug: str):
         shift_id = _positive_form_id("shift_id", "Shift")
         with transaction() as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                config = agency.locked_settings(cursor, business_id)
                 shift = _locked_open_shift(cursor, business_id, employee_id, shift_id)
                 # An inactive site may still be used to close its existing shift.
                 cursor.execute("""SELECT id,latitude,longitude,allowed_radius_metres,photo_required
@@ -832,16 +853,22 @@ def employee_clock_out(business_slug: str):
                 site = cursor.fetchone()
                 if not site:
                     raise ValueError("This shift's site is unavailable. Ask your manager to help close the shift.")
+                if shift.get("assignment_id") and shift.get("site_latitude_snapshot") is not None:
+                    site = dict(site, latitude=shift["site_latitude_snapshot"],
+                                longitude=shift["site_longitude_snapshot"],
+                                allowed_radius_metres=shift["site_radius_snapshot"])
                 latitude, longitude = _verified_location(site)
+                accuracy, captured = agency.gps_evidence(request.form, required=bool(shift.get("assignment_id")))
                 cursor.execute("SELECT clock_timestamp() AS finished_at")
                 finished_at = cursor.fetchone()["finished_at"]
                 cursor.execute("""UPDATE staff_breaks SET ended_at=%s,updated_at=%s
                     WHERE shift_id=%s AND business_id=%s AND employee_id=%s AND ended_at IS NULL""",
                     (finished_at, finished_at, shift_id, business_id, employee_id))
                 cursor.execute("""UPDATE staff_shifts SET clock_out_at=%s,clock_out_latitude=%s,
-                    clock_out_longitude=%s,updated_at=%s WHERE id=%s AND business_id=%s
+                    clock_out_longitude=%s,updated_at=%s,clock_out_accuracy=%s,clock_out_captured_at=%s,
+                    clock_out_verification='within_radius',approval_status='pending' WHERE id=%s AND business_id=%s
                     AND employee_id=%s AND clock_out_at IS NULL""",
-                    (finished_at, latitude, longitude, finished_at, shift_id, business_id, employee_id))
+                    (finished_at, latitude, longitude, finished_at, accuracy, captured, shift_id, business_id, employee_id))
         flash("Clocked out. Your completed shift is ready for manager review.", "success")
     except ValueError as error:
         flash(str(error), "error")
@@ -1006,20 +1033,16 @@ def edit_shift(business_slug: str, shift_id: int):
         adjustment_reason = _clean_text(request.form.get("adjustment_reason"), 1000)
         with transaction() as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                agency.lock_business(cursor, business_id)
                 cursor.execute("""
-                    SELECT id,employee_id,clock_in_at,clock_out_at,approval_status
+                    SELECT *
                     FROM staff_shifts WHERE id=%s AND business_id=%s FOR UPDATE
                 """, (shift_id, business_id))
                 shift = cursor.fetchone()
                 if not shift:
                     raise ValueError("That shift could not be found.")
-                if not shift["clock_out_at"] or shift["approval_status"] != "pending":
-                    raise ValueError("Only completed pending shifts can be edited before approval.")
-                cursor.execute("""
-                    SELECT 1 FROM staff_payslip_shifts WHERE shift_id=%s FOR SHARE
-                """, (shift_id,))
-                if cursor.fetchone():
-                    raise ValueError("This shift is locked because it is already allocated to payroll.")
+                if not shift["clock_out_at"]:
+                    raise ValueError("Complete the shift before editing it.")
                 cursor.execute("""
                     SELECT id,started_at,ended_at,paid FROM staff_breaks
                     WHERE business_id=%s AND shift_id=%s ORDER BY started_at,id FOR UPDATE
@@ -1034,22 +1057,10 @@ def edit_shift(business_slug: str, shift_id: int):
                         "ended_at": parse_shift_datetime(request.form.get(prefix + "ended_at"), "break end"),
                     })
                 validate_shift_edit(clock_in_at, clock_out_at, edited_breaks)
-                cursor.execute("""
-                    UPDATE staff_shifts
-                    SET clock_in_at=%s,clock_out_at=%s,adjustment_reason=NULLIF(%s,''),updated_at=NOW()
-                    WHERE id=%s AND business_id=%s AND approval_status='pending'
-                      AND clock_out_at IS NOT NULL
-                      AND NOT EXISTS (SELECT 1 FROM staff_payslip_shifts WHERE shift_id=%s)
-                """, (clock_in_at, clock_out_at, adjustment_reason, shift_id, business_id, shift_id))
-                if cursor.rowcount != 1:
-                    raise ValueError("That shift changed while you were editing it. Refresh and try again.")
-                for break_record in edited_breaks:
-                    cursor.execute("""
-                        UPDATE staff_breaks SET started_at=%s,ended_at=%s,updated_at=NOW()
-                        WHERE id=%s AND shift_id=%s AND business_id=%s
-                    """, (break_record["started_at"], break_record["ended_at"],
-                          break_record["id"], shift_id, business_id))
-        flash("Shift correction saved. Review the updated payable time before approval.", "success")
+                values = dict(request.form, clock_in_at=clock_in_at, clock_out_at=clock_out_at,
+                              adjustment_reason=adjustment_reason)
+                message = agency.correct_shift(cursor, business_id, _manager_actor(), shift, values, edited_breaks)
+        flash(message, "success")
     except (ValueError, PayrollError) as error:
         flash(str(error), "error")
     except _DB_ERRORS:
@@ -1090,6 +1101,8 @@ def generate_payroll(business_slug: str):
         period_start = period_dates(request.form.get("period_start"), "start date")
         period_end = period_dates(request.form.get("period_end"), "end date")
         with transaction() as connection:
+            with connection.cursor() as cursor:
+                agency.lock_business(cursor, _business_id(business_slug))
             result = generate_payroll_run(connection, _business_id(business_slug), period_start, period_end)
         flash(
             f"Draft payroll created for {result['shift_count']} approved shift(s) and "
@@ -1107,9 +1120,14 @@ def generate_payroll(business_slug: str):
 @dashboard_login_required
 def approve_payroll(business_slug: str, run_id: int):
     try:
-        count = execute("""UPDATE staff_payroll_runs SET status='approved',approved_at=NOW(),updated_at=NOW()
-            WHERE id=%s AND business_id=%s AND status='draft'""", (run_id, _business_id(business_slug)))
-        flash("Payroll run approved." if count else "That draft payroll run could not be found.",
+        with transaction() as connection:
+            with connection.cursor() as cursor:
+                agency.lock_business(cursor, _business_id(business_slug))
+                cursor.execute("""UPDATE staff_payroll_runs SET status='approved',approved_at=NOW(),updated_at=NOW()
+                    WHERE id=%s AND business_id=%s AND status='draft' AND NOT needs_recalculation""",
+                    (run_id, _business_id(business_slug)))
+                count = cursor.rowcount
+        flash("Payroll run approved." if count else "That draft is unavailable or needs recalculation.",
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
@@ -1182,3 +1200,13 @@ def _today_hours(business_id, employee_id):
                  ROUND(COALESCE(SUM(elapsed-unpaid),0)/3600,2) AS net_hours
           FROM amounts
     """, (business_id,employee_id)) or {"elapsed_hours":0,"unpaid_hours":0,"net_hours":0}
+
+
+def _manager_actor():
+    return "manager:" + str(session.get("dashboard_username") or "dashboard")
+
+
+from trimtech.modules.staff.agency_routes import register_routes
+import sys
+
+register_routes(sys.modules[__name__])

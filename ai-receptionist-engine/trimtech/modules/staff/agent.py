@@ -394,6 +394,9 @@ def _create_shift(
 ) -> tuple[bool, dict[str, Any]]:
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            from trimtech.modules.staff.agency import locked_settings
+            if locked_settings(cursor, business_id)["organisation_mode"] == "agency":
+                raise ValueError("Use the employee portal for assignment-based GPS clocking.")
             cursor.execute(
                 """
                 SELECT id, site_name, clock_in_at
@@ -505,6 +508,9 @@ def _clock_out(
 
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            from trimtech.modules.staff.agency import locked_settings
+            if locked_settings(cursor, business_id)["organisation_mode"] == "agency":
+                return "Use your employee portal to clock out with a fresh GPS reading."
             cursor.execute(
                 """
                 SELECT id, site_name, clock_in_at
@@ -838,6 +844,14 @@ def handle_message(
             return f"Hi {first_name}. Your staff account is inactive, so I can't record a shift. Please contact your manager."
 
         key = _session_key(business_id, phone)
+        from trimtech.modules.staff.agency import settings
+        if settings(business_id)["organisation_mode"] == "agency":
+            _drop_session(key)
+            return (
+                "Your organisation uses assigned jobs. Open your Staff Manager employee portal "
+                "to view assignments, clock in/out with fresh GPS, manage breaks or request leave. "
+                "Contact your manager if an assignment is missing."
+            )
         intent = _intent(message)
         if intent == "cancel":
             had_session = _get_session(key) is not None

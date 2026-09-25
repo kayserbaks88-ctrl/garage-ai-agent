@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Any, Iterable, Mapping
 from zoneinfo import ZoneInfo
@@ -22,8 +22,15 @@ def parse_shift_datetime(value: Any, label: str) -> datetime:
     except ValueError as error:
         raise PayrollError(f"Enter a valid {label}.") from error
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=UK_TIMEZONE)
-    return parsed.astimezone(UK_TIMEZONE)
+        candidates = [parsed.replace(tzinfo=UK_TIMEZONE, fold=fold) for fold in (0, 1)]
+        valid = [candidate for candidate in candidates if candidate.astimezone(timezone.utc)
+                 .astimezone(UK_TIMEZONE).replace(tzinfo=None) == parsed]
+        if not valid:
+            raise PayrollError(f"That {label} does not exist when UK clocks change.")
+        if len({candidate.utcoffset() for candidate in valid}) > 1:
+            raise PayrollError(f"That {label} is ambiguous. Include +01:00 or +00:00.")
+        parsed = valid[0]
+    return parsed.astimezone(timezone.utc)
 
 
 def validate_shift_edit(
@@ -179,8 +186,10 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
         raise PayrollError("Payroll end date cannot be before the start date.")
 
     from psycopg2.extras import RealDictCursor
+    from trimtech.modules.staff.agency import lock_business
 
     with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        lock_business(cursor, business_id)
         cursor.execute(
             """SELECT id FROM staff_payroll_runs
                WHERE business_id=%s AND period_start=%s AND period_end=%s
@@ -304,3 +313,48 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
             "shift_count": len(shifts),
             "payslip_count": len(employee_totals),
         }
+
+
+def recalculate_payroll_run(connection, business_id, run_id, actor):
+    """Explicitly refresh an existing draft using its original rate snapshots."""
+    from psycopg2.extras import RealDictCursor
+    from trimtech.modules.staff.agency import audit, lock_business
+
+    with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+        lock_business(cursor, business_id)
+        cursor.execute("SELECT * FROM staff_payroll_runs WHERE id=%s AND business_id=%s FOR UPDATE", (run_id, business_id))
+        run = cursor.fetchone()
+        if not run or run["status"] != "draft" or not run["needs_recalculation"]:
+            raise PayrollError("Only a flagged draft payroll run can be recalculated.")
+        cursor.execute("SELECT * FROM staff_payslips WHERE payroll_run_id=%s AND business_id=%s ORDER BY id FOR UPDATE",
+                       (run_id, business_id))
+        payslips = cursor.fetchall()
+        gross_total = Decimal("0.00")
+        for payslip in payslips:
+            cursor.execute("""SELECT s.* FROM staff_shifts s JOIN staff_payslip_shifts p ON p.shift_id=s.id
+                WHERE p.payslip_id=%s AND p.payroll_run_id=%s AND s.business_id=%s AND s.employee_id=%s
+                ORDER BY s.id FOR UPDATE OF s""", (payslip["id"], run_id, business_id, payslip["employee_id"]))
+            shifts = cursor.fetchall()
+            totals = {key: 0 for key in ("worked_minutes", "paid_break_minutes", "unpaid_break_minutes", "payable_minutes")}
+            gross = Decimal("0.00")
+            for shift in shifts:
+                if not shift["clock_out_at"] or shift["approval_status"] != "approved":
+                    raise PayrollError("Review and approve every allocated shift before recalculating this draft.")
+                shift["hourly_rate"] = payslip["hourly_rate"]
+                cursor.execute("SELECT started_at,ended_at,paid FROM staff_breaks WHERE shift_id=%s AND business_id=%s",
+                               (shift["id"], business_id))
+                result = calculate_shift_pay(shift, cursor.fetchall())
+                for key in totals:
+                    totals[key] += getattr(result, key)
+                gross += result.gross_pay
+            if payslip["deductions"]:
+                raise PayrollError("A draft with manual deductions requires a payroll adjustment review.")
+            cursor.execute("""UPDATE staff_payslips SET worked_minutes=%s,paid_break_minutes=%s,
+                unpaid_break_minutes=%s,payable_minutes=%s,gross_pay=%s,net_pay=%s,updated_at=NOW()
+                WHERE id=%s AND business_id=%s""", (*totals.values(), gross, gross, payslip["id"], business_id))
+            gross_total += gross
+        cursor.execute("""UPDATE staff_payroll_runs SET total_gross_pay=%s,total_net_pay=%s,
+            needs_recalculation=FALSE,updated_at=NOW() WHERE id=%s AND business_id=%s""",
+            (gross_total, gross_total, run_id, business_id))
+        audit(cursor, business_id, actor, "draft_recalculated", "payroll", run_id,
+              dict(run), {"gross_pay": gross_total}, "Manager explicitly recalculated reviewed shifts")

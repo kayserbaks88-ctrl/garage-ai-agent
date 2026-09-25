@@ -1,2 +1,17 @@
 credential.json
 .env
+.agency-test-env/
+.test-tools/
+.test-python/
+.test-cache/
+.test-postgres/
+.test-postgres.zip
+.test-pgdata*/
+.test-pg.log
+__pycache__/
+.venv*/
+.release-validation/
+*.dump
+*.backup
+/ai-receptionist-engine/send to chat 2.zip
+/ai-receptionist-engine/sent to chat 1.zip

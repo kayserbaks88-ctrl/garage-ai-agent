@@ -1,0 +1,17 @@
+<section class="card span" aria-labelledby="travel-origin-title">
+  <h2 id="travel-origin-title">Optional travel origin</h2>
+  <p class="help">Choose a starting address or postcode for straight-line travel estimates. Your authorized manager can view it. We never infer your home from clock-in GPS or track your movement. Estimates are not driving mileage and do not calculate travel pay.</p>
+  {% if travel_origin %}<p>Saved origin: {{ travel_origin.address or 'Coordinates only' }}. {{ 'Approximate postcode centroid.' if travel_origin.approximate else '' }}</p>{% else %}<p>No enabled origin. Distance unavailable.</p>{% endif %}
+  <form method="post" action="{{ url_for('staff.employee_travel_origin',business_slug=business_slug) }}">
+    <input type="hidden" name="csrf_token" value="{{ token }}">
+    <div class="field"><label for="origin-address">Address or postcode (optional with coordinates)</label><input id="origin-address" name="origin_address" maxlength="1000" value="{{ travel_origin.address if travel_origin else '' }}"></div>
+    <div class="dates"><div class="field"><label for="origin-lat">Verified latitude (optional)</label><input id="origin-lat" name="origin_latitude" type="number" min="-90" max="90" step="0.0000001" value="{{ travel_origin.latitude or '' if travel_origin else '' }}"></div><div class="field"><label for="origin-lon">Verified longitude (optional)</label><input id="origin-lon" name="origin_longitude" type="number" min="-180" max="180" step="0.0000001" value="{{ travel_origin.longitude or '' if travel_origin else '' }}"></div></div>
+    <p class="help">An address alone is stored without automatic geocoding; distance remains unavailable until checked coordinates are supplied.</p>
+    <label><input style="width:auto;min-height:0" type="checkbox" name="coordinates_verified"> I have checked these origin coordinates</label>
+    <label><input style="width:auto;min-height:0" type="checkbox" name="approximate" {{ 'checked' if travel_origin and travel_origin.approximate else '' }}> These coordinates are an approximate postcode centroid</label>
+    <label><input style="width:auto;min-height:0" type="checkbox" name="consent" required> I consent to storing this origin and sharing it with my authorized manager for travel estimates</label>
+    <button type="submit">Save travel origin</button>
+  </form>
+  {% if travel_origin %}<form method="post" action="{{ url_for('staff.employee_travel_origin',business_slug=business_slug) }}"><input type="hidden" name="csrf_token" value="{{ token }}"><input type="hidden" name="disable" value="on"><button class="danger" type="submit">Disable and clear current origin</button></form>{% endif %}
+  <p class="help">Disabling stops future calculations. Existing shift snapshots remain available for manager review and are not recalculated.</p>
+</section>

@@ -1,0 +1,15 @@
+<div class="body">
+  <h3>Assignment and clocking evidence</h3>
+  <p>Assigned site: {{ edit_shift.assigned_site_name or 'Historical shift — no assignment snapshot' }}<br>{{ edit_shift.assigned_site_address or '' }}</p>
+  <p>Planned: {{ stamp(edit_shift.planned_start_at) }} – {{ stamp(edit_shift.planned_end_at) }}<br>Actual: {{ stamp(edit_shift.clock_in_at) }} – {{ stamp(edit_shift.clock_out_at) }}</p>
+  <p>Planned hours: {% if edit_shift.planned_start_at and edit_shift.planned_end_at %}{{ ((edit_shift.planned_end_at-edit_shift.planned_start_at).total_seconds()/3600)|round(2) }}{% else %}Not recorded{% endif %}<br>Actual clocked hours: {{ ((edit_shift.clock_out_at-edit_shift.clock_in_at).total_seconds()/3600)|round(2) }} (before breaks)</p>
+  <div class="table-wrap"><table><thead><tr><th>Clocking</th><th>GPS coordinates</th><th>Accuracy</th><th>Captured</th><th>Radius check</th></tr></thead><tbody>
+    <tr><td>In</td><td>{{ edit_shift.clock_in_latitude if edit_shift.clock_in_latitude is not none else 'Unavailable' }}, {{ edit_shift.clock_in_longitude if edit_shift.clock_in_longitude is not none else 'Unavailable' }}</td><td>{{ edit_shift.clock_in_accuracy if edit_shift.clock_in_accuracy is not none else 'Unavailable' }} m</td><td>{{ stamp(edit_shift.clock_in_captured_at) }}</td><td>{{ edit_shift.clock_in_verification or 'Not recorded' }}</td></tr>
+    <tr><td>Out</td><td>{{ edit_shift.clock_out_latitude if edit_shift.clock_out_latitude is not none else 'Unavailable' }}, {{ edit_shift.clock_out_longitude if edit_shift.clock_out_longitude is not none else 'Unavailable' }}</td><td>{{ edit_shift.clock_out_accuracy if edit_shift.clock_out_accuracy is not none else 'Unavailable' }} m</td><td>{{ stamp(edit_shift.clock_out_captured_at) }}</td><td>{{ edit_shift.clock_out_verification or 'Not recorded' }}</td></tr>
+  </tbody></table></div>
+  <p class="help">GPS is client-supplied evidence, not proof against spoofing. Radius at clock-in: {{ edit_shift.site_radius_snapshot or 'Not recorded' }} m.</p>
+  {% if edit_shift.travel %}<p>Original travel: {{ edit_shift.travel.distance_km if edit_shift.travel.distance_km is not none else 'Distance unavailable' }}{% if edit_shift.travel.distance_km is not none %} km{% endif %} · straight-line estimate<br>Manager estimate: {{ edit_shift.travel.manager_distance_km if edit_shift.travel.manager_distance_km is not none else '—' }} km · {{ edit_shift.travel.review_status }}</p>{% else %}<p>Distance unavailable. No travel calculation recorded.</p>{% endif %}
+  <p class="help">Travel pay: —. Estimates are not driving mileage and are excluded from payroll. Correcting a site does not silently recalculate the original travel snapshot.</p>
+  {% if edit_shift.audit %}<details><summary>Correction audit</summary>{% for entry in edit_shift.audit %}<p>{{ stamp(entry.created_at) }} · {{ entry.actor }} · {{ entry.action }}<br>{{ entry.reason }}</p><pre style="white-space:pre-wrap;overflow-wrap:anywhere">Before: {{ entry.old_values|tojson(indent=2) }}
+After: {{ entry.new_values|tojson(indent=2) }}</pre>{% endfor %}</details>{% endif %}
+</div>

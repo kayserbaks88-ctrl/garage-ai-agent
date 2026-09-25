@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Assignments | Staff Manager</title>
+  <style>
+    :root{color-scheme:dark}body{margin:0;background:#07111f;color:#f5f8fc;font:16px/1.6 system-ui,sans-serif}
+    main{max-width:1120px;margin:auto;padding:24px}a{color:#a7f3d0}h1,h2{line-height:1.2}
+    section,details{background:#0d1c2d;border:1px solid #2a3b4e;border-radius:16px;padding:22px;margin:20px 0}
+    label{display:block;margin:12px 0}input,select,textarea,button{font:inherit;color:inherit;background:#081422;border:1px solid #536780;border-radius:8px;padding:10px;box-sizing:border-box}
+    input:not([type=checkbox]),select,textarea{display:block;width:100%}button{cursor:pointer;background:#173b2d;margin-top:12px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.help{color:#adbdcf}.alert{padding:14px;background:#183b2b}.error{background:#48212a}
+    .table-wrap{overflow:auto}table{width:100%;border-collapse:collapse}th,td{text-align:left;vertical-align:top;border-bottom:1px solid #2a3b4e;padding:12px}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer}nav{display:flex;gap:20px;flex-wrap:wrap}
+    :focus-visible{outline:3px solid #7dd3fc;outline-offset:3px}@media(max-width:650px){.grid{grid-template-columns:1fr}main{padding:14px}}
+  </style>
+</head>
+<body><main>
+{% set token=csrf_token() %}
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ token }}">{% endmacro %}
+{% macro stamp(value) %}<time>{{ uk_input(value)|replace('T',' ') }}</time>{% endmacro %}
+<nav><a href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">Staff Manager</a><a href="#roster">Weekly roster</a><a href="#assignment">Create assignment</a><a href="#adjustments">Payroll adjustments</a></nav>
+<h1>Assignments and travel</h1><p>{{ business_slug }} · UK local times (UTC offset shown)</p>
+{% for category,message in get_flashed_messages(with_categories=true) %}<p class="alert {{ category }}" role="status">{{ message }}</p>{% endfor %}
+<details><summary>Organisation settings: {{ config.organisation_mode|title }}</summary>
+<form method="post" action="{{ url_for('staff.organisation_settings',business_slug=business_slug) }}">{{ csrf() }}
+<label>Organisation mode<select name="organisation_mode"><option value="fixed" {{ 'selected' if config.organisation_mode=='fixed' else '' }}>Fixed workplace</option><option value="agency" {{ 'selected' if config.organisation_mode=='agency' else '' }}>Agency</option></select></label>
+<label><input type="checkbox" name="travel_enabled" {{ 'checked' if config.travel_enabled else '' }}> Enable travel estimates in fixed mode too</label>
+<p class="help">Agency mode uses assigned jobs and enables optional travel estimates. Existing shifts are never recalculated when mode or origin changes. Close open shifts before changing mode.</p>
+<label>Reason<textarea name="reason" maxlength="1000" required></textarea></label><button>Save settings</button></form></details>
+<section id="assignment"><h2>{{ 'Edit / reassign job' if edit else 'Create assignment' }}</h2>
+<form method="post" action="{{ url_for('staff.save_assignment',business_slug=business_slug,assignment_id=edit.id) if edit else url_for('staff.save_assignment',business_slug=business_slug) }}">{{ csrf() }}
+<div class="grid"><label>Employee<select name="employee_id" required><option value="">Choose employee</option>{% for e in employees if e.status=='active' %}<option value="{{ e.id }}" {{ 'selected' if edit and edit.employee_id==e.id else '' }}>{{ e.full_name }}</option>{% endfor %}</select></label>
+<label>Client / job site<select name="site_id" required><option value="">Choose site</option>{% for s in sites if s.active %}<option value="{{ s.id }}" {{ 'selected' if edit and edit.site_id==s.id else '' }}>{{ s.name }}{{ ' · '+s.client_reference if s.client_reference else '' }}</option>{% endfor %}</select></label>
+<label>Start (UK time)<input name="starts_at" value="{{ uk_input(edit.starts_at) if edit else '' }}" placeholder="2026-09-23T09:00:00+01:00" required></label>
+<label>End (UK time)<input name="ends_at" value="{{ uk_input(edit.ends_at) if edit else '' }}" placeholder="2026-09-23T17:00:00+01:00" required></label></div>
+<p class="help">Use YYYY-MM-DDTHH:MM, or include an offset during the autumn clock change. Clock-in is allowed from start until end. Consecutive jobs may touch, but cannot overlap. The site must have an address and checked coordinates.</p>
+<label><input type="checkbox" name="override"> Manager override for a missing assignment</label><p class="help">Create a window covering the intended clock-in time. This records an override in the audit; GPS and photo requirements still apply.</p>
+<label>Reason<textarea name="reason" required maxlength="1000"></textarea></label><button>Save assignment</button></form></section>
+<section id="roster"><h2>Week starting {{ week }}</h2><nav><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=previous_week) }}">Previous week</a><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=next_week) }}">Next week</a></nav>
+<form method="get"><label>Week containing<input type="date" name="week" value="{{ week }}"></label><button>Show week</button></form>
+<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Site</th><th>Window</th><th>Status / actions</th></tr></thead><tbody>
+{% for a in assignments %}<tr><td>{{ a.full_name }}</td><td>{{ a.name }}<br>{{ a.address }}</td><td>{{ stamp(a.starts_at) }}<br>{{ stamp(a.ends_at) }}</td><td>{{ a.status }}<br><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=week,assignment=a.id,_anchor='assignment') }}">Edit / reassign</a>
+{% if a.status=='scheduled' %}<form method="post" action="{{ url_for('staff.cancel_assignment',business_slug=business_slug,assignment_id=a.id) }}">{{ csrf() }}<label>Cancellation reason<input name="reason" required maxlength="1000"></label><button>Cancel assignment</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="4">No assignments this week.</td></tr>{% endfor %}</tbody></table></div></section>
+<section><h2>Consented travel origins</h2><p class="help">Employees choose whether to share an origin. Straight-line estimates are not driving mileage or reimbursable travel. Travel pay remains blank.</p>
+<form method="get"><label>Employee<select name="origin_employee" required>{% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if origin_employee and origin_employee.id==e.id else '' }}>{{ e.full_name }}</option>{% endfor %}</select></label><button>View consented origin</button></form>
+{% if origin_employee %}<h3>{{ origin_employee.full_name }}</h3>{% if origin %}<p>{{ origin.address or 'Coordinates only' }}<br>{{ origin.latitude or 'No latitude' }}, {{ origin.longitude or 'No longitude' }}<br>{{ 'Approximate postcode centroid' if origin.approximate else 'Employee-confirmed origin' }}<br>Consented {{ stamp(origin.consented_at) }}</p>{% else %}<p>No enabled travel origin. Distance unavailable.</p>{% endif %}{% endif %}</section>
+<section id="adjustments"><h2>Finalized payroll adjustment requests</h2><p class="help">Original shifts and finalized payroll remain unchanged. Process the adjustment through your payroll system, then record its reference here, or explain why no adjustment was needed.</p>
+{% for a in adjustments %}<details><summary>Request {{ a.id }} · shift {{ a.shift_id }} · payroll {{ a.payroll_run_id }}</summary><p>{{ a.reason }} · {{ a.requested_by }}</p><pre>{{ a.proposed_values|tojson(indent=2) }}</pre><form method="post" action="{{ url_for('staff.resolve_payroll_adjustment',business_slug=business_slug,adjustment_id=a.id) }}">{{ csrf() }}<label>Resolution / external payroll reference<textarea name="resolution" required maxlength="1000"></textarea></label><button>Record resolution</button></form></details>{% else %}<p>No pending payroll adjustments.</p>{% endfor %}</section>
+<section><h2>Recent audit activity</h2>{% for a in audit %}<p>{{ stamp(a.created_at) }} · {{ a.actor }} · {{ a.action }} · {{ a.entity_type }} {{ a.entity_id or '' }}<br>{{ a.reason }}</p>{% else %}<p>No changes recorded.</p>{% endfor %}</section>
+</main></body></html>
