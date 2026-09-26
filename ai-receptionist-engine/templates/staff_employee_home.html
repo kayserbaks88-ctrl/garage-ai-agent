@@ -155,7 +155,7 @@
         <p class="help">Use Refresh to update your summary.</p>
       </section>
       {% if agency_settings.organisation_mode == 'agency' %}
-      <section class="card span"><h2>Upcoming assigned jobs</h2><ul class="records">{% for a in assignments %}<li class="record"><strong>{{ a.name }}</strong><p>{{ a.address }}</p><p>{{ time_text(a.starts_at) }} – {{ time_text(a.ends_at) }}</p><p class="help">{% if a.distance_km is not none %}{{ a.distance_km }} km · straight-line estimate{{ ' · approximate postcode origin' if a.approximate_origin else '' }}{% else %}Distance unavailable{% endif %}. Travel pay: —</p></li>{% else %}<li>No upcoming assignments. Contact your manager.</li>{% endfor %}</ul><p class="help">Times shown in UK time. Estimates are not driving mileage or reimbursable travel.</p></section>
+      <section class="card span"><h2>Upcoming assigned jobs</h2><ul class="records">{% for a in assignments %}<li class="record"><strong>{{ a.name }}</strong><p>{{ a.address }}</p><p>{{ time_text(a.starts_at) }} – {{ time_text(a.ends_at) }}</p><p class="help">{% if a.distance_miles is not none %}{{ a.distance_miles }} miles · straight-line estimate{{ ' · approximate postcode origin' if a.approximate_origin else '' }}{% else %}Distance unavailable{% endif %}. Travel pay: —</p></li>{% else %}<li>No upcoming assignments. Contact your manager.</li>{% endfor %}</ul><p class="help">Times shown in UK time. Estimates are not driving mileage or reimbursable travel.</p></section>
       {% endif %}
       {% if agency_settings.organisation_mode == 'agency' or agency_settings.travel_enabled %}{% include 'staff_travel_origin.html' %}{% endif %}
       <section class="card span" aria-labelledby="request-title">

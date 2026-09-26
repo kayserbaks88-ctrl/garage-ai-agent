@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 from psycopg2.extras import Json
 
 from trimtech.modules.staff.database import fetch_all, fetch_one
+from trimtech.modules.staff.location import distance_miles as _haversine_miles
 from trimtech.modules.staff.payroll import UK_TIMEZONE, parse_shift_datetime
 
 
@@ -214,6 +215,15 @@ def distance_km(origin, site):
     return Decimal(str(6371 * 2 * math.asin(math.sqrt(min(1, max(0, hav)))))).quantize(Decimal("0.01"))
 
 
+def distance_miles(origin, site):
+    """Employee-facing guidance figure only; payroll and manager views stay in distance_km."""
+    if not origin or any(origin.get(k) is None or site.get(k) is None for k in ("latitude", "longitude")):
+        return None
+    miles = _haversine_miles(float(origin["latitude"]), float(origin["longitude"]),
+                             float(site["latitude"]), float(site["longitude"]))
+    return Decimal(str(miles)).quantize(Decimal("0.1"))
+
+
 def snapshot_shift(cursor, business_id, employee_id, shift_id, site, assignment, config, evidence):
     cursor.execute("""UPDATE staff_shifts SET assignment_id=%s,assigned_site_name=%s,assigned_site_address=%s,
         planned_start_at=%s,planned_end_at=%s,site_latitude_snapshot=%s,site_longitude_snapshot=%s,
@@ -262,6 +272,7 @@ def upcoming_assignments(business_id, employee_id):
           AND a.ends_at>NOW() ORDER BY a.starts_at LIMIT 100""", (business_id, employee_id))
     for row in rows:
         row["distance_km"] = distance_km(origin, row)
+        row["distance_miles"] = distance_miles(origin, row)
         row["approximate_origin"] = bool(origin and origin.get("approximate"))
     return rows
 
