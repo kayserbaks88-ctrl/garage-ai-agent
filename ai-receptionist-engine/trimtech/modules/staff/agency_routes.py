@@ -5,7 +5,7 @@ from flask import abort, flash, g, redirect, render_template, request, url_for
 from psycopg2.extras import RealDictCursor
 
 from dashboard_auth import dashboard_login_required
-from trimtech.modules.staff import agency
+from trimtech.modules.staff import agency, notifications
 from trimtech.modules.staff.database import fetch_all, fetch_one, transaction
 from trimtech.modules.staff.payroll import UK_TIMEZONE, recalculate_payroll_run
 
@@ -49,18 +49,22 @@ def register_routes(staff):
         adjustments = fetch_all("SELECT * FROM staff_payroll_adjustments WHERE business_id=%s AND status='pending' ORDER BY id", (business_id,))
         audit = fetch_all("""SELECT actor,action,entity_type,entity_id,reason,created_at FROM staff_audit
             WHERE business_id=%s ORDER BY id DESC LIMIT 50""", (business_id,))
+        email_events = fetch_all("""SELECT id,assignment_id,action,status,error_code,created_at,attempted_at
+            FROM staff_assignment_notifications WHERE business_id=%s ORDER BY id DESC LIMIT 30""", (business_id,))
         return render_template("staff_agency.html", business_slug=business_slug, config=agency.settings(business_id),
             employees=employees, sites=sites, assignments=assignments, edit=edit, week=week,
             previous_week=week-timedelta(days=7), next_week=week+timedelta(days=7),
             origin=origin, origin_employee=origin_employee, adjustments=adjustments, audit=audit,
-            csrf_token=staff._get_csrf_token, uk_input=agency.uk_input)
+            csrf_token=staff._get_csrf_token, uk_input=agency.uk_input, email_events=email_events)
 
-    def manager_action(business_slug, operation):
+    def manager_action(business_slug, operation, notify=False):
         try:
             with transaction() as connection:
                 with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                    operation(cursor, staff._business_id(business_slug), staff._manager_actor())
+                    result = operation(cursor, staff._business_id(business_slug), staff._manager_actor())
             flash("Change saved.", "success")
+            if notify:
+                notifications.dispatch(staff._business_id(business_slug), result)
         except ValueError as error:
             flash(str(error), "error")
         except staff._DB_ERRORS:
@@ -79,13 +83,13 @@ def register_routes(staff):
     @dashboard_login_required
     def save_assignment(business_slug, assignment_id=None):
         return manager_action(business_slug, lambda c, b, a:
-            agency.save_assignment(c, b, a, request.form, assignment_id))
+            agency.save_assignment(c, b, a, request.form, assignment_id), notify=True)
 
     @bp.post("/<business_slug>/assignments/<int:assignment_id>/cancel")
     @dashboard_login_required
     def cancel_assignment(business_slug, assignment_id):
         return manager_action(business_slug, lambda c, b, a:
-            agency.save_assignment(c, b, a, request.form, assignment_id, cancel=True))
+            agency.save_assignment(c, b, a, request.form, assignment_id, cancel=True), notify=True)
 
     @bp.post("/<business_slug>/employee/travel-origin")
     @staff.employee_login_required

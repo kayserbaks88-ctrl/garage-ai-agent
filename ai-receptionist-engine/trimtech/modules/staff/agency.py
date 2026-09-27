@@ -60,6 +60,7 @@ def change_mode(cursor, business_id, actor, mode, travel_enabled, reason):
 
 
 def save_assignment(cursor, business_id, actor, values, assignment_id=None, cancel=False):
+    from trimtech.modules.staff import notifications
     lock_business(cursor, business_id)
     old = None
     if assignment_id:
@@ -76,6 +77,7 @@ def save_assignment(cursor, business_id, actor, values, assignment_id=None, canc
                        (assignment_id, business_id))
         audit(cursor, business_id, actor, "assignment_cancelled", "assignment", assignment_id,
               dict(old), {"status": "cancelled"}, reason)
+        notifications.queue(cursor, business_id, assignment_id, "cancelled", old)
         return assignment_id
     try:
         employee_id, site_id = int(values.get("employee_id", "")), int(values.get("site_id", ""))
@@ -112,6 +114,10 @@ def save_assignment(cursor, business_id, actor, values, assignment_id=None, canc
     audit(cursor, business_id, actor, "assignment_override" if override else "assignment_saved",
           "assignment", assignment_id, dict(old) if old else None,
           {"employee_id": employee_id, "site_id": site_id, "starts_at": starts, "ends_at": ends}, reason)
+    if old and old["employee_id"] != employee_id:
+        notifications.queue(cursor, business_id, assignment_id, "reassigned_away", old)
+    notifications.queue(cursor, business_id, assignment_id, "updated" if old else "created",
+        {"employee_id": employee_id, "site_id": site_id, "starts_at": starts, "ends_at": ends})
     return assignment_id
 
 

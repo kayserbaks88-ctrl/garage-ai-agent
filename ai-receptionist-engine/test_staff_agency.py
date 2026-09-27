@@ -58,7 +58,8 @@ class AgencyDatabaseTests(unittest.TestCase):
         self.connection_patch = patch.object(database, "get_connection", self.connect)
         self.connection_patch.start()
         self.addCleanup(self.connection_patch.stop)
-        self.key_patch = patch.dict(os.environ, {"STAFF_TRAVEL_KEY": Fernet.generate_key().decode()})
+        self.key_patch = patch.dict(os.environ, {"STAFF_TRAVEL_KEY": Fernet.generate_key().decode(),
+                                               "STAFF_ASSIGNMENT_EMAIL_ENABLED": "0"})
         self.key_patch.start()
         self.addCleanup(self.key_patch.stop)
         with database.transaction() as connection:

@@ -9,6 +9,27 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 
 
+def send_staff_email(recipient, subject, text, html, event_key):
+    """Reuse Resend, returning a sanitized outcome without logging email content."""
+    key = os.getenv("RESEND_API_KEY", "").strip()
+    sender = os.getenv("RESEND_FROM_EMAIL", "").strip()
+    if not key or not sender:
+        return False, "email_not_configured", None
+    try:
+        response = requests.post("https://api.resend.com/emails",
+            headers={"Authorization": f"Bearer {key}", "Idempotency-Key": event_key},
+            json={"from": sender, "to": [recipient], "subject": subject, "text": text, "html": html},
+            timeout=(3, 8), allow_redirects=False)
+        if response.status_code not in (200, 201):
+            return False, f"provider_http_{response.status_code}", None
+        provider_id = response.json().get("id")
+        if not isinstance(provider_id, str) or not provider_id:
+            return False, "invalid_provider_response", None
+        return True, None, provider_id[:200]
+    except (requests.RequestException, ValueError, TypeError, AttributeError):
+        return False, "provider_request_failed", None
+
+
 def extract_photo_urls(notes):
     if "Photos:" not in notes:
         return [], notes.strip()

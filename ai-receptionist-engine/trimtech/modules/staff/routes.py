@@ -26,7 +26,7 @@ from trimtech.modules.staff.payroll import (
     PayrollError, generate_payroll_run, parse_shift_datetime, period_dates,
     validate_shift_edit,
 )
-from trimtech.modules.staff import agency
+from trimtech.modules.staff import agency, presence
 from trimtech.modules.staff.address_lookup import lookup as lookup_address, AddressLookupError
 
 
@@ -192,6 +192,9 @@ def dashboard(business_slug: str):
             ORDER BY CASE WHEN shift.clock_out_at IS NULL THEN 0 ELSE 1 END,
                      shift.clock_in_at DESC
         """, (business_id,))
+        current_presence = presence.overview(business_id)
+        for live_shift in live_shifts:
+            live_shift["presence"] = current_presence.get(live_shift["id"])
         where, params = _review_where(business_id, review)
         approval_total = (fetch_one("SELECT COUNT(*) AS total FROM staff_shifts AS shift "
             "JOIN staff_employees AS employee ON employee.id=shift.employee_id "
@@ -825,6 +828,34 @@ def employee_home(business_slug: str):
 # Clock-in POSTs site_id; clock-out and break forms POST shift_id to prevent a
 # delayed/replayed form from closing a newer shift. Leave POSTs leave_type,
 # start_date, end_date and optional employee_note. Identity comes ONLY from session.
+
+
+@staff_blueprint.post("/<business_slug>/presence/status")
+@dashboard_api_login_required
+def presence_status(business_slug):
+    try:
+        response = jsonify(shifts=presence.overview(_business_id(business_slug)))
+        response.headers["Cache-Control"] = "no-store"
+        return response
+    except _DB_ERRORS:
+        return jsonify(error="Presence status is temporarily unavailable."), 503
+
+
+@staff_blueprint.post("/<business_slug>/employee/presence")
+@employee_login_required
+def employee_presence(business_slug):
+    business_id, employee_id = _business_id(business_slug), g.staff_employee["id"]
+    try:
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                _lock_employee(cursor, business_id, employee_id)
+                result = presence.record(cursor, business_id, employee_id,
+                    _positive_form_id("shift_id", "Shift"), request.form)
+        return jsonify(result)
+    except ValueError as error:
+        return jsonify(error=str(error)), 400
+    except _DB_ERRORS:
+        return jsonify(error="Presence update unavailable. Clocking is unchanged."), 503
 
 
 def _lock_employee(cursor, business_id: str, employee_id: int):

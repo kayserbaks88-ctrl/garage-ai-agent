@@ -306,6 +306,93 @@ release and must not be presented as available.
 
 ## Boundaries
 
+### Assignment email and site presence (staging branch)
+
+New migration: `20260928_staff_operations_v2`, following the unchanged
+`20260923_agency_v1` SQL/checksum. The same migration CLI applies both versions:
+`python -m trimtech.modules.staff.migrations`, from `ai-receptionist-engine`.
+It verifies the original recorded fingerprint before upgrading an existing v1
+database and records a new checksum/fingerprint. Startup verifies the latest
+version and never applies changes. Existing organisation modes and records remain.
+
+Schema additions only:
+
+- `staff_assignment_notifications`: assignment/employee/business, unique event
+  key, action, recipient and snapshotted email details, pending/sent/failed/disabled
+  status, provider ID, sanitized error code, creation/attempt timestamps; pending
+  queue index. Foreign keys restrict deletion of referenced assignments/employees.
+- `staff_shift_presence`: one row per shift, business/employee, immutable target
+  coordinates/radius copied from shift evidence (legacy shifts fall back to the
+  site on first observation), current status, last capture/receipt, outside count
+  and start time, departure flag and update timestamp; business index.
+- `staff_presence_events`: append-only application evidence with shift/business/
+  employee, status, capture/record/effective timestamps, distance, accuracy and
+  reason; shift history index. No employee location coordinates are stored here.
+
+Do not run this migration on production as part of this change. Use the existing
+backup and target-verification procedure before any separately authorized staging
+migration. Local tests use random schemas in a localhost synthetic database only.
+
+Email reuses Resend (`integrations/email_helper.py`). Configure staging secrets:
+
+- `STAFF_ASSIGNMENT_EMAIL_ENABLED=1` (otherwise outcomes are recorded as disabled).
+- `RESEND_API_KEY` and `RESEND_FROM_EMAIL` with a verified sender.
+- `STAFF_PUBLIC_BASE_URL=https://YOUR-STAGING-HOST` for employee portal links.
+
+Notifications are queued in the assignment transaction and attempted after commit.
+Creation, update and cancellation notify the employee; reassignment also notifies
+the previous employee that they are no longer scheduled. Dates and times include
+UK BST/GMT labels. The email contains the full address and optional client reference.
+No password or login token is included in the portal link.
+
+Provider failures do not roll back assignments. The assignments page shows recent
+email outcomes. `sent` means Resend accepted the email, not confirmed delivery;
+missing employee email, disabled configuration and failures remain recorded.
+There is no delivery webhook or automatic failed-message retry in this release.
+Pending records left by a process interruption are attempted on the next action
+for the same assignment; investigate pending/failed records before any manual
+resend. Each queued event uses a Resend idempotency key. Provider idempotency has a
+limited retention window, so do not blindly retry old ambiguous attempts.
+
+Employees opt into presence updates using **Start presence updates** while clocked
+in, and can stop them. The visible portal requests a new GPS sample about every
+30 seconds; hidden/locked browsers may suspend it. This is not guaranteed continuous
+background tracking. Clock-in/out GPS validation is unchanged. Presence never changes
+hours, breaks, leave, approval, payroll or existing shift evidence.
+
+Defaults (bounded environment overrides):
+
+- `STAFF_PRESENCE_GRACE_SECONDS=60` (0–3600).
+- `STAFF_PRESENCE_CONFIRMATIONS=3` (2–10).
+- `STAFF_PRESENCE_STALE_SECONDS=120` (60–3600).
+
+A departure requires consecutive fresh readings outside the radius plus reported
+accuracy, satisfying both count and elapsed grace. Readings must be timestamped
+within 60 seconds (at most 10 seconds ahead), accurate within the smaller of 100m
+and the radius, newer than the previous capture and at least 10 seconds apart by
+server receipt. Returning inside the radius records `returned`. Uncertain boundary
+readings reset pending departure confirmation. Long gaps reset confirmation too.
+
+The manager dashboard polls every 30 seconds. Stale transitions are recorded when
+the dashboard reads/polls presence or a new sample arrives, with the effective
+expiry timestamp stored separately from observation time. No always-running
+tracking worker is deployed. An unobserved shift starts as `location_stale`.
+Presence events remain when shifts are approved or included in payroll.
+
+Before staging acceptance, test real-device permission denial, drift, departure,
+return, screen lock/background pause and network loss. Use controlled test email
+recipients to verify accepted messages actually arrive. Unit/integration email
+tests mock delivery and never contact employees.
+
+Local validation on 2026-09-28: all 54 Staff tests passed with no skips in
+179.750 seconds, using isolated schemas on the existing localhost synthetic
+PostgreSQL cluster. This includes v1-to-v2 upgrade preservation/repeatability,
+drift rejection, all notification actions and nonblocking delivery failure,
+presence departure/return/staleness, replay/accuracy/access checks and retained
+events through shift approval/payroll inclusion. Python and Jinja compilation,
+JavaScript syntax/foreground lifecycle checks and `git diff --check` passed.
+No staging/production migration, real email, push or deployment was performed.
+
 ### Staging UK work-site address search
 
 The manager site forms (add, edit and inline assignment site creation) use Ideal

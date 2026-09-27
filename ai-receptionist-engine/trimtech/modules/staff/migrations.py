@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from trimtech.modules.staff import operations_migration
 
 
 VERSION = "20260923_agency_v1"
@@ -173,13 +174,34 @@ def migrate(cursor):
     )""")
     cursor.execute("SELECT checksum FROM staff_schema_migrations WHERE version=%s", (VERSION,))
     if cursor.fetchone():
-        verify(cursor)
+        _upgrade_operations(cursor)
         return
     # Deliberately no IF NOT EXISTS: an unversioned partial upgrade must fail.
     cursor.execute(SQL)
     fingerprint = schema_fingerprint(cursor)
     cursor.execute("INSERT INTO staff_schema_migrations (version,checksum,schema_fingerprint) VALUES (%s,%s,%s)",
                    (VERSION, CHECKSUM, fingerprint))
+    _upgrade_operations(cursor)
+
+
+def _upgrade_operations(cursor):
+    cursor.execute("SELECT checksum FROM staff_schema_migrations WHERE version=%s", (operations_migration.VERSION,))
+    if cursor.fetchone():
+        verify(cursor)
+        return
+    # Reject drift before upgrading a previously deployed v1 schema.
+    _verify_record(cursor, VERSION, CHECKSUM)
+    cursor.execute(operations_migration.SQL)
+    cursor.execute("INSERT INTO staff_schema_migrations (version,checksum,schema_fingerprint) VALUES (%s,%s,%s)",
+                   (operations_migration.VERSION, operations_migration.CHECKSUM, schema_fingerprint(cursor)))
+
+
+def _verify_record(cursor, version, checksum):
+    from trimtech.modules.staff.database import StaffDatabaseError
+    cursor.execute("SELECT checksum,schema_fingerprint FROM staff_schema_migrations WHERE version=%s", (version,))
+    row = cursor.fetchone()
+    if not row or row[0] != checksum or row[1] != schema_fingerprint(cursor):
+        raise StaffDatabaseError("Staff Manager migration checksum or schema drift detected; review the staging migration.")
 
 
 def verify(cursor):
@@ -188,14 +210,15 @@ def verify(cursor):
     cursor.execute("SELECT to_regclass('staff_schema_migrations')")
     if not cursor.fetchone()[0]:
         raise StaffDatabaseError("Run the versioned Staff Manager migration before starting the application.")
-    cursor.execute("SELECT checksum,schema_fingerprint FROM staff_schema_migrations WHERE version=%s", (VERSION,))
+    cursor.execute("SELECT checksum FROM staff_schema_migrations WHERE version=%s", (VERSION,))
     row = cursor.fetchone()
-    if not row or row[0] != CHECKSUM or row[1] != schema_fingerprint(cursor):
+    if not row or row[0] != CHECKSUM:
         raise StaffDatabaseError("Staff Manager migration checksum or schema drift detected; review the staging migration.")
+    _verify_record(cursor, operations_migration.VERSION, operations_migration.CHECKSUM)
 
 
 if __name__ == "__main__":
     from trimtech.modules.staff.database import init_staff_database
 
     init_staff_database(migrate=True)
-    print(f"Verified Staff Manager migration {VERSION}; existing businesses remain fixed.")
+    print(f"Verified Staff Manager migrations {VERSION} and {operations_migration.VERSION}; organisation modes preserved.")

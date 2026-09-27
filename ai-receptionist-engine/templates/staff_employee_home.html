@@ -71,7 +71,7 @@
     details[open] summary { margin-bottom:18px; }
     @media(max-width:650px) { .grid { grid-template-columns:1fr; } .shell { padding-left:16px; padding-right:16px; } .card { padding:23px; } .topbar .actions { width:100%; display:grid; grid-template-columns:1fr 1fr; } .topbar .actions button { width:100%; } .details,.dates { grid-template-columns:1fr; } .dates { gap:0; } }
   </style>
-</head>
+<script defer src="{{ url_for('static',filename='staff_presence.js') }}"></script></head>
 <body>
 <a class="skip" href="#main">Skip to your employee home</a>
 {% set token = csrf_token() %}
@@ -96,6 +96,13 @@
       <section class="card" aria-labelledby="clock-title">
         <div class="section-head"><h2 id="clock-title">Clock-in status</h2><span class="pill {{ 'pending' if current_break else '' }}">{{ 'On break' if current_break else ('On shift' if is_clocked_in else 'Off shift') }}</span></div>
         {% if is_clocked_in %}
+          <div data-presence-portal data-presence-url="{{ url_for('staff.employee_presence',business_slug=business_slug) }}" data-shift-id="{{ current_shift.id }}" data-csrf="{{ token }}">
+            <p><strong>Site presence</strong>: <span data-presence-state>location_stale</span></p>
+            <p class="help">When enabled, this page requests your location about every 30 seconds while visible. Keep it open for updates. Browsers may pause when locked or in the background. Missing updates are shown as location_stale, not as confirmed absence. Presence evidence is retained with your shift and does not change pay or approval.</p>
+            <button type="button" data-presence-start>Start presence updates</button>
+            <button type="button" data-presence-stop disabled>Stop presence updates</button>
+            <p role="status" data-presence-message>Presence updates are off. Clock-in and clock-out GPS checks remain separate.</p>
+          </div>
           <p class="status">{{ 'On a break' if current_break else 'Clocked in' }}</p>
           <p><strong>{{ current_shift.site_name }}</strong><br><span class="muted">Started {{ time_text(current_shift.clock_in_at) }}</span></p>
           {% if current_break %}
