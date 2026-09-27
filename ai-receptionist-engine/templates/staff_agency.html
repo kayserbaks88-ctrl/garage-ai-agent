@@ -14,8 +14,11 @@
     pre{white-space:pre-wrap;overflow-wrap:anywhere}summary{cursor:pointer}nav{display:flex;gap:20px;flex-wrap:wrap}
     :focus-visible{outline:3px solid #7dd3fc;outline-offset:3px}@media(max-width:650px){.grid{grid-template-columns:1fr}main{padding:14px}}
   </style>
+<link rel="stylesheet" href="{{ url_for('static',filename='staff_manager.css') }}">
+<script defer src="{{ url_for('static',filename='staff_manager.js') }}"></script>
 </head>
 <body><main>
+{% from "staff_site_fields.html" import site_fields %}
 {% set token=csrf_token() %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ token }}">{% endmacro %}
 {% macro stamp(value) %}<time>{{ uk_input(value)|replace('T',' ') }}</time>{% endmacro %}
@@ -28,8 +31,16 @@
 <label><input type="checkbox" name="travel_enabled" {{ 'checked' if config.travel_enabled else '' }}> Enable travel estimates in fixed mode too</label>
 <p class="help">Agency mode uses assigned jobs and enables optional travel estimates. Existing shifts are never recalculated when mode or origin changes. Close open shifts before changing mode.</p>
 <label>Reason<textarea name="reason" maxlength="1000" required></textarea></label><button>Save settings</button></form></details>
-<section id="assignment"><h2>{{ 'Edit / reassign job' if edit else 'Create assignment' }}</h2>
-<form method="post" action="{{ url_for('staff.save_assignment',business_slug=business_slug,assignment_id=edit.id) if edit else url_for('staff.save_assignment',business_slug=business_slug) }}">{{ csrf() }}
+<section id="assignment">
+<details id="inline-new-site"><summary>+ Add new site</summary>
+<form method="post" action="{{ url_for('staff.add_site',business_slug=business_slug) }}" data-inline-site>
+{{ csrf() }}{{ site_fields('assignment-site', sites, assignment=true) }}
+<p class="help">Save the site first, then finish the assignment. Your assignment entries stay on this page.</p>
+<p role="status" data-save-message></p><button type="submit">Save site and select</button>
+</form></details><p role="status" data-assignment-message></p>
+<noscript><p>Inline site saving needs JavaScript. Add a site from Staff Manager, then return to this page.</p></noscript>
+<h2>{{ 'Edit / reassign job' if edit else 'Create assignment' }}</h2>
+<form id="assignment-form" method="post" action="{{ url_for('staff.save_assignment',business_slug=business_slug,assignment_id=edit.id) if edit else url_for('staff.save_assignment',business_slug=business_slug) }}">{{ csrf() }}
 <div class="grid"><label>Employee<select name="employee_id" required><option value="">Choose employee</option>{% for e in employees if e.status=='active' %}<option value="{{ e.id }}" {{ 'selected' if edit and edit.employee_id==e.id else '' }}>{{ e.full_name }}</option>{% endfor %}</select></label>
 <label>Client / job site<select name="site_id" required><option value="">Choose site</option>{% for s in sites if s.active %}<option value="{{ s.id }}" {{ 'selected' if edit and edit.site_id==s.id else '' }}>{{ s.name }}{{ ' · '+s.client_reference if s.client_reference else '' }}</option>{% endfor %}</select></label>
 <label>Start (UK time)<input name="starts_at" value="{{ uk_input(edit.starts_at) if edit else '' }}" placeholder="2026-09-23T09:00:00+01:00" required></label>
@@ -39,8 +50,8 @@
 <label>Reason<textarea name="reason" required maxlength="1000"></textarea></label><button>Save assignment</button></form></section>
 <section id="roster"><h2>Week starting {{ week }}</h2><nav><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=previous_week) }}">Previous week</a><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=next_week) }}">Next week</a></nav>
 <form method="get"><label>Week containing<input type="date" name="week" value="{{ week }}"></label><button>Show week</button></form>
-<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Site</th><th>Window</th><th>Status / actions</th></tr></thead><tbody>
-{% for a in assignments %}<tr><td>{{ a.full_name }}</td><td>{{ a.name }}<br>{{ a.address }}</td><td>{{ stamp(a.starts_at) }}<br>{{ stamp(a.ends_at) }}</td><td>{{ a.status }}<br><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=week,assignment=a.id,_anchor='assignment') }}">Edit / reassign</a>
+<div class="table-wrap"><table class="mobile-cards"><thead><tr><th>Employee</th><th>Site</th><th>Window</th><th>Status / actions</th></tr></thead><tbody>
+{% for a in assignments %}<tr><td data-label="Employee">{{ a.full_name }}</td><td data-label="Site">{{ a.name }}<br>{{ a.address }}</td><td data-label="Window">{{ stamp(a.starts_at) }}<br>{{ stamp(a.ends_at) }}</td><td data-label="Status / actions">{{ a.status }}<br><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=week,assignment=a.id,_anchor='assignment') }}">Edit / reassign</a>
 {% if a.status=='scheduled' %}<form method="post" action="{{ url_for('staff.cancel_assignment',business_slug=business_slug,assignment_id=a.id) }}">{{ csrf() }}<label>Cancellation reason<input name="reason" required maxlength="1000"></label><button>Cancel assignment</button></form>{% endif %}</td></tr>{% else %}<tr><td colspan="4">No assignments this week.</td></tr>{% endfor %}</tbody></table></div></section>
 <section><h2>Consented travel origins</h2><p class="help">Employees choose whether to share an origin. Straight-line estimates are not driving mileage or reimbursable travel. Travel pay remains blank.</p>
 <form method="get"><label>Employee<select name="origin_employee" required>{% for e in employees %}<option value="{{ e.id }}" {{ 'selected' if origin_employee and origin_employee.id==e.id else '' }}>{{ e.full_name }}</option>{% endfor %}</select></label><button>View consented origin</button></form>

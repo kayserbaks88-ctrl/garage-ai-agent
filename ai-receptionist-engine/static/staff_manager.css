@@ -1,0 +1,26 @@
+/* Shared manager forms and readable mobile table cards. */
+.site-fields .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.site-fields .wide{grid-column:1/-1}
+.site-fields label{display:grid;gap:6px}
+.site-fields input,.site-fields textarea,.site-fields select{width:100%;min-width:0}
+.shell>*,.grid>*,.form-grid>*,.heading>*,.topbar>*{min-width:0}
+td,th,.item,p{overflow-wrap:anywhere}
+@media(max-width:650px){
+  .site-fields .grid{grid-template-columns:minmax(0,1fr)}
+  main section,main details{padding:14px}
+  .filters{grid-template-columns:minmax(0,1fr)}
+  .filters .search-field{grid-column:auto}
+  .actions,.reject,.pager{gap:10px}
+  .actions>*{max-width:100%}
+  input,select,textarea{font-size:16px;max-width:100%}
+  button,.button{min-height:44px;white-space:normal}
+  .review-actions{min-width:0}
+  time{white-space:normal}
+  .table-wrap{max-width:100%}
+  table.mobile-cards,table.mobile-cards tbody{display:block;width:100%}
+  table.mobile-cards thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+  table.mobile-cards tr{display:block;padding:12px 16px;border-bottom:1px solid #2a3b4e}
+  table.mobile-cards td{display:block;padding:6px 0;border:0;min-width:0;max-width:100%}
+  table.mobile-cards td[data-label]::before{content:attr(data-label);display:block;font-size:12px;font-weight:700;color:#adbdcf;margin-bottom:3px}
+  .directory-tools input,.directory-tools select{max-width:none}
+}

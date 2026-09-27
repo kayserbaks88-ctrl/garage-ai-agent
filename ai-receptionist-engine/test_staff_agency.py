@@ -466,6 +466,95 @@ class AgencyDatabaseTests(unittest.TestCase):
         self.post(self.manager, "settings/organisation", {"organisation_mode": "agency", "reason": "Switch"})
         self.assertEqual(agency.settings("alpha")["organisation_mode"], "fixed")
 
+    def site_values(self, **changes):
+        return {"name": "Updated site", "address": "10 Test Road, London SW1A 1AA",
+                "client_reference": "CLIENT-42", "latitude": "51.501", "longitude": "-0.121",
+                "allowed_radius_metres": "180", "status": "active", **changes}
+
+    def test_employee_edit_preserves_credentials_and_rejects_invalid_or_foreign_records(self):
+        values = {"full_name": "Alex Updated", "phone": "07001", "email": "alex@example.test",
+                  "role": "manager", "hourly_rate": "18.50", "payroll_number": ""}
+        self.post(self.manager, f"employees/{self.employee}/edit", values)
+        employee = self.row("staff_employees", self.employee)
+        self.assertEqual(employee["full_name"], "Alex Updated")
+        self.assertEqual(employee["role"], "manager")
+        self.assertEqual(employee["payroll_number"], "111")
+        for changes in ({"phone": "07002"}, {"hourly_rate": "nan"}, {"email": "invalid"}):
+            self.post(self.manager, f"employees/{self.employee}/edit", {**values, **changes})
+            self.assertEqual(self.row("staff_employees", self.employee), employee)
+        foreign = self.row("staff_employees", self.foreign_employee)
+        response = self.post(self.manager, f"employees/{self.foreign_employee}/edit", values)
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.row("staff_employees", self.foreign_employee), foreign)
+        page = self.manager.get(f"/staff/alpha?employee={self.employee}")
+        self.assertIn(b"Edit employee", page.data)
+        self.assertIn(b'id="employee-edit"', page.data)
+
+    def test_site_edit_preserves_historical_gps_and_photo_policy(self):
+        self.enable_agency()
+        assignment_id = self.assignment()
+        self.post(self.worker, "employee/clock-in", {"assignment_id": assignment_id, **self.gps()})
+        shift = self.current()
+        self.assertIsNotNone(shift)
+        database.execute("UPDATE staff_sites SET photo_required=TRUE WHERE id=%s", (self.site,))
+        response = self.post(self.manager, f"sites/{self.site}/edit", self.site_values(status="inactive"))
+        self.assertEqual(response.status_code, 302)
+        site = self.row("staff_sites", self.site)
+        self.assertEqual(site["name"], "Updated site")
+        self.assertEqual(site["client_reference"], "CLIENT-42")
+        self.assertEqual(site["address"], "10 Test Road, London SW1A 1AA")
+        self.assertEqual(site["latitude"], Decimal("51.501"))
+        self.assertEqual(site["longitude"], Decimal("-0.121"))
+        self.assertEqual(site["allowed_radius_metres"], 180)
+        self.assertFalse(site["active"])
+        self.assertTrue(site["photo_required"])
+        self.assertEqual(self.row("staff_shifts", shift["id"]), shift)
+        database.init_staff_database()  # No schema drift introduced.
+
+    def test_site_edit_validation_tenant_scope_and_csrf(self):
+        before = self.row("staff_sites", self.site)
+        for changes in ({"name": "Second site"}, {"latitude": "nan"}, {"longitude": "181"},
+                        {"allowed_radius_metres": "9"}, {"status": "unknown"}):
+            self.post(self.manager, f"sites/{self.site}/edit", self.site_values(**changes))
+            self.assertEqual(self.row("staff_sites", self.site), before)
+        foreign = self.row("staff_sites", self.foreign_site)
+        response = self.post(self.manager, f"sites/{self.foreign_site}/edit", self.site_values())
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(self.row("staff_sites", self.foreign_site), foreign)
+        self.assertEqual(self.manager.post(f"/staff/alpha/sites/{self.site}/edit", data=self.site_values()).status_code, 400)
+        self.post(self.worker, f"sites/{self.site}/edit", self.site_values())
+        self.assertEqual(self.row("staff_sites", self.site), before)
+
+    def test_inline_site_creation_then_assignment_and_gps(self):
+        self.enable_agency()
+        page = self.manager.get("/staff/alpha/agency")
+        self.assertIn(b"data-inline-site", page.data)
+        self.assertIn(b'id="assignment-form"', page.data)
+        response = self.manager.post("/staff/alpha/sites", headers={"Accept": "application/json"},
+            data={"csrf_token": "test-csrf", **self.site_values(latitude="51.5", longitude="-0.12")})
+        self.assertEqual(response.status_code, 201)
+        site_id = response.json["site"]["id"]
+        self.assertEqual(self.row("staff_sites", site_id)["business_id"], "alpha")
+        self.post(self.manager, "assignments", self.assignment_values(site=site_id))
+        assignment = database.fetch_one("SELECT * FROM staff_assignments WHERE site_id=%s", (site_id,))
+        self.assertIsNotNone(assignment)
+        self.post(self.worker, "employee/clock-in", {"assignment_id": assignment["id"], **self.gps()})
+        self.assertIsNotNone(self.current())
+        self.assertEqual(self.current()["assignment_id"], assignment["id"])
+        self.assertEqual(self.current()["assigned_site_name"], "Updated site")
+
+    def test_inline_site_errors_do_not_create_records(self):
+        before = database.fetch_all("SELECT * FROM staff_sites ORDER BY id")
+        for changes in ({"name": "First site"}, {"address": ""}, {"latitude": "91"}):
+            response = self.manager.post("/staff/alpha/sites", headers={"Accept": "application/json"},
+                data={"csrf_token": "test-csrf", **self.site_values(**changes)})
+            self.assertEqual(response.status_code, 400)
+            self.assertIn("error", response.json)
+        self.assertEqual(self.manager.post("/staff/alpha/sites", headers={"Accept": "application/json"},
+            data=self.site_values()).status_code, 400)
+        self.post(self.worker, "sites", self.site_values())
+        self.assertEqual(database.fetch_all("SELECT * FROM staff_sites ORDER BY id"), before)
+
     def test_schema_drift_is_not_repaired_by_startup(self):
         database.execute("ALTER TABLE staff_shifts DROP COLUMN adjustment_reason")
         with self.assertRaises(database.StaffDatabaseError):

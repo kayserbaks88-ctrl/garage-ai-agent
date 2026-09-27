@@ -12,7 +12,7 @@ from typing import Any
 
 from flask import (
     Blueprint, abort, current_app, flash, g, redirect, render_template,
-    request, session, url_for,
+    request, session, url_for, jsonify,
 )
 from psycopg2 import Error as PostgreSQLError
 from psycopg2.extras import RealDictCursor
@@ -331,32 +331,86 @@ def change_employee_status(business_slug: str, employee_id: int):
     return _manager_redirect(business_slug)
 
 
+def _site_values(values):
+    name = _clean_text(values.get("name"), 150)
+    if not name:
+        raise ValueError("Enter the site name.")
+    return (name, _clean_text(values.get("address"), 1000),
+            _parse_coordinate(values.get("latitude"), "latitude", Decimal(-90), Decimal(90)),
+            _parse_coordinate(values.get("longitude"), "longitude", Decimal(-180), Decimal(180)),
+            _parse_radius(values.get("allowed_radius_metres")),
+            _clean_text(values.get("client_reference"), 160))
+
+
 @staff_blueprint.post("/<business_slug>/sites")
 @dashboard_login_required
 def add_site(business_slug: str):
     business_id = _business_id(business_slug)
-    name = _clean_text(request.form.get("name"), 150)
+    inline = request.accept_mimetypes.best == "application/json"
     try:
-        if not name:
-            raise ValueError("Enter the site name.")
-        latitude = _parse_coordinate(request.form.get("latitude"), "latitude", Decimal(-90), Decimal(90))
-        longitude = _parse_coordinate(request.form.get("longitude"), "longitude", Decimal(-180), Decimal(180))
-        radius = _parse_radius(request.form.get("allowed_radius_metres"))
-        if fetch_one("SELECT id FROM staff_sites WHERE business_id=%s AND LOWER(name)=LOWER(%s)",
-                     (business_id, name)):
-            raise ValueError("A site with that name already exists.")
-        execute("""INSERT INTO staff_sites
-            (business_id,name,address,latitude,longitude,allowed_radius_metres,photo_required,active,client_reference)
-            VALUES (%s,%s,NULLIF(%s,''),%s,%s,%s,%s,TRUE,NULLIF(%s,''))""",
-            (business_id, name, _clean_text(request.form.get("address"), 1000), latitude,
-             longitude, radius, request.form.get("photo_required") == "on",
-             _clean_text(request.form.get("client_reference"), 160)))
+        name, address, latitude, longitude, radius, reference = _site_values(request.form)
+        if inline and not address:
+            raise ValueError("Enter an address for the assigned work site.")
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                agency.lock_business(cursor, business_id)
+                cursor.execute("SELECT id FROM staff_sites WHERE business_id=%s AND LOWER(name)=LOWER(%s)",
+                               (business_id, name))
+                if cursor.fetchone():
+                    raise ValueError("A site with that name already exists.")
+                cursor.execute("""INSERT INTO staff_sites
+                    (business_id,name,address,latitude,longitude,allowed_radius_metres,photo_required,active,client_reference)
+                    VALUES (%s,%s,NULLIF(%s,''),%s,%s,%s,%s,TRUE,NULLIF(%s,''))
+                    RETURNING id,name,client_reference""",
+                    (business_id, name, address, latitude, longitude, radius,
+                     request.form.get("photo_required") == "on", reference))
+                site = dict(cursor.fetchone())
+        if inline:
+            return jsonify(site=site), 201
         flash(f"{name} has been added as a work site.", "success")
+    except ValueError as error:
+        if inline:
+            return jsonify(error=str(error)), 400
+        flash(str(error), "error")
+    except _DB_ERRORS:
+        if inline:
+            return jsonify(error="Could not save the work site. Please try again."), 503
+        _database_message()
+    return _manager_redirect(business_slug)
+
+
+@staff_blueprint.post("/<business_slug>/sites/<int:site_id>/edit")
+@dashboard_login_required
+def edit_site(business_slug: str, site_id: int):
+    business_id = _business_id(business_slug)
+    try:
+        name, address, latitude, longitude, radius, reference = _site_values(request.form)
+        status = request.form.get("status")
+        if status not in {"active", "inactive"}:
+            raise ValueError("Select a valid site status.")
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                agency.lock_business(cursor, business_id)
+                cursor.execute("SELECT id FROM staff_sites WHERE id=%s AND business_id=%s FOR UPDATE",
+                               (site_id, business_id))
+                if not cursor.fetchone():
+                    abort(404)
+                cursor.execute("SELECT id FROM staff_sites WHERE business_id=%s AND LOWER(name)=LOWER(%s) AND id<>%s",
+                               (business_id, name, site_id))
+                if cursor.fetchone():
+                    raise ValueError("A site with that name already exists.")
+                # Preserve photo policy and historical assignment/GPS snapshots.
+                cursor.execute("""UPDATE staff_sites SET name=%s,address=NULLIF(%s,''),latitude=%s,
+                    longitude=%s,allowed_radius_metres=%s,client_reference=NULLIF(%s,''),
+                    active=%s,updated_at=NOW() WHERE id=%s AND business_id=%s""",
+                    (name, address, latitude, longitude, radius, reference,
+                     status == "active", site_id, business_id))
+        flash("Work site updated. Historical shift evidence is unchanged.", "success")
     except ValueError as error:
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return redirect(url_for("staff.dashboard", business_slug=business_slug, _anchor="sites"))
 
 
 @staff_blueprint.post("/<business_slug>/sites/<int:site_id>/status")

@@ -1,0 +1,25 @@
+{% macro site_fields(prefix, sites, site=none, assignment=false) %}
+<div class="site-fields" data-site-fields>
+  <div class="form-grid grid">
+    <label class="field wide" for="{{ prefix }}-name">Site name
+      <input id="{{ prefix }}-name" name="name" maxlength="150" value="{{ site.name if site else '' }}" required>
+    </label>
+    <label class="field wide" for="{{ prefix }}-reference">Client / job reference (optional)
+      <input id="{{ prefix }}-reference" name="client_reference" maxlength="160" value="{{ (site.client_reference or '') if site else '' }}">
+    </label>
+    <label class="field wide" for="{{ prefix }}-search">Find a saved UK address or postcode
+      <input id="{{ prefix }}-search" type="search" data-address-search list="{{ prefix }}-addresses" autocomplete="off" placeholder="For example, SW1A 1AA" aria-describedby="{{ prefix }}-address-help">
+      <datalist id="{{ prefix }}-addresses" data-address-results>{% for saved in sites if saved.address %}<option value="{{ saved.address }}">{{ saved.name }}</option>{% endfor %}</datalist>
+    </label>
+    <p class="help wide" id="{{ prefix }}-address-help" data-address-message role="status">Suggestions use your saved site addresses. For a new address, enter the full UK address and postcode below.</p>
+    <label class="field wide" for="{{ prefix }}-address">Full address and postcode{{ '' if assignment else ' (optional)' }}
+      <textarea id="{{ prefix }}-address" name="address" maxlength="1000" autocomplete="street-address" rows="3" placeholder="Building / street, town or city, postcode" {{ 'required' if assignment else '' }}>{{ (site.address or '') if site else '' }}</textarea>
+    </label>
+    <div class="wide"><button type="button" data-use-location>Use my current location</button><p class="help" data-location-message role="status">Use this at the work site, or enter verified coordinates below. An address suggestion does not verify GPS coordinates.</p></div>
+    <label class="field" for="{{ prefix }}-latitude">Latitude<input id="{{ prefix }}-latitude" name="latitude" type="number" min="-90" max="90" step="0.0000001" value="{{ site.latitude if site else '' }}" required></label>
+    <label class="field" for="{{ prefix }}-longitude">Longitude<input id="{{ prefix }}-longitude" name="longitude" type="number" min="-180" max="180" step="0.0000001" value="{{ site.longitude if site else '' }}" required></label>
+    <label class="field wide" for="{{ prefix }}-radius">Allowed GPS radius (metres)<input id="{{ prefix }}-radius" name="allowed_radius_metres" type="number" min="10" max="10000" value="{{ site.allowed_radius_metres if site else 250 }}" required></label>
+    {% if site %}<label class="field wide" for="{{ prefix }}-status">Status<select id="{{ prefix }}-status" name="status"><option value="active" {{ 'selected' if site.active else '' }}>Active</option><option value="inactive" {{ 'selected' if not site.active else '' }}>Inactive</option></select></label>{% endif %}
+  </div>
+</div>
+{% endmacro %}
