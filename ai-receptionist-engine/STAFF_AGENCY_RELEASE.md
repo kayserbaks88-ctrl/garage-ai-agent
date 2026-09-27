@@ -306,6 +306,43 @@ release and must not be presented as available.
 
 ## Boundaries
 
+### Staging UK work-site address search
+
+The manager site forms (add, edit and inline assignment site creation) use Ideal
+Postcodes through an authenticated, CSRF-protected server endpoint. No schema
+change is required. Configure **only the staging service**, without deploying
+production:
+
+- `STAFF_ADDRESS_LOOKUP_ENVIRONMENT=staging`
+- `STAFF_IDEAL_POSTCODES_API_KEY`: the staging Ideal Postcodes key, stored as a
+  server secret. Never place it in JavaScript, templates or committed files.
+
+Without both settings, provider requests are disabled and manual entry remains
+available. The server uses UK (`GBR`) autocomplete and resolves only the chosen
+address. Resolving an address consumes provider lookup credit; provision a funded
+staging key with provider-side usage/budget limits. No account or credit purchase
+is performed by this code change. The per-worker application throttle is 60
+requests per business per minute; provider limits should cover the whole account.
+
+Typed search text and the selected address identifier are sent to Ideal Postcodes
+by the server. Requests time out and errors are sanitized; secrets and provider
+error bodies are never returned to the browser. Search responses use `no-store`.
+
+Selecting a result fills the full address only. Provider coordinates are discarded.
+The manager must capture GPS at the site or explicitly confirm that the entered
+coordinates identify the selected site before saving. GPS accuracy/radius checks
+and existing organisation modes remain unchanged.
+
+Staging acceptance: search a full postcode, partial street with town, and a known
+building/site name; select a result and confirm the complete postcode is filled.
+Check that coordinates do not change and saving requires coordinate review.
+Check no matches, exhausted/invalid provider key and network failures allow manual
+entry. Test both Add Work Site and the assignment's inline new-site form.
+
+Provider contracts:
+https://docs.ideal-postcodes.co.uk/docs/api/find-address/ and
+https://docs.ideal-postcodes.co.uk/docs/api/resolve-address/.
+
 The existing shared dashboard login remains the manager authorization model;
 this extension does not introduce individual manager accounts or business
 membership roles. Employee routes remain tied to the business/employee session.

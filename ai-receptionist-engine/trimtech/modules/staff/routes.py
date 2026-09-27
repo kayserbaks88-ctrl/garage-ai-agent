@@ -17,7 +17,7 @@ from flask import (
 from psycopg2 import Error as PostgreSQLError
 from psycopg2.extras import RealDictCursor
 
-from dashboard_auth import dashboard_login_required
+from dashboard_auth import dashboard_login_required, dashboard_api_login_required
 from trimtech.modules.staff.database import (
     StaffDatabaseError, execute, fetch_all, fetch_one,
     init_staff_database, transaction,
@@ -27,6 +27,7 @@ from trimtech.modules.staff.payroll import (
     validate_shift_edit,
 )
 from trimtech.modules.staff import agency
+from trimtech.modules.staff.address_lookup import lookup as lookup_address, AddressLookupError
 
 
 staff_blueprint = Blueprint("staff", __name__, url_prefix="/staff")
@@ -331,7 +332,45 @@ def change_employee_status(business_slug: str, employee_id: int):
     return _manager_redirect(business_slug)
 
 
+_address_lookup_requests = {}
+_address_lookup_lock = threading.Lock()
+
+
+@staff_blueprint.post("/<business_slug>/sites/address-lookup")
+@dashboard_api_login_required
+def address_lookup(business_slug):
+    # Bounded per-business, per-worker limit in addition to provider account limits.
+    now = time.monotonic()
+    with _address_lookup_lock:
+        for key, (started, _) in list(_address_lookup_requests.items()):
+            if now - started >= 60:
+                del _address_lookup_requests[key]
+        key = _business_id(business_slug)
+        started, count = _address_lookup_requests.get(key, (now, 0))
+        if count >= 60 or (key not in _address_lookup_requests and len(_address_lookup_requests) >= 1024):
+            response = jsonify(error="Too many address searches. Wait a minute and try again.")
+            response.status_code = 429
+            response.headers["Retry-After"] = "60"
+        else:
+            _address_lookup_requests[key] = (started, count + 1)
+            response = None
+    if response is None:
+        try:
+            response = jsonify(lookup_address(query=request.form.get("query"),
+                address_id=request.form.get("address_id")))
+        except ValueError as error:
+            response = jsonify(error=str(error))
+            response.status_code = 400
+        except AddressLookupError as error:
+            response = jsonify(error=str(error))
+            response.status_code = 503
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 def _site_values(values):
+    if values.get("address_lookup_selected") == "1" and values.get("coordinates_reviewed") != "on":
+        raise ValueError("Capture your location at the site or verify its coordinates before saving.")
     name = _clean_text(values.get("name"), 150)
     if not name:
         raise ValueError("Enter the site name.")

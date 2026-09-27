@@ -1,36 +1,101 @@
 'use strict';
-// Optional provider adapter: window.staffAddressSearch(query) -> Promise<string[]>.
-// Connect an authenticated same-origin UK address service here; never embed API keys.
-// Results fill addresses only. GPS remains explicitly captured/reviewed by the manager.
+// Ideal Postcodes is proxied by the authenticated staging server. No browser API key.
+// Selecting an address never fills or verifies coordinates.
 document.querySelectorAll('[data-site-fields]').forEach(fields => {
   const search = fields.querySelector('[data-address-search]');
   const results = fields.querySelector('[data-address-results]');
   const address = fields.querySelector('[name="address"]');
   const message = fields.querySelector('[data-address-message]');
-  const saved = Array.from(results.options, option => option.value);
+  const review = fields.querySelector('[data-coordinates-reviewed]');
+  function requireCoordinateReview() {
+    fields.querySelector('[data-coordinate-review]').hidden = false;
+    fields.querySelector('[name="address_lookup_selected"]').value = '1';
+    review.required = true;
+    review.checked = false;
+  }
+  address.addEventListener('input', () => {
+    if (review.required) review.checked = false;
+  });
+  ['latitude', 'longitude'].forEach(name => fields.querySelector('[name="' + name + '"]')
+    .addEventListener('input', () => { if (review.required) review.checked = false; }));
   let timer, sequence = 0;
+  let controller;
+  fields.closest('form').addEventListener('reset', () => {
+    clearTimeout(timer);
+    ++sequence;
+    if (controller) controller.abort();
+    review.required = false;
+    fields.querySelector('[data-coordinate-review]').hidden = true;
+    results.replaceChildren(new Option('Type above to search', ''));
+    results.disabled = false;
+    message.textContent = 'Type at least 3 characters, then choose a match.';
+  });
+  async function lookup(values, signal) {
+    const form = fields.closest('form');
+    const body = new URLSearchParams({...values, csrf_token: form.querySelector('[name="csrf_token"]').value});
+    const response = await fetch(fields.dataset.addressUrl, {
+      method: 'POST', body, signal, credentials: 'same-origin',
+      headers: {Accept: 'application/json'}, redirect: 'error'
+    });
+    if (!(response.headers.get('content-type') || '').includes('application/json')) {
+      throw new Error('Your session has expired. Refresh the page before searching again.');
+    }
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Address lookup unavailable. Enter the address manually.');
+    return data;
+  }
   search.addEventListener('input', () => {
     clearTimeout(timer);
+    if (controller) controller.abort();
     const current = ++sequence;
     const query = search.value.trim();
-    if (typeof window.staffAddressSearch !== 'function' || query.length < 3) return;
+    results.replaceChildren(new Option('Choose an address', ''));
+    results.disabled = true;
+    if (query.length < 3) {
+      message.textContent = 'Type at least 3 characters to search.';
+      return;
+    }
+    message.textContent = 'Searching UK addresses…';
     timer = setTimeout(async () => {
+      controller = new AbortController();
       try {
-        const matches = await window.staffAddressSearch(query);
+        const data = await lookup({query}, controller.signal);
         if (current !== sequence) return;
-        results.replaceChildren();
-        [...new Set([...saved, ...matches.filter(value => typeof value === 'string')])]
-          .slice(0, 100).forEach(value => results.append(new Option('', value)));
-        message.textContent = 'Choose a matching address, or enter it manually below. Review the site coordinates.';
-      } catch (_) {
-        if (current === sequence) message.textContent = 'Address search unavailable. Enter the full address and postcode below.';
+        data.suggestions.forEach(hit => results.add(new Option(hit.label, hit.id)));
+        results.disabled = data.suggestions.length === 0;
+        message.textContent = data.suggestions.length ? 'Choose a matching address below.' : 'No matches. Try adding the town or postcode, or enter the address manually.';
+      } catch (error) {
+        if (current === sequence && error.name !== 'AbortError') message.textContent = error.message;
       }
     }, 300);
   });
-  search.addEventListener('change', () => {
-    if (Array.from(results.options).some(option => option.value === search.value)) {
-      address.value = search.value;
-      message.textContent = 'Address filled. Check the postcode and site coordinates before saving.';
+  results.addEventListener('change', async () => {
+    if (!results.value) return;
+    const option = results.selectedOptions[0];
+    const current = ++sequence;
+    clearTimeout(timer);
+    if (controller) controller.abort();
+    controller = new AbortController();
+    const previousAddress = address.value;
+    results.disabled = true;
+    message.textContent = 'Loading full address…';
+    try {
+      const data = option.dataset.savedAddress ? {address: option.dataset.savedAddress} :
+        await lookup({address_id: results.value}, controller.signal);
+      if (current !== sequence) return;
+      // Do not overwrite a manual edit made while the provider request was running.
+      if (address.value !== previousAddress) {
+        message.textContent = 'Your manual address edit was kept. Select the match again to replace it.';
+        return;
+      }
+      address.value = data.address;
+      requireCoordinateReview();
+      message.textContent = 'Full address filled. GPS is not verified: capture your location at the site or verify the coordinates below.';
+      fields.querySelector('[data-location-message]').textContent = 'Address selected. Existing coordinates have not been verified for this address. Capture or verify them before saving.';
+    } catch (error) {
+      if (current === sequence && error.name !== 'AbortError') message.textContent = error.message;
+    } finally {
+      if (current === sequence) results.disabled = false;
     }
   });
   const button = fields.querySelector('[data-use-location]');
@@ -52,6 +117,7 @@ document.querySelectorAll('[data-site-fields]').forEach(fields => {
       }
       fields.querySelector('[name="latitude"]').value = c.latitude.toFixed(7);
       fields.querySelector('[name="longitude"]').value = c.longitude.toFixed(7);
+      if (review.required) review.checked = true;
       locationMessage.textContent = 'Coordinates filled. Accuracy: ' + Math.round(c.accuracy) + ' metres. Check you are at the intended site before saving.';
     }, error => {
       button.disabled = false;

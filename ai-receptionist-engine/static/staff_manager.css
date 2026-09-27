@@ -3,6 +3,8 @@
 .site-fields .wide{grid-column:1/-1}
 .site-fields label{display:grid;gap:6px}
 .site-fields input,.site-fields textarea,.site-fields select{width:100%;min-width:0}
+.site-fields input[type=checkbox]{width:20px;min-height:20px}
+.site-fields [hidden]{display:none!important}
 .shell>*,.grid>*,.form-grid>*,.heading>*,.topbar>*{min-width:0}
 td,th,.item,p{overflow-wrap:anywhere}
 @media(max-width:650px){

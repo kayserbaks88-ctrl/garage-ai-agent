@@ -34,7 +34,7 @@
 <section id="assignment">
 <details id="inline-new-site"><summary>+ Add new site</summary>
 <form method="post" action="{{ url_for('staff.add_site',business_slug=business_slug) }}" data-inline-site>
-{{ csrf() }}{{ site_fields('assignment-site', sites, assignment=true) }}
+{{ csrf() }}{{ site_fields('assignment-site', sites, assignment=true, lookup_url=url_for('staff.address_lookup',business_slug=business_slug)) }}
 <p class="help">Save the site first, then finish the assignment. Your assignment entries stay on this page.</p>
 <p role="status" data-save-message></p><button type="submit">Save site and select</button>
 </form></details><p role="status" data-assignment-message></p>
