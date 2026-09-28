@@ -114,8 +114,8 @@ def _working_days(start_date: date, end_date: date) -> Decimal:
     return Decimal(weeks * 5 + sum((start_date.weekday() + i) % 7 < 5 for i in range(extra)))
 
 
-def _manager_redirect(business_slug: str):
-    return redirect(url_for("staff.dashboard", business_slug=business_slug))
+def _page_redirect(endpoint: str, business_slug: str):
+    return redirect(url_for(endpoint, business_slug=business_slug))
 
 
 def _employee_redirect(business_slug: str):
@@ -131,21 +131,12 @@ def _database_message():
 @staff_blueprint.get("/<business_slug>")
 @dashboard_login_required
 def dashboard(business_slug: str):
+    # Concise control centre: summary cards and navigation only. Each section's
+    # full tools, forms and filters live on its own dedicated page below.
     business_id = _business_id(business_slug)
     summary = dict(active_employees=0, staff_clocked_in=0, shifts_waiting_approval=0,
                    hours_this_week=0, on_holiday_today=0)
-    employees, sites, live_shifts, pending_shifts = [], [], [], []
-    current_leave, upcoming_leave, pending_leave = [], [], []
-    review = _review_options()
-    approval_total = 0
-    profile = None
-    profile_shifts, profile_leave = [], []
-    profile_total = 0
-    break_policy = "unpaid"
-    payroll_runs = []
-    edit_shift = None
     agency_settings = {"organisation_mode": "fixed", "travel_enabled": False}
-    profile_page = _page_arg("profile_page")
     try:
         init_staff_database()
         agency_settings = agency.settings(business_id)
@@ -165,36 +156,32 @@ def dashboard(business_slug: str):
                AND leave_type='holiday' AND approval_status='approved'
                AND CURRENT_DATE BETWEEN start_date AND end_date) AS on_holiday_today
         """, (business_id,) * 5) or summary
-        employees = fetch_all("""
-            SELECT id, full_name, phone, email, role, hourly_rate, status, payroll_number, created_at
-            FROM staff_employees WHERE business_id=%s
-            ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, full_name
-        """, (business_id,))
+    except _DB_ERRORS:
+        current_app.logger.exception("Staff dashboard could not load")
+        flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
+    return render_template(
+        "staff_dashboard.html", business_slug=business_slug, summary=summary,
+        csrf_token=_get_csrf_token, agency_settings=agency_settings,
+    )
+
+
+@staff_blueprint.get("/<business_slug>/approvals")
+@dashboard_login_required
+def approvals_page(business_slug: str):
+    business_id = _business_id(business_slug)
+    sites = []
+    review = _review_options()
+    approval_total = 0
+    pending_shifts = []
+    edit_shift = None
+    try:
+        init_staff_database()
         sites = fetch_all("""
             SELECT id, name, address, latitude, longitude, allowed_radius_metres,
                    photo_required, active, created_at, client_reference
             FROM staff_sites WHERE business_id=%s
             ORDER BY CASE WHEN active THEN 0 ELSE 1 END, name
         """, (business_id,))
-        shift_query = """
-            SELECT shift.id, shift.employee_id, employee.full_name, employee.role,
-                   shift.site_name, shift.clock_in_at, shift.clock_out_at,
-                   shift.approval_status, shift.manager_note,
-                   ROUND((EXTRACT(EPOCH FROM
-                     (COALESCE(shift.clock_out_at,NOW())-shift.clock_in_at))/3600)::numeric,2)
-                     AS hours_worked
-            FROM staff_shifts AS shift JOIN staff_employees AS employee
-              ON employee.id=shift.employee_id AND employee.business_id=shift.business_id
-            WHERE shift.business_id=%s
-        """
-        live_shifts = fetch_all(shift_query + """
-            AND (shift.clock_out_at IS NULL OR shift.clock_in_at::date=CURRENT_DATE)
-            ORDER BY CASE WHEN shift.clock_out_at IS NULL THEN 0 ELSE 1 END,
-                     shift.clock_in_at DESC
-        """, (business_id,))
-        current_presence = presence.overview(business_id)
-        for live_shift in live_shifts:
-            live_shift["presence"] = current_presence.get(live_shift["id"])
         where, params = _review_where(business_id, review)
         approval_total = (fetch_one("SELECT COUNT(*) AS total FROM staff_shifts AS shift "
             "JOIN staff_employees AS employee ON employee.id=shift.employee_id "
@@ -223,6 +210,33 @@ def dashboard(business_slug: str):
                     FROM staff_breaks WHERE business_id=%s AND shift_id=%s
                     ORDER BY started_at,id
                 """, (business_id, edit_shift_id))
+    except _DB_ERRORS:
+        current_app.logger.exception("Staff approvals could not load")
+        flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
+    return render_template(
+        "staff_approvals.html", business_slug=business_slug, sites=sites,
+        review=review, approval_total=approval_total, pending_shifts=pending_shifts,
+        edit_shift=edit_shift, page_link=_approvals_page_link,
+        csrf_token=_get_csrf_token, uk_input=agency.uk_input,
+    )
+
+
+@staff_blueprint.get("/<business_slug>/employees")
+@dashboard_login_required
+def employees_page(business_slug: str):
+    business_id = _business_id(business_slug)
+    employees = []
+    profile = None
+    profile_shifts, profile_leave = [], []
+    profile_total = 0
+    profile_page = _page_arg("profile_page")
+    try:
+        init_staff_database()
+        employees = fetch_all("""
+            SELECT id, full_name, phone, email, role, hourly_rate, status, payroll_number, created_at
+            FROM staff_employees WHERE business_id=%s
+            ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, full_name
+        """, (business_id,))
         profile_id = request.args.get("employee", type=int)
         if profile_id:
             profile = next((e for e in employees if e["id"] == profile_id), None)
@@ -237,6 +251,64 @@ def dashboard(business_slug: str):
                 (business_id, profile_id, (profile_page - 1) * 20))
             profile_leave = fetch_all("SELECT * FROM staff_leave_requests WHERE business_id=%s "
                 "AND employee_id=%s ORDER BY start_date DESC,id DESC LIMIT 30", (business_id, profile_id))
+    except _DB_ERRORS:
+        current_app.logger.exception("Staff employees page could not load")
+        flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
+    return render_template(
+        "staff_employees.html", business_slug=business_slug, employees=employees,
+        profile=profile, profile_shifts=profile_shifts, profile_leave=profile_leave,
+        profile_total=profile_total, profile_page=profile_page,
+        page_link=_profile_page_link, csrf_token=_get_csrf_token,
+    )
+
+
+@staff_blueprint.get("/<business_slug>/attendance")
+@dashboard_login_required
+def attendance_page(business_slug: str):
+    business_id = _business_id(business_slug)
+    live_shifts = []
+    try:
+        init_staff_database()
+        shift_query = """
+            SELECT shift.id, shift.employee_id, employee.full_name, employee.role,
+                   shift.site_name, shift.clock_in_at, shift.clock_out_at,
+                   shift.approval_status, shift.manager_note,
+                   ROUND((EXTRACT(EPOCH FROM
+                     (COALESCE(shift.clock_out_at,NOW())-shift.clock_in_at))/3600)::numeric,2)
+                     AS hours_worked
+            FROM staff_shifts AS shift JOIN staff_employees AS employee
+              ON employee.id=shift.employee_id AND employee.business_id=shift.business_id
+            WHERE shift.business_id=%s
+        """
+        live_shifts = fetch_all(shift_query + """
+            AND (shift.clock_out_at IS NULL OR shift.clock_in_at::date=CURRENT_DATE)
+            ORDER BY CASE WHEN shift.clock_out_at IS NULL THEN 0 ELSE 1 END,
+                     shift.clock_in_at DESC
+        """, (business_id,))
+        current_presence = presence.overview(business_id)
+        for live_shift in live_shifts:
+            live_shift["presence"] = current_presence.get(live_shift["id"])
+    except _DB_ERRORS:
+        current_app.logger.exception("Staff attendance page could not load")
+        flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
+    return render_template(
+        "staff_attendance.html", business_slug=business_slug, live_shifts=live_shifts,
+        csrf_token=_get_csrf_token,
+    )
+
+
+@staff_blueprint.get("/<business_slug>/leave")
+@dashboard_login_required
+def leave_page(business_slug: str):
+    business_id = _business_id(business_slug)
+    employees, current_leave, upcoming_leave, pending_leave = [], [], [], []
+    try:
+        init_staff_database()
+        employees = fetch_all("""
+            SELECT id, full_name, phone, email, role, hourly_rate, status, payroll_number, created_at
+            FROM staff_employees WHERE business_id=%s
+            ORDER BY CASE WHEN status='active' THEN 0 ELSE 1 END, full_name
+        """, (business_id,))
         leave_query = """
             SELECT leave_request.id, leave_request.employee_id, employee.full_name,
                    employee.role, leave_request.leave_type, leave_request.start_date,
@@ -261,6 +333,24 @@ def dashboard(business_slug: str):
             AND leave_request.approval_status='pending'
             ORDER BY leave_request.start_date, employee.full_name LIMIT 20
         """, (business_id,))
+    except _DB_ERRORS:
+        current_app.logger.exception("Staff leave page could not load")
+        flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
+    return render_template(
+        "staff_leave.html", business_slug=business_slug, employees=employees,
+        current_leave=current_leave, upcoming_leave=upcoming_leave,
+        pending_leave=pending_leave, csrf_token=_get_csrf_token,
+    )
+
+
+@staff_blueprint.get("/<business_slug>/payroll")
+@dashboard_login_required
+def payroll_page(business_slug: str):
+    business_id = _business_id(business_slug)
+    break_policy = "unpaid"
+    payroll_runs = []
+    try:
+        init_staff_database()
         settings = fetch_one("SELECT break_policy FROM staff_business_settings WHERE business_id=%s", (business_id,))
         break_policy = (settings or {}).get("break_policy") or "unpaid"
         payroll_runs = fetch_all("""
@@ -268,20 +358,11 @@ def dashboard(business_slug: str):
             FROM staff_payroll_runs WHERE business_id=%s ORDER BY period_end DESC,id DESC LIMIT 20
         """, (business_id,))
     except _DB_ERRORS:
-        current_app.logger.exception("Staff dashboard could not load")
+        current_app.logger.exception("Staff payroll page could not load")
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
     return render_template(
-        "staff_dashboard.html", business_slug=business_slug, summary=summary,
-        employees=employees, sites=sites, live_shifts=live_shifts,
-        pending_shifts=pending_shifts, current_leave=current_leave,
-        upcoming_leave=upcoming_leave, pending_leave=pending_leave, csrf_token=_get_csrf_token,
-        review=review, approval_total=approval_total, profile=profile,
-        profile_shifts=profile_shifts, profile_leave=profile_leave,
-        profile_total=profile_total, profile_page=profile_page,
-        page_link=_dashboard_page_link,
-        break_policy=break_policy, payroll_runs=payroll_runs,
-        edit_shift=edit_shift,
-        agency_settings=agency_settings, uk_input=agency.uk_input,
+        "staff_payroll_page.html", business_slug=business_slug,
+        break_policy=break_policy, payroll_runs=payroll_runs, csrf_token=_get_csrf_token,
     )
 
 
@@ -315,7 +396,7 @@ def add_employee(business_slug: str):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.employees_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/employees/<int:employee_id>/status")
@@ -324,7 +405,7 @@ def change_employee_status(business_slug: str, employee_id: int):
     status = _clean_text(request.form.get("status"), 20).lower()
     if status not in {"active", "inactive"}:
         flash("Select a valid employee status.", "error")
-        return _manager_redirect(business_slug)
+        return _page_redirect("staff.employees_page", business_slug)
     try:
         count = execute("""UPDATE staff_employees SET status=%s,updated_at=NOW()
             WHERE id=%s AND business_id=%s""", (status, employee_id, _business_id(business_slug)))
@@ -332,7 +413,7 @@ def change_employee_status(business_slug: str, employee_id: int):
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.employees_page", business_slug)
 
 
 _address_lookup_requests = {}
@@ -418,7 +499,7 @@ def add_site(business_slug: str):
         if inline:
             return jsonify(error="Could not save the work site. Please try again."), 503
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.agency_dashboard", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/sites/<int:site_id>/edit")
@@ -452,7 +533,7 @@ def edit_site(business_slug: str, site_id: int):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return redirect(url_for("staff.dashboard", business_slug=business_slug, _anchor="sites"))
+    return redirect(url_for("staff.agency_dashboard", business_slug=business_slug, _anchor="sites"))
 
 
 @staff_blueprint.post("/<business_slug>/sites/<int:site_id>/status")
@@ -461,7 +542,7 @@ def change_site_status(business_slug: str, site_id: int):
     status = _clean_text(request.form.get("status"), 20).lower()
     if status not in {"active", "inactive"}:
         flash("Select a valid site status.", "error")
-        return _manager_redirect(business_slug)
+        return _page_redirect("staff.agency_dashboard", business_slug)
     try:
         count = execute("""UPDATE staff_sites SET active=%s,updated_at=NOW()
             WHERE id=%s AND business_id=%s""", (status == "active", site_id, _business_id(business_slug)))
@@ -469,7 +550,7 @@ def change_site_status(business_slug: str, site_id: int):
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.agency_dashboard", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/settings/break-policy")
@@ -478,7 +559,7 @@ def update_break_policy(business_slug: str):
     policy = _clean_text(request.form.get("break_policy"), 20).lower()
     if policy not in {"paid", "unpaid"}:
         flash("Select whether new breaks are paid or unpaid.", "error")
-        return _manager_redirect(business_slug)
+        return _page_redirect("staff.payroll_page", business_slug)
     try:
         execute("""INSERT INTO staff_business_settings (business_id,break_policy)
             VALUES (%s,%s) ON CONFLICT (business_id) DO UPDATE SET break_policy=EXCLUDED.break_policy,updated_at=NOW()""",
@@ -486,7 +567,7 @@ def update_break_policy(business_slug: str):
         flash(f"New breaks will be recorded as {policy}.", "success")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.payroll_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/shifts/<int:shift_id>/approve")
@@ -500,7 +581,7 @@ def approve_shift(business_slug: str, shift_id: int):
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.approvals_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/shifts/<int:shift_id>/reject")
@@ -509,7 +590,7 @@ def reject_shift(business_slug: str, shift_id: int):
     note = _clean_text(request.form.get("manager_note"), 500)
     if not note:
         flash("Enter a reason before rejecting the shift.", "error")
-        return _manager_redirect(business_slug)
+        return _page_redirect("staff.approvals_page", business_slug)
     try:
         count = execute("""UPDATE staff_shifts SET approval_status='rejected',approved_at=NOW(),
             manager_note=%s WHERE id=%s AND business_id=%s AND clock_out_at IS NOT NULL
@@ -517,7 +598,7 @@ def reject_shift(business_slug: str, shift_id: int):
         flash("Shift rejected." if count else "That completed pending shift could not be found.", "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.approvals_page", business_slug)
 
 
 def _leave_input():
@@ -574,7 +655,7 @@ def add_leave(business_slug: str):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.leave_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/leave/<int:leave_id>/approve")
@@ -589,7 +670,7 @@ def approve_leave(business_slug: str, leave_id: int):
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.leave_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/leave/<int:leave_id>/reject")
@@ -598,7 +679,7 @@ def reject_leave(business_slug: str, leave_id: int):
     note = _clean_text(request.form.get("manager_note"), 1000)
     if not note:
         flash("Enter a reason before rejecting the request.", "error")
-        return _manager_redirect(business_slug)
+        return _page_redirect("staff.leave_page", business_slug)
     try:
         count = execute("""UPDATE staff_leave_requests SET approval_status='rejected',approved_at=NOW(),
             manager_note=%s,updated_at=NOW() WHERE id=%s AND business_id=%s AND approval_status='pending'""",
@@ -607,7 +688,7 @@ def reject_leave(business_slug: str, leave_id: int):
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.leave_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/leave/<int:leave_id>/cancel")
@@ -621,7 +702,7 @@ def cancel_leave(business_slug: str, leave_id: int):
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.leave_page", business_slug)
 
 
 # Employee sessions never grant manager/dashboard access.
@@ -1085,11 +1166,18 @@ def _page_arg(name):
     return min(1000000, max(1, request.args.get(name, 1, type=int) or 1))
 
 
-def _dashboard_page_link(**changes):
-    allowed = {"q", "site", "from_date", "to_date", "page", "employee", "profile_page"}
+def _approvals_page_link(**changes):
+    allowed = {"q", "site", "from_date", "to_date", "page"}
     args = {k: v for k, v in request.args.items() if k in allowed}
     args.update(changes)
-    return url_for("staff.dashboard", business_slug=request.view_args["business_slug"], **args)
+    return url_for("staff.approvals_page", business_slug=request.view_args["business_slug"], **args)
+
+
+def _profile_page_link(**changes):
+    allowed = {"employee", "profile_page"}
+    args = {k: v for k, v in request.args.items() if k in allowed}
+    args.update(changes)
+    return url_for("staff.employees_page", business_slug=request.view_args["business_slug"], **args)
 
 
 def _review_options():
@@ -1189,8 +1277,7 @@ def edit_shift(business_slug: str, shift_id: int):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return redirect(url_for("staff.dashboard", business_slug=business_slug,
-                            _anchor="approvals"))
+    return redirect(url_for("staff.approvals_page", business_slug=business_slug))
 
 
 @staff_blueprint.post("/<business_slug>/shifts/approve-selected")
@@ -1215,7 +1302,7 @@ def approve_selected_shifts(business_slug):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.approvals_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/payroll/generate")
@@ -1237,7 +1324,7 @@ def generate_payroll(business_slug: str):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.payroll_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/payroll/<int:run_id>/approve")
@@ -1255,7 +1342,7 @@ def approve_payroll(business_slug: str, run_id: int):
               "success" if count else "error")
     except _DB_ERRORS:
         _database_message()
-    return _manager_redirect(business_slug)
+    return _page_redirect("staff.payroll_page", business_slug)
 
 
 @staff_blueprint.post("/<business_slug>/employees/<int:employee_id>/edit")
@@ -1294,7 +1381,7 @@ def edit_employee(business_slug, employee_id):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return redirect(url_for("staff.dashboard", business_slug=business_slug,employee=employee_id,_anchor="profile"))
+    return redirect(url_for("staff.employees_page", business_slug=business_slug,employee=employee_id,_anchor="profile"))
 
 
 def _today_hours(business_id, employee_id):

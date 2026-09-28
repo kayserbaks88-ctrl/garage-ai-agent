@@ -116,7 +116,7 @@ def register_routes(staff):
             flash(str(error), "error")
         except staff._DB_ERRORS:
             staff._database_message()
-        return staff._manager_redirect(business_slug)
+        return staff._page_redirect("staff.payroll_page", business_slug)
 
     @bp.post("/<business_slug>/payroll-adjustments/<int:adjustment_id>/resolve")
     @dashboard_login_required

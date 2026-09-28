@@ -234,9 +234,10 @@ class AgencyDatabaseTests(unittest.TestCase):
         self.assertEqual(self.row("staff_leave_requests", leave["id"])["approval_status"], "approved")
         self.post(self.manager, "shifts/approve-selected", {"shift_ids": [shift["id"]]})
         self.assertEqual(self.row("staff_shifts", shift["id"])["approval_status"], "approved")
-        response = self.manager.get(f"/staff/alpha?employee={self.employee}&edit_shift={shift['id']}")
+        response = self.manager.get(f"/staff/alpha/approvals?edit_shift={shift['id']}")
         self.assertEqual(response.status_code, 200)
         self.assertIn(b"Assignment and clocking evidence", response.data)
+        self.assertEqual(self.manager.get(f"/staff/alpha/employees?employee={self.employee}").status_code, 200)
         self.payroll(shift["id"])
 
     def test_agency_assignments_two_employees_and_gps(self):
@@ -487,7 +488,7 @@ class AgencyDatabaseTests(unittest.TestCase):
         response = self.post(self.manager, f"employees/{self.foreign_employee}/edit", values)
         self.assertEqual(response.status_code, 404)
         self.assertEqual(self.row("staff_employees", self.foreign_employee), foreign)
-        page = self.manager.get(f"/staff/alpha?employee={self.employee}")
+        page = self.manager.get(f"/staff/alpha/employees?employee={self.employee}")
         self.assertIn(b"Edit employee", page.data)
         self.assertIn(b'id="employee-edit"', page.data)
 
