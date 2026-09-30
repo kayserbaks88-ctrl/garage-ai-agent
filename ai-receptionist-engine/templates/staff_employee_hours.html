@@ -1,0 +1,15 @@
+{% extends "staff_employee_base.html" %}
+{% block title %}My hours{% endblock %}
+{% block content %}
+<h1>My hours</h1>
+      <section class="card" aria-labelledby="hours-title">
+        <h2 id="hours-title">This week's hours</h2>
+        <p class="hours">{{ '%.2f' | format(hours_this_week) }} <small>hours</small></p>
+        <p class="muted">{{ date_text(week_start) }} – {{ date_text(week_end) }}</p>
+        <p class="help">Total clocked time, including open shifts and shifts awaiting approval or rejected. Breaks have not been deducted from this total. Approved pay hours may differ.</p>
+        <p class="help">Use Refresh to update your summary.</p>
+      </section>
+<section class="card"><h2>Shift history</h2><p class="help">Latest 100 shifts. Elapsed hours include breaks; approval and payroll may change payable hours.</p>
+<div class="table-wrap"><table class="history"><thead><tr><th>Site</th><th>Start / end</th><th>Elapsed hours</th><th>Break minutes</th><th>Status</th></tr></thead><tbody>
+{% for shift in shift_history %}<tr><td data-label="Site">{{ shift.site_name }}</td><td data-label="Window">{{ time_text(shift.clock_in_at) }}<br>{{ time_text(shift.clock_out_at) if shift.clock_out_at else 'Open shift' }}</td><td data-label="Hours">{{ shift.elapsed_hours }}</td><td data-label="Breaks">{{ shift.break_minutes }}</td><td data-label="Status">{{ shift.approval_status|title }}</td></tr>{% else %}<tr><td colspan="5">No shifts recorded yet.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endblock %}

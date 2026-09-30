@@ -21,7 +21,7 @@
 {% from "staff_site_fields.html" import site_fields %}
 {% set token=csrf_token() %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ token }}">{% endmacro %}
-{% macro stamp(value) %}<time>{{ uk_input(value)|replace('T',' ') }}</time>{% endmacro %}
+{% macro stamp(value) %}<time datetime="{{ value.isoformat() }}">{{ uk_display(value) }}</time>{% endmacro %}
 {% macro status(value) %}<span>[{{ value|replace('_',' ')|title }}]</span>{% endmacro %}
 <nav><a href="#roster">Weekly roster</a><a href="#assignment">Create assignment</a><a href="#sites">Work sites</a><a href="#adjustments">Payroll adjustments</a><a href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">&larr; Back to Staff Manager</a></nav>
 <h1>Assignments &amp; travel</h1><p>{{ business_slug }} · UK local times (UTC offset shown)</p>
@@ -46,7 +46,7 @@
 <label>Client / job site<select name="site_id" required><option value="">Choose site</option>{% for s in sites if s.active %}<option value="{{ s.id }}" {{ 'selected' if edit and edit.site_id==s.id else '' }}>{{ s.name }}{{ ' · '+s.client_reference if s.client_reference else '' }}</option>{% endfor %}</select></label>
 {% for edge in ('start','end') %}
 <label>{{ edge|title }} date<input type="date" name="{{ edge }}_date" value="{{ assignment_fields[edge ~ '_date'] }}" required></label>
-<label>{{ edge|title }} time<input type="time" step="1" name="{{ edge }}_time" value="{{ assignment_fields[edge ~ '_time'] }}" required></label>
+<label>{{ edge|title }} time<input type="time" step="60" name="{{ edge }}_time" value="{{ assignment_fields[edge ~ '_time'] }}" required></label>
 {% endfor %}</div>
 <details {{ 'open' if assignment_fields.start_offset or assignment_fields.end_offset else '' }}><summary>Autumn clock change: repeated times</summary>
 <p class="help">Normally leave these on Automatic. When 01:00–01:59 occurs twice in autumn, choose the first (BST) or second (GMT) occurrence.</p>

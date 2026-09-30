@@ -1,0 +1,67 @@
+{% extends "staff_employee_base.html" %}
+{% block title %}Clock in / out{% endblock %}
+{% block content %}
+<h1>Clock in / out</h1>
+      <section class="card" aria-labelledby="clock-title">
+        <div class="section-head"><h2 id="clock-title">Clock-in status</h2><span class="pill {{ 'pending' if current_break else '' }}">{{ 'On break' if current_break else ('On shift' if is_clocked_in else 'Off shift') }}</span></div>
+        {% if is_clocked_in %}
+          <div data-presence-portal data-presence-url="{{ url_for('staff.employee_presence',business_slug=business_slug) }}" data-shift-id="{{ current_shift.id }}" data-csrf="{{ token }}">
+            <p><strong>Site presence</strong>: <span data-presence-state>location_stale</span></p>
+            <p class="help">When enabled, this page requests your location about every 30 seconds while visible. Keep it open for updates. Browsers may pause when locked or in the background. Missing updates are shown as location_stale, not as confirmed absence. Presence evidence is retained with your shift and does not change pay or approval.</p>
+            <button type="button" data-presence-start>Start presence updates</button>
+            <button type="button" data-presence-stop disabled>Stop presence updates</button>
+            <p role="status" data-presence-message>Presence updates are off. Clock-in and clock-out GPS checks remain separate.</p>
+          </div>
+          <p class="status">{{ 'On a break' if current_break else 'Clocked in' }}</p>
+          <p><strong>{{ current_shift.site_name }}</strong><br><span class="muted">Started {{ time_text(current_shift.clock_in_at) }}</span></p>
+          {% if current_break %}
+            <p class="help">{{ 'Paid' if current_break.paid else 'Unpaid' }} break started {{ time_text(current_break.started_at) }}.</p>
+            <form method="post" action="{{ url_for('staff.employee_break_end', business_slug=business_slug) }}" data-submit-once>
+              <input type="hidden" name="csrf_token" value="{{ token }}"><input type="hidden" name="shift_id" value="{{ current_shift.id }}"><input type="hidden" name="break_id" value="{{ current_break.id }}">
+              <button class="full" type="submit">End break</button>
+            </form>
+          {% else %}
+            <form method="post" action="{{ url_for('staff.employee_break_start', business_slug=business_slug) }}" data-submit-once>
+              <input type="hidden" name="csrf_token" value="{{ token }}"><input type="hidden" name="shift_id" value="{{ current_shift.id }}">
+              <button class="full" type="submit">Start break</button>
+            </form>
+          {% endif %}
+          <div class="divider"></div>
+          <form method="post" action="{{ url_for('staff.employee_clock_out', business_slug=business_slug) }}" data-location-form>
+            <input type="hidden" name="csrf_token" value="{{ token }}"><input type="hidden" name="shift_id" value="{{ current_shift.id }}">
+            <input type="hidden" name="latitude"><input type="hidden" name="longitude"><input type="hidden" name="accuracy"><input type="hidden" name="captured_at">
+            <button class="primary full" type="submit">Clock out</button>
+            <p class="location-message help" role="status" aria-live="polite"></p>
+          </form>
+          <p class="help">Clock out at your work site with location access enabled. Any open break will end too. Your shift remains subject to manager review.</p>
+        {% else %}
+          <p class="status">Clocked out</p><p class="muted">You have no open shift.</p>
+          {% if agency_settings.organisation_mode == 'agency' %}
+          {% set eligible = assignments | selectattr('eligible') | rejectattr('photo_required') | list %}
+          {% if eligible %}<form method="post" action="{{ url_for('staff.employee_clock_in',business_slug=business_slug) }}" data-location-form>
+            <input type="hidden" name="csrf_token" value="{{ token }}">
+            <div class="field"><label for="assignment-id">Your eligible assignment</label><select id="assignment-id" name="assignment_id" required>{% for a in eligible %}<option value="{{ a.id }}">{{ a.name }} · {{ a.address }}</option>{% endfor %}</select></div>
+            <input type="hidden" name="latitude"><input type="hidden" name="longitude"><input type="hidden" name="accuracy"><input type="hidden" name="captured_at">
+            <button class="primary full" type="submit">Clock in to assigned job</button><p class="location-message help" role="status" aria-live="polite"></p>
+          </form>{% else %}<p class="help">No assignment eligible for portal clock-in right now. Check My jobs for the start time or contact your manager for an assignment or an audited override. Photo-required sites need your manager's help.</p>{% endif %}
+          {% else %}
+          {% set available = sites | rejectattr('photo_required') | list %}
+          {% if available %}
+          <form method="post" action="{{ url_for('staff.employee_clock_in', business_slug=business_slug) }}" data-location-form>
+            <input type="hidden" name="csrf_token" value="{{ token }}">
+            <div class="field"><label for="site_id">Work site</label><select id="site_id" name="site_id" required><option value="">Choose your work site</option>{% for site in sites %}<option value="{{ site.id }}" {{ 'disabled' if site.photo_required else '' }}>{{ site.name }}{{ ' — photo required' if site.photo_required else '' }}</option>{% endfor %}</select></div>
+            <input type="hidden" name="latitude"><input type="hidden" name="longitude"><input type="hidden" name="accuracy"><input type="hidden" name="captured_at">
+            <button class="primary full" type="submit">Clock in</button>
+            <p class="location-message help" role="status" aria-live="polite"></p>
+          </form>
+          <p class="help">Allow location access when prompted. You need to be within your selected site's GPS radius.</p>
+          {% else %}
+          <p class="help">{{ 'Your sites require photo check-in. Use your existing clocking process or contact your manager.' if sites else 'Your manager needs to add an active work site before you can clock in here.' }}</p>
+          {% endif %}
+          {% if sites | selectattr('photo_required') | list %}<p class="help">Photo-required sites are not available for portal clocking yet.</p>{% endif %}
+          {% endif %}
+        {% endif %}
+        <noscript><p class="notice error">Enable JavaScript to use GPS clock-in and clock-out.</p></noscript>
+      </section>
+
+{% endblock %}

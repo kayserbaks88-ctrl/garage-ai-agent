@@ -1,0 +1,29 @@
+{% extends "staff_employee_base.html" %}
+{% block title %}Leave{% endblock %}
+{% block content %}
+<h1>Leave</h1>
+      <section class="card span" aria-labelledby="request-title">
+        <div class="section-head"><h2 id="request-title">Request holiday or leave</h2><span class="pill">Manager approval</span></div>
+        <form method="post" action="{{ url_for('staff.employee_request_leave', business_slug=business_slug) }}" data-submit-once id="leave-form">
+          <input type="hidden" name="csrf_token" value="{{ token }}">
+          <div class="field"><label for="leave_type">Leave type</label><select id="leave_type" name="leave_type" required><option value="holiday">Holiday</option><option value="sickness">Sickness</option><option value="unpaid">Unpaid leave</option><option value="compassionate">Compassionate leave</option><option value="parental">Parental leave</option><option value="other">Other</option></select></div>
+          <div class="dates"><div class="field"><label for="start_date">First day</label><input type="date" id="start_date" name="start_date" required></div><div class="field"><label for="end_date">Last day</label><input type="date" id="end_date" name="end_date" required></div></div>
+          <div class="field"><label for="employee_note">Note for your manager <span class="muted">(optional)</span></label><textarea id="employee_note" name="employee_note" rows="3" maxlength="1000" placeholder="Anything your manager needs to know"></textarea></div>
+          <p class="help">Both dates are included. This version counts Monday–Friday only; bank holidays are included. Ask your manager about weekends, half-days or different working patterns.</p>
+          <button class="primary" type="submit">Send leave request</button>
+        </form>
+      </section>
+      {% if current_leave %}
+      <section class="card span"><div class="section-head"><h2>Current leave</h2><span class="pill">Approved</span></div><ul class="records">{% for item in current_leave %}<li class="record"><strong>{{ item.leave_type | capitalize }}</strong>{{ date_text(item.start_date) }} – {{ date_text(item.end_date) }}</li>{% endfor %}</ul></section>
+      {% endif %}
+      <section class="card"><div class="section-head"><h2>Upcoming leave</h2><span class="pill">{{ leave_summary.upcoming_count | default(0) }} approved</span></div>
+        {% if upcoming_leave %}<ul class="records">{% for item in upcoming_leave %}<li class="record"><strong>{{ item.leave_type | capitalize }}</strong><p>{{ date_text(item.start_date) }} – {{ date_text(item.end_date) }}</p><p class="help">{{ item.total_days }} working days</p>{% if item.manager_note %}<p class="help">Manager: {{ item.manager_note }}</p>{% endif %}</li>{% endfor %}</ul>{% else %}<p class="muted">No upcoming approved leave.</p>{% endif %}
+      </section>
+      <section class="card"><div class="section-head"><h2>Pending leave</h2><span class="pill pending">{{ leave_summary.pending_count | default(0) }} pending</span></div>
+        {% if pending_leave %}<ul class="records">{% for item in pending_leave %}<li class="record"><strong>{{ item.leave_type | capitalize }}</strong><p>{{ date_text(item.start_date) }} – {{ date_text(item.end_date) }}</p><p class="help">{{ item.total_days }} working days · Awaiting approval</p><form method="post" action="{{ url_for('staff.employee_cancel_leave', business_slug=business_slug, leave_id=item.id) }}" data-submit-once data-confirm="Cancel this pending leave request?"><input type="hidden" name="csrf_token" value="{{ token }}"><button type="submit" class="danger">Cancel request</button></form></li>{% endfor %}</ul>{% else %}<p class="muted">No leave requests awaiting approval.</p>{% endif %}
+      </section>
+      {% if leave_history %}
+      <section class="card span"><details><summary>Recent leave requests</summary><ul class="records">{% for item in leave_history %}<li class="record"><div class="section-head"><strong>{{ item.leave_type | capitalize }}</strong><span class="pill {{ item.approval_status }}">{{ item.approval_status | capitalize }}</span></div><p>{{ date_text(item.start_date) }} – {{ date_text(item.end_date) }}</p>{% if item.manager_note %}<p class="help">Manager: {{ item.manager_note }}</p>{% endif %}</li>{% endfor %}</ul><p class="help">Showing up to 30 recent requests. Contact your manager to change approved leave.</p></details></section>
+      {% endif %}
+
+{% endblock %}

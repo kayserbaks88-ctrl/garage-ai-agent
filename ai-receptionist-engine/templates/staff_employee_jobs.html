@@ -1,0 +1,17 @@
+{% extends "staff_employee_base.html" %}
+{% block title %}My Jobs{% endblock %}
+{% block content %}
+<h1>My Jobs</h1>
+<section class="card"><h2>Current job</h2>{% for job in current_jobs %}{{ job_card(job,true) }}{% else %}<p class="muted">No job in its assignment window right now.</p>{% endfor %}</section>
+<section class="card"><h2>Upcoming jobs</h2>{% for job in upcoming_jobs %}{{ job_card(job) }}{% else %}<p class="muted">No upcoming jobs. Contact your manager if you are expecting work.</p>{% endfor %}</section>
+<p class="help">Only your assignments are shown. Directions open the assigned destination in Google Maps.</p>    <details class="card" style="margin-top:20px"><summary>Job history (latest 50)</summary>
+    <p class="help">Completed means a finished shift was recorded; an ended assignment window alone does not confirm attendance.</p>
+    {% for job in job_history %}<article class="record" data-history-job-id="{{ job.id }}">
+      <h3>{{ job.name }}</h3><p>{{ job.address }}</p>
+      <p>{{ uk_display(job.starts_at) }} &ndash; {{ uk_display(job.ends_at) }} (UK)</p>
+      {% if job.client_reference %}<p>Job / client reference: {{ job.client_reference }}</p>{% endif %}
+      <span class="pill">{{ 'Cancelled' if job.status=='cancelled' else ('Completed' if job.completed else 'Window ended') }}</span>
+    </article>{% else %}<p>No past or cancelled jobs.</p>{% endfor %}
+    </details>
+
+{% endblock %}

@@ -212,7 +212,7 @@ class AgencyDatabaseTests(unittest.TestCase):
             connection.rollback()
 
     def test_fixed_flow_clock_break_leave_review_profile_payroll(self):
-        home = self.worker.get("/staff/alpha/employee")
+        home = self.worker.get("/staff/alpha/employee/clocking")
         self.assertEqual(home.status_code, 200)
         self.assertIn(b'name="site_id"', home.data)
         self.assertNotIn(b'name="assignment_id"', home.data)
@@ -244,7 +244,7 @@ class AgencyDatabaseTests(unittest.TestCase):
         self.enable_agency()
         first = self.assignment()
         second = self.assignment(employee=self.second, site=self.second_site)
-        home = self.worker.get("/staff/alpha/employee")
+        home = self.worker.get("/staff/alpha/employee/clocking")
         self.assertEqual(home.status_code, 200)
         self.assertIn(b'name="assignment_id"', home.data)
         self.assertNotIn(b'name="site_id"', home.data)

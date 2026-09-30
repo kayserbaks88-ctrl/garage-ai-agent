@@ -25,7 +25,7 @@ def queue(cursor, business_id, assignment_id, action, assignment):
     """An outbox error must not roll back an otherwise valid assignment."""
     cursor.execute("SAVEPOINT staff_email_queue")
     try:
-        _queue(cursor, business_id, assignment_id, action, assignment)
+        return _queue(cursor, business_id, assignment_id, action, assignment)
     except Exception:
         cursor.execute("ROLLBACK TO SAVEPOINT staff_email_queue")
         logger.error("Staff assignment email failed: assignment=%s reason=notification_queue_failed", assignment_id)
@@ -45,8 +45,9 @@ def _queue(cursor, business_id, assignment_id, action, assignment):
                "starts_at": assignment["starts_at"].isoformat(), "ends_at": assignment["ends_at"].isoformat()}
     cursor.execute("""INSERT INTO staff_assignment_notifications
         (business_id,assignment_id,employee_id,event_key,action,recipient,details)
-        VALUES (%s,%s,%s,%s,%s,%s,%s)""", (business_id, assignment_id, assignment["employee_id"],
+        VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id""", (business_id, assignment_id, assignment["employee_id"],
         "staff-assignment-" + uuid.uuid4().hex, action, employee["email"], Json(details)))
+    return cursor.fetchone()["id"]
 
 
 def message(row):
@@ -73,7 +74,7 @@ def message(row):
     return action, text, html
 
 
-def dispatch(business_id, assignment_id):
+def dispatch(business_id, assignment_id, notification_ids=None):
     """Failure here never propagates to the already committed assignment action.
 
     SKIP LOCKED avoids concurrent dispatch; provider idempotency handles a process
@@ -84,8 +85,9 @@ def dispatch(business_id, assignment_id):
             with transaction() as connection:
                 with connection.cursor(cursor_factory=RealDictCursor) as cursor:
                     cursor.execute("""SELECT * FROM staff_assignment_notifications WHERE business_id=%s
-                        AND assignment_id=%s AND status='pending' ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1""",
-                        (business_id, assignment_id))
+                        AND assignment_id=%s AND status='pending'
+                        AND (%s IS NULL OR id=ANY(%s)) ORDER BY id FOR UPDATE SKIP LOCKED LIMIT 1""",
+                        (business_id, assignment_id, notification_ids, notification_ids))
                     row = cursor.fetchone()
                     if not row:
                         return
@@ -113,3 +115,28 @@ def dispatch(business_id, assignment_id):
                         provider_id=%s,attempted_at=NOW() WHERE id=%s""", (status, error, provider_id, row["id"]))
     except Exception:
         logger.error("Staff assignment notification dispatch could not record its outcome; pending outbox requires review")
+
+
+def confirmation(business_id, assignment_id, notification_ids):
+    """Report this action's notices only; earlier successes cannot mask a failure."""
+    if not notification_ids or any(value is None for value in notification_ids):
+        return "Assignment saved. Email failed to queue; review the assignment email log.", "error"
+    try:
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute("""SELECT status FROM staff_assignment_notifications
+                    WHERE business_id=%s AND assignment_id=%s AND id=ANY(%s)""",
+                    (business_id, assignment_id, notification_ids))
+                statuses = [row["status"] for row in cursor.fetchall()]
+        if len(statuses) != len(notification_ids):
+            return "Assignment saved. Email status unavailable; review the assignment email log.", "error"
+        if all(status == "sent" for status in statuses):
+            return "Assignment saved. Employee notification sent: accepted by the email provider; inbox delivery is not confirmed.", "success"
+        if "failed" in statuses:
+            return "Assignment saved. Email failed for one or more notifications; review the assignment email log.", "error"
+        if "disabled" in statuses:
+            return "Assignment saved. Email is disabled; not all employees were notified.", "error"
+        return "Assignment saved. Email pending; employee notification is not yet confirmed.", "warning"
+    except Exception:
+        logger.error("Staff assignment email status unavailable: assignment=%s", assignment_id)
+        return "Assignment saved. Email status unavailable; review the assignment email log.", "error"

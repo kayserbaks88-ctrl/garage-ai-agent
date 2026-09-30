@@ -1,0 +1,7 @@
+{% extends "staff_employee_base.html" %}
+{% block title %}My profile{% endblock %}
+{% block content %}
+<h1>My profile</h1>
+      <section class="card span"><div class="section-head"><h2>My details</h2><span class="pill">{{ employee.role | capitalize }}</span></div><dl class="details"><div><dt>Full name</dt><dd>{{ employee.full_name }}</dd></div><div><dt>Phone number</dt><dd>{{ employee.phone or 'Not supplied' }}</dd></div><div><dt>Email address</dt><dd>{{ employee.email or 'Not supplied' }}</dd></div><div><dt>Business</dt><dd>{{ business_slug }}</dd></div></dl><p class="help">Contact your manager if your details need updating.</p></section>
+{% if agency_settings.organisation_mode == 'agency' or agency_settings.travel_enabled %}{% include 'staff_travel_origin.html' %}{% else %}<section class="card"><h2>Travel settings</h2><p class="help">Travel estimates are not enabled for this workplace.</p></section>{% endif %}
+{% endblock %}

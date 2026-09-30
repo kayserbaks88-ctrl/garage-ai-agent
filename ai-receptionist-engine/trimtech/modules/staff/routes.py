@@ -119,7 +119,16 @@ def _page_redirect(endpoint: str, business_slug: str):
 
 
 def _employee_redirect(business_slug: str):
-    return redirect(url_for("staff.employee_home", business_slug=business_slug))
+    endpoint = request.endpoint or ""
+    if endpoint in {"staff.employee_clock_in", "staff.employee_clock_out", "staff.employee_break_start", "staff.employee_break_end"}:
+        destination = "staff.employee_clocking"
+    elif endpoint in {"staff.employee_request_leave", "staff.employee_cancel_leave"}:
+        destination = "staff.employee_leave"
+    elif endpoint == "staff.employee_travel_origin":
+        destination = "staff.employee_profile"
+    else:
+        destination = "staff.employee_home"
+    return redirect(url_for(destination, business_slug=business_slug))
 
 
 def _database_message():
@@ -823,66 +832,85 @@ def employee_logout(business_slug: str):
 
 
 @staff_blueprint.get("/<business_slug>/employee")
+@staff_blueprint.get("/<business_slug>/employee/jobs", endpoint="employee_jobs", defaults={"page": "jobs"})
+@staff_blueprint.get("/<business_slug>/employee/clocking", endpoint="employee_clocking", defaults={"page": "clocking"})
+@staff_blueprint.get("/<business_slug>/employee/hours", endpoint="employee_hours", defaults={"page": "hours"})
+@staff_blueprint.get("/<business_slug>/employee/leave", endpoint="employee_leave", defaults={"page": "leave"})
+@staff_blueprint.get("/<business_slug>/employee/pay", endpoint="employee_pay", defaults={"page": "pay"})
+@staff_blueprint.get("/<business_slug>/employee/profile", endpoint="employee_profile", defaults={"page": "profile"})
 @employee_login_required
-def employee_home(business_slug: str):
-    """Keep existing template variables and add sites, break status and leave history.
-
-    Elapsed hours retain the original meaning (all approval states, before breaks).
-    Database timezone is retained for consistency with the existing manager view.
-    """
+def employee_home(business_slug: str, page: str = "home"):
+    """Employee-only pages; identities always come from the authenticated session."""
     employee = g.staff_employee
     parameters = (_business_id(business_slug), employee["id"])
     try:
         agency_settings = agency.settings(parameters[0])
-        assignments = agency.upcoming_assignments(*parameters) if agency_settings["organisation_mode"] == "agency" else []
-        job_history = agency.assignment_history(*parameters) if agency_settings["organisation_mode"] == "agency" else []
-        travel_origin = agency.origin_for_employee(*parameters) if (
+        # An assignment is visible regardless of the business's clocking mode.
+        assignments = agency.upcoming_assignments(*parameters) if page in {"home", "jobs", "clocking"} else []
+        job_history = agency.assignment_history(*parameters) if page == "jobs" else []
+        travel_origin = agency.origin_for_employee(*parameters) if page == "profile" and (
             agency_settings["organisation_mode"] == "agency" or agency_settings["travel_enabled"]) else None
         current_shift = fetch_one("""SELECT id,site_id,site_name,clock_in_at,approval_status
             FROM staff_shifts WHERE business_id=%s AND employee_id=%s AND clock_out_at IS NULL
             ORDER BY clock_in_at DESC LIMIT 1""", parameters)
-        hours_summary = fetch_one("""
-            WITH period AS (SELECT DATE_TRUNC('week',NOW()) AS week_start,NOW() AS as_of)
-            SELECT period.week_start::date AS week_start,
-                   (period.week_start+INTERVAL '6 days')::date AS week_end,period.as_of,
-                   COALESCE((SELECT ROUND(SUM(GREATEST(0,EXTRACT(EPOCH FROM
-                     (LEAST(COALESCE(shift.clock_out_at,period.as_of),period.as_of)
-                      - GREATEST(shift.clock_in_at,period.week_start))))/3600)::numeric,2)
-                     FROM staff_shifts AS shift WHERE shift.business_id=%s AND shift.employee_id=%s
-                       AND shift.clock_in_at<period.as_of
-                       AND COALESCE(shift.clock_out_at,period.as_of)>period.week_start),0) AS hours_this_week
-            FROM period
-        """, parameters) or {}
-        today_summary = _today_hours(*parameters)
-        leave_summary = fetch_one("""SELECT
-            COUNT(*) FILTER (WHERE approval_status='pending') AS pending_count,
-            COUNT(*) FILTER (WHERE approval_status='approved' AND start_date>CURRENT_DATE) AS upcoming_count,
-            COUNT(*) FILTER (WHERE approval_status='approved'
-              AND CURRENT_DATE BETWEEN start_date AND end_date) AS current_count,
-            COALESCE(SUM(total_days) FILTER (WHERE approval_status='pending'),0) AS pending_days,
-            COALESCE(SUM(total_days) FILTER (WHERE approval_status='approved'
-              AND start_date>CURRENT_DATE),0) AS upcoming_days
-            FROM staff_leave_requests WHERE business_id=%s AND employee_id=%s""", parameters) or {}
-        leave_query = """SELECT id,leave_type,start_date,end_date,total_days,approval_status,
-            employee_note,manager_note FROM staff_leave_requests WHERE business_id=%s AND employee_id=%s """
-        pending_leave = fetch_all(leave_query + "AND approval_status='pending' ORDER BY start_date,id LIMIT 20", parameters)
-        upcoming_leave = fetch_all(leave_query + """AND approval_status='approved' AND start_date>CURRENT_DATE
-            ORDER BY start_date,id LIMIT 20""", parameters)
-        current_leave = fetch_all(leave_query + """AND approval_status='approved'
-            AND CURRENT_DATE BETWEEN start_date AND end_date ORDER BY start_date,id LIMIT 20""", parameters)
-        leave_history = fetch_all(leave_query + "ORDER BY created_at DESC,id DESC LIMIT 30", parameters)
-        payslips = fetch_all("""
-            SELECT payslip.id,payslip.worked_minutes,payslip.paid_break_minutes,
-                   payslip.unpaid_break_minutes,payslip.payable_minutes,payslip.hourly_rate,
-                   payslip.gross_pay,payslip.deductions,payslip.net_pay,
-                   run.period_start,run.period_end,run.status
-            FROM staff_payslips AS payslip
-            JOIN staff_payroll_runs AS run ON run.id=payslip.payroll_run_id
-            WHERE payslip.business_id=%s AND payslip.employee_id=%s AND NOT run.needs_recalculation
-            ORDER BY run.period_end DESC,payslip.id DESC LIMIT 20
-        """, parameters)
+        hours_summary = {}
+        if page in {"home", "hours"}:
+            hours_summary = fetch_one("""
+                WITH period AS (SELECT DATE_TRUNC('week',NOW()) AS week_start,NOW() AS as_of)
+                SELECT period.week_start::date AS week_start,
+                       (period.week_start+INTERVAL '6 days')::date AS week_end,period.as_of,
+                       COALESCE((SELECT ROUND(SUM(GREATEST(0,EXTRACT(EPOCH FROM
+                         (LEAST(COALESCE(shift.clock_out_at,period.as_of),period.as_of)
+                          - GREATEST(shift.clock_in_at,period.week_start))))/3600)::numeric,2)
+                         FROM staff_shifts AS shift WHERE shift.business_id=%s AND shift.employee_id=%s
+                           AND shift.clock_in_at<period.as_of
+                           AND COALESCE(shift.clock_out_at,period.as_of)>period.week_start),0) AS hours_this_week
+                FROM period
+            """, parameters) or {}
+        today_summary = _today_hours(*parameters) if page == "hours" else {}
+        leave_summary, pending_leave, upcoming_leave, current_leave, leave_history = {}, [], [], [], []
+        if page == "leave":
+            leave_summary = fetch_one("""SELECT
+                COUNT(*) FILTER (WHERE approval_status='pending') AS pending_count,
+                COUNT(*) FILTER (WHERE approval_status='approved' AND start_date>CURRENT_DATE) AS upcoming_count,
+                COUNT(*) FILTER (WHERE approval_status='approved'
+                  AND CURRENT_DATE BETWEEN start_date AND end_date) AS current_count,
+                COALESCE(SUM(total_days) FILTER (WHERE approval_status='pending'),0) AS pending_days,
+                COALESCE(SUM(total_days) FILTER (WHERE approval_status='approved'
+                  AND start_date>CURRENT_DATE),0) AS upcoming_days
+                FROM staff_leave_requests WHERE business_id=%s AND employee_id=%s""", parameters) or {}
+            leave_query = """SELECT id,leave_type,start_date,end_date,total_days,approval_status,
+                employee_note,manager_note FROM staff_leave_requests WHERE business_id=%s AND employee_id=%s """
+            pending_leave = fetch_all(leave_query + "AND approval_status='pending' ORDER BY start_date,id LIMIT 20", parameters)
+            upcoming_leave = fetch_all(leave_query + """AND approval_status='approved' AND start_date>CURRENT_DATE
+                ORDER BY start_date,id LIMIT 20""", parameters)
+            current_leave = fetch_all(leave_query + """AND approval_status='approved'
+                AND CURRENT_DATE BETWEEN start_date AND end_date ORDER BY start_date,id LIMIT 20""", parameters)
+            leave_history = fetch_all(leave_query + "ORDER BY created_at DESC,id DESC LIMIT 30", parameters)
+        payslips = []
+        if page == "pay":
+            payslips = fetch_all("""
+                SELECT payslip.id,payslip.worked_minutes,payslip.paid_break_minutes,
+                       payslip.unpaid_break_minutes,payslip.payable_minutes,payslip.hourly_rate,
+                       payslip.gross_pay,payslip.deductions,payslip.net_pay,
+                       run.period_start,run.period_end,run.status
+                FROM staff_payslips AS payslip
+                JOIN staff_payroll_runs AS run ON run.id=payslip.payroll_run_id
+                WHERE payslip.business_id=%s AND payslip.employee_id=%s AND NOT run.needs_recalculation
+                ORDER BY run.period_end DESC,payslip.id DESC LIMIT 20
+            """, parameters)
         sites = fetch_all("""SELECT id,name,address,photo_required,allowed_radius_metres FROM staff_sites
-            WHERE business_id=%s AND active=TRUE ORDER BY name""", (parameters[0],))
+            WHERE business_id=%s AND active=TRUE ORDER BY name""", (parameters[0],)) if page == "clocking" and agency_settings["organisation_mode"] == "fixed" else []
+        shift_history = []
+        if page == "hours":
+            shift_history = fetch_all("""SELECT s.id,s.site_name,s.clock_in_at,s.clock_out_at,s.approval_status,
+                ROUND((GREATEST(0,EXTRACT(EPOCH FROM (COALESCE(s.clock_out_at,NOW())-s.clock_in_at)))/3600)::numeric,2) AS elapsed_hours,
+                COALESCE((SELECT ROUND((SUM(GREATEST(0,EXTRACT(EPOCH FROM
+                    (COALESCE(b.ended_at,s.clock_out_at,NOW())-b.started_at))))/60)::numeric,0)
+                    FROM staff_breaks b WHERE b.shift_id=s.id AND b.employee_id=s.employee_id
+                        AND b.business_id=s.business_id),0) AS break_minutes
+                FROM staff_shifts s WHERE s.business_id=%s AND s.employee_id=%s
+                ORDER BY s.clock_in_at DESC,s.id DESC LIMIT 100""", parameters)
         current_break = None
         if current_shift:
             current_break = fetch_one("""SELECT id,started_at,paid FROM staff_breaks
@@ -892,7 +920,8 @@ def employee_home(business_slug: str):
         current_app.logger.exception("Employee summary failed")
         abort(503, description="Your employee summary is temporarily unavailable.")
     return render_template(
-        "staff_employee_home.html", business_slug=business_slug, employee=employee,
+        "staff_employee_" + page + ".html", business_slug=business_slug, employee=employee,
+        page=page, shift_history=shift_history, uk_display=agency.uk_display,
         current_shift=current_shift, is_clocked_in=current_shift is not None,
         hours_this_week=hours_summary.get("hours_this_week", Decimal("0")),
         week_start=hours_summary.get("week_start"), week_end=hours_summary.get("week_end"),
@@ -908,7 +937,7 @@ def employee_home(business_slug: str):
     )
 
 
-# Portal action contract for staff_employee_home.html:
+# Portal action contract for the staff_employee_* templates:
 # All forms POST csrf_token. Clock forms also POST latitude, longitude, accuracy.
 # Clock-in POSTs site_id; clock-out and break forms POST shift_id to prevent a
 # delayed/replayed form from closing a newer shift. Leave POSTs leave_type,

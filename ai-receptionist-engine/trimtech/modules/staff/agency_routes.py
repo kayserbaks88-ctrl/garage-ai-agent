@@ -55,17 +55,22 @@ def register_routes(staff):
             employees=employees, sites=sites, assignments=assignments, edit=edit, week=week,
             previous_week=week-timedelta(days=7), next_week=week+timedelta(days=7),
             origin=origin, origin_employee=origin_employee, adjustments=adjustments, audit=audit,
-            csrf_token=staff._get_csrf_token, uk_input=agency.uk_input, email_events=email_events,
+            csrf_token=staff._get_csrf_token, uk_input=agency.uk_input, uk_display=agency.uk_display, email_events=email_events,
             assignment_fields=agency.assignment_form_values(edit))
 
     def manager_action(business_slug, operation, notify=False):
         try:
+            notice_ids = []
             with transaction() as connection:
                 with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                    result = operation(cursor, staff._business_id(business_slug), staff._manager_actor())
-            flash("Change saved.", "success")
+                    arguments = (cursor, staff._business_id(business_slug), staff._manager_actor())
+                    result = operation(*arguments, notice_ids) if notify else operation(*arguments)
             if notify:
-                notifications.dispatch(staff._business_id(business_slug), result)
+                notifications.dispatch(staff._business_id(business_slug), result, [value for value in notice_ids if value is not None])
+                message, category = notifications.confirmation(staff._business_id(business_slug), result, notice_ids)
+                flash(message, category)
+            else:
+                flash("Change saved.", "success")
         except ValueError as error:
             flash(str(error), "error")
         except staff._DB_ERRORS:
@@ -83,14 +88,14 @@ def register_routes(staff):
     @bp.post("/<business_slug>/assignments/<int:assignment_id>/edit")
     @dashboard_login_required
     def save_assignment(business_slug, assignment_id=None):
-        return manager_action(business_slug, lambda c, b, a:
-            agency.save_assignment(c, b, a, request.form, assignment_id), notify=True)
+        return manager_action(business_slug, lambda c, b, a, notices:
+            agency.save_assignment(c, b, a, request.form, assignment_id, notification_ids=notices), notify=True)
 
     @bp.post("/<business_slug>/assignments/<int:assignment_id>/cancel")
     @dashboard_login_required
     def cancel_assignment(business_slug, assignment_id):
-        return manager_action(business_slug, lambda c, b, a:
-            agency.save_assignment(c, b, a, request.form, assignment_id, cancel=True), notify=True)
+        return manager_action(business_slug, lambda c, b, a, notices:
+            agency.save_assignment(c, b, a, request.form, assignment_id, cancel=True, notification_ids=notices), notify=True)
 
     @bp.post("/<business_slug>/employee/travel-origin")
     @staff.employee_login_required

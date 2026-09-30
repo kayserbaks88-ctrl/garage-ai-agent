@@ -161,7 +161,7 @@ class OperationsDatabaseTests(unittest.TestCase):
 
     def test_manager_dashboard_and_employee_portal_render_presence(self):
         shift_id=self.open_shift()
-        self.assertIn(b"data-presence-portal",self.worker.get("/staff/alpha/employee").data)
+        self.assertIn(b"data-presence-portal",self.worker.get("/staff/alpha/employee/clocking").data)
         self.assertEqual(self.manager.get("/staff/alpha").status_code,200)
         page=self.manager.get("/staff/alpha/attendance")
         self.assertEqual(page.status_code,200)

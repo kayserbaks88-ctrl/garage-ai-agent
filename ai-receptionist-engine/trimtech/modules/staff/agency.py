@@ -96,13 +96,17 @@ def assignment_form_values(assignment):
         local = assignment[column].astimezone(UK_TIMEZONE)
         ambiguous = local.replace(fold=0).utcoffset() != local.replace(fold=1).utcoffset()
         values.update({edge + "_date": local.date().isoformat(),
-                       edge + "_time": local.strftime("%H:%M:%S"),
+                       edge + "_time": local.strftime("%H:%M"),
                        edge + "_offset": uk_input(local)[-6:] if ambiguous else ""})
     return values
 
 
-def save_assignment(cursor, business_id, actor, values, assignment_id=None, cancel=False):
+def save_assignment(cursor, business_id, actor, values, assignment_id=None, cancel=False, notification_ids=None):
     from trimtech.modules.staff import notifications
+    def notify(action, assignment):
+        notification_id = notifications.queue(cursor, business_id, assignment_id, action, assignment)
+        if notification_ids is not None:
+            notification_ids.append(notification_id)
     lock_business(cursor, business_id)
     old = None
     if assignment_id:
@@ -119,7 +123,7 @@ def save_assignment(cursor, business_id, actor, values, assignment_id=None, canc
                        (assignment_id, business_id))
         audit(cursor, business_id, actor, "assignment_cancelled", "assignment", assignment_id,
               dict(old), {"status": "cancelled"}, reason)
-        notifications.queue(cursor, business_id, assignment_id, "cancelled", old)
+        notify("cancelled", old)
         return assignment_id
     try:
         employee_id, site_id = int(values.get("employee_id", "")), int(values.get("site_id", ""))
@@ -127,6 +131,12 @@ def save_assignment(cursor, business_id, actor, values, assignment_id=None, canc
         raise ValueError("Select an employee and work site.") from error
     starts = assignment_datetime(values, "start")
     ends = assignment_datetime(values, "end")
+    # A no-op edit through minute controls must not round existing legacy seconds.
+    if old:
+        if "start_time" in values and starts == old["starts_at"].replace(second=0, microsecond=0):
+            starts = old["starts_at"]
+        if "end_time" in values and ends == old["ends_at"].replace(second=0, microsecond=0):
+            ends = old["ends_at"]
     if ends.astimezone(timezone.utc) <= starts.astimezone(timezone.utc):
         raise ValueError("Assignment end must be after its start.")
     cursor.execute("SELECT id FROM staff_employees WHERE id=%s AND business_id=%s AND status='active' FOR UPDATE",
@@ -157,8 +167,8 @@ def save_assignment(cursor, business_id, actor, values, assignment_id=None, canc
           "assignment", assignment_id, dict(old) if old else None,
           {"employee_id": employee_id, "site_id": site_id, "starts_at": starts, "ends_at": ends}, reason)
     if old and old["employee_id"] != employee_id:
-        notifications.queue(cursor, business_id, assignment_id, "reassigned_away", old)
-    notifications.queue(cursor, business_id, assignment_id, "updated" if old else "created",
+        notify("reassigned_away", old)
+    notify("updated" if old else "created",
         {"employee_id": employee_id, "site_id": site_id, "starts_at": starts, "ends_at": ends})
     return assignment_id
 
@@ -411,3 +421,7 @@ def correct_shift(cursor, business_id, actor, shift, values, edited_breaks):
 
 def uk_input(value):
     return value.astimezone(UK_TIMEZONE).isoformat(timespec="seconds") if value else ""
+
+
+def uk_display(value):
+    return value.astimezone(UK_TIMEZONE).strftime("%a %d %b %Y, %H:%M %Z") if value else ""
