@@ -77,6 +77,21 @@
 {% set token = csrf_token() %}
 {% macro date_text(value) -%}{{ value.strftime('%d %b %Y') if value else '—' }}{%- endmacro %}
 {% macro time_text(value) -%}{% if value %}<time datetime="{{ value.isoformat() }}" data-local-time>{{ value.strftime('%d %b %Y, %H:%M %Z') }}</time>{% else %}—{% endif %}{%- endmacro %}
+{% macro job_card(job, current=false) %}
+<article class="record" aria-labelledby="job-{{ job.id }}" data-job-id="{{ job.id }}">
+  <div class="section-head"><h3 id="job-{{ job.id }}">{{ job.name }}</h3><span class="pill">{{ 'Current' if current else 'Upcoming' }} · {{ job.status|title }}</span></div>
+  <p>{{ job.address }}</p>
+  <p><strong>Start:</strong> {{ uk_input(job.starts_at)|replace('T',' ') }}<br><strong>End:</strong> {{ uk_input(job.ends_at)|replace('T',' ') }} (UK)</p>
+  {% if job.client_reference %}<p>Job / client reference: {{ job.client_reference }}</p>{% endif %}
+  {% if job.directions_url %}<a class="button" href="{{ job.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
+  {% if not job.site_active %}<p class="notice">This site is inactive. Contact your manager before clocking in.</p>
+  {% elif job.photo_required %}<p class="help">Photo required: portal clock-in is unavailable. Contact your manager.</p>
+  {% elif current and not is_clocked_in %}<p class="notice">Ready to clock in. Your GPS location and site radius will still be checked.</p><a class="button primary" href="#clock-title">Clock in to this job</a>
+  {% elif current and is_clocked_in %}<p class="help">You already have an open shift. Use the clocking controls below.</p>
+  {% else %}<p class="help">Clock-in opens at the assignment start time. Refresh this page when ready.</p>{% endif %}
+  <p class="help">{% if job.distance_miles is not none %}{{ job.distance_miles }} miles · straight-line estimate{{ ' · approximate postcode origin' if job.approximate_origin else '' }}{% else %}Distance unavailable{% endif %}. Travel pay: —</p>
+</article>
+{% endmacro %}
 <div class="shell">
   <header class="topbar">
     <div class="brand"><div class="brand-mark" aria-hidden="true">S</div><div><strong>Staff Manager</strong><small>TrimTech AI · Employee portal</small></div></div>
@@ -92,6 +107,16 @@
     <div class="eyebrow">My employee home</div>
     <h1>Hello, {{ employee.full_name }}</h1>
     <p class="intro">Your work summary for <strong>{{ business_slug }}</strong>.</p>
+    {% if agency_settings.organisation_mode == 'agency' %}
+    <section class="card" aria-labelledby="my-jobs-title" style="margin-bottom:20px">
+      <h2 id="my-jobs-title">My Jobs</h2>
+      <h3>Current job</h3>
+      {% for job in current_jobs %}{{ job_card(job, true) }}{% else %}<p class="muted">No job in its assignment window right now.</p>{% endfor %}
+      <h3>Upcoming jobs</h3>
+      {% for job in upcoming_jobs %}{{ job_card(job) }}{% else %}<p class="muted">No upcoming jobs. Contact your manager if you are expecting work.</p>{% endfor %}
+      <p class="help">Times are UK local time, with UTC offsets shown. Directions open Google Maps. Travel estimates are not driving mileage or reimbursable travel.</p>
+    </section>
+    {% endif %}
     <div class="grid">
       <section class="card" aria-labelledby="clock-title">
         <div class="section-head"><h2 id="clock-title">Clock-in status</h2><span class="pill {{ 'pending' if current_break else '' }}">{{ 'On break' if current_break else ('On shift' if is_clocked_in else 'Off shift') }}</span></div>
@@ -161,9 +186,6 @@
         <p class="help">Total clocked time, including open shifts and shifts awaiting approval or rejected. Breaks have not been deducted from this total. Approved pay hours may differ.</p>
         <p class="help">Use Refresh to update your summary.</p>
       </section>
-      {% if agency_settings.organisation_mode == 'agency' %}
-      <section class="card span"><h2>Upcoming assigned jobs</h2><ul class="records">{% for a in assignments %}<li class="record"><strong>{{ a.name }}</strong><p>{{ a.address }}</p><p>{{ time_text(a.starts_at) }} – {{ time_text(a.ends_at) }}</p><p class="help">{% if a.distance_miles is not none %}{{ a.distance_miles }} miles · straight-line estimate{{ ' · approximate postcode origin' if a.approximate_origin else '' }}{% else %}Distance unavailable{% endif %}. Travel pay: —</p></li>{% else %}<li>No upcoming assignments. Contact your manager.</li>{% endfor %}</ul><p class="help">Times shown in UK time. Estimates are not driving mileage or reimbursable travel.</p></section>
-      {% endif %}
       {% if agency_settings.organisation_mode == 'agency' or agency_settings.travel_enabled %}{% include 'staff_travel_origin.html' %}{% endif %}
       <section class="card span" aria-labelledby="request-title">
         <div class="section-head"><h2 id="request-title">Request holiday or leave</h2><span class="pill">Manager approval</span></div>
@@ -195,6 +217,17 @@
       </section>
       <section class="card span"><div class="section-head"><h2>My details</h2><span class="pill">{{ employee.role | capitalize }}</span></div><dl class="details"><div><dt>Full name</dt><dd>{{ employee.full_name }}</dd></div><div><dt>Phone number</dt><dd>{{ employee.phone or 'Not supplied' }}</dd></div><div><dt>Email address</dt><dd>{{ employee.email or 'Not supplied' }}</dd></div><div><dt>Business</dt><dd>{{ business_slug }}</dd></div></dl><p class="help">Contact your manager if your details need updating.</p></section>
     </div>
+    {% if agency_settings.organisation_mode == 'agency' %}
+    <details class="card" style="margin-top:20px"><summary>Job history (latest 50)</summary>
+    <p class="help">Completed means a finished shift was recorded; an ended assignment window alone does not confirm attendance.</p>
+    {% for job in job_history %}<article class="record" data-history-job-id="{{ job.id }}">
+      <h3>{{ job.name }}</h3><p>{{ job.address }}</p>
+      <p>{{ uk_input(job.starts_at)|replace('T',' ') }} &ndash; {{ uk_input(job.ends_at)|replace('T',' ') }} (UK)</p>
+      {% if job.client_reference %}<p>Job / client reference: {{ job.client_reference }}</p>{% endif %}
+      <span class="pill">{{ 'Cancelled' if job.status=='cancelled' else ('Completed' if job.completed else 'Window ended') }}</span>
+    </article>{% else %}<p>No past or cancelled jobs.</p>{% endfor %}
+    </details>
+    {% endif %}
   </main>
   <footer>{% if as_of %}<p>Summary updated {{ time_text(as_of) }}. Refresh to see changes.</p>{% endif %}<p>Your workplace, in one place.</p></footer>
 </div>

@@ -1,4 +1,15 @@
 'use strict';
+const assignmentForm = document.getElementById('assignment-form');
+if (assignmentForm) {
+  const startDate = assignmentForm.elements.namedItem('start_date');
+  const endDate = assignmentForm.elements.namedItem('end_date');
+  let previousStart = startDate.value;
+  startDate.addEventListener('change', () => {
+    if (!endDate.value || endDate.value === previousStart) endDate.value = startDate.value;
+    endDate.min = startDate.value;
+    previousStart = startDate.value;
+  });
+}
 // Ideal Postcodes is proxied by the authenticated staging server. No browser API key.
 // Selecting an address never fills or verifies coordinates.
 document.querySelectorAll('[data-site-fields]').forEach(fields => {

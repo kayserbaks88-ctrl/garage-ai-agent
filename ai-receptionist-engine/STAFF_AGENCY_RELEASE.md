@@ -1,5 +1,44 @@
 # Staff Manager agency extension — local review
 
+## Staff v2 polish (`staff-v2-polish`)
+
+No database migration or service configuration change is introduced by this work.
+The existing Resend transport is reused without changes to Garage/quote emails.
+Assignment email is enabled by default; `STAFF_ASSIGNMENT_EMAIL_ENABLED=0`
+(or another value outside `1`, `true`, `yes`, `on`) explicitly disables it.
+`RESEND_API_KEY`, `RESEND_FROM_EMAIL` and a valid recipient are required.
+Portal links use `STAFF_PUBLIC_BASE_URL`, falling back to Render's
+`RENDER_EXTERNAL_URL`; neither is derived from a request Host header.
+An explicitly configured invalid URL fails rather than silently using the fallback.
+Existing failed/disabled outcomes are not automatically retried or backfilled.
+
+A Staff-only stderr logger records attempted, sent (provider accepted), failed,
+and disabled outcomes using numeric identifiers and sanitized reasons. No recipient,
+message body or secret is logged. An outbox savepoint isolates notification queue
+errors from assignment changes; transport is still called only after commit.
+Provider acceptance does not prove inbox delivery; a separately authorized real
+email test is still required after deployment.
+
+The agency employee portal shows only that employee's current/upcoming jobs, site
+address, UK window, reference, status and directions. History is collapsed below
+the main tools; completed shifts are distinguished from simply expired windows.
+Inactive/photo-required sites cannot offer portal clock-in. Existing server-side
+assignment, GPS, photo, employee and business checks remain authoritative.
+
+Manager assignments use separate UK start/end dates and times. End date follows
+start date for same-day jobs, while an explicitly different overnight end date is
+retained. Repeated autumn times require BST/GMT selection; spring gaps and offsets
+that disagree with the UK date are rejected. Legacy ISO submissions still work.
+
+Local validation on 2026-09-30: all 67 Staff tests passed with no skips against
+synthetic schemas on localhost PostgreSQL. The runner rejected non-local database
+targets, disabled dotenv and blocked outbound Python network connections. Tests
+cover notification actions/failures, employee job isolation, photo/inactive-site
+restrictions, date controls and DST, plus existing fixed/agency/payroll workflows.
+Template compilation and `git diff --check` passed. No production data, real email,
+commit, push or deployment was involved. Browser/device acceptance and actual
+Resend inbox delivery remain separate checks after deployment approval.
+
 Implemented against the current `trimtech/modules/staff/routes.py`, database,
 payroll, WhatsApp agent and templates. Nothing has been deployed.
 

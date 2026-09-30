@@ -55,7 +55,8 @@ def register_routes(staff):
             employees=employees, sites=sites, assignments=assignments, edit=edit, week=week,
             previous_week=week-timedelta(days=7), next_week=week+timedelta(days=7),
             origin=origin, origin_employee=origin_employee, adjustments=adjustments, audit=audit,
-            csrf_token=staff._get_csrf_token, uk_input=agency.uk_input, email_events=email_events)
+            csrf_token=staff._get_csrf_token, uk_input=agency.uk_input, email_events=email_events,
+            assignment_fields=agency.assignment_form_values(edit))
 
     def manager_action(business_slug, operation, notify=False):
         try:

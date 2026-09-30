@@ -835,6 +835,7 @@ def employee_home(business_slug: str):
     try:
         agency_settings = agency.settings(parameters[0])
         assignments = agency.upcoming_assignments(*parameters) if agency_settings["organisation_mode"] == "agency" else []
+        job_history = agency.assignment_history(*parameters) if agency_settings["organisation_mode"] == "agency" else []
         travel_origin = agency.origin_for_employee(*parameters) if (
             agency_settings["organisation_mode"] == "agency" or agency_settings["travel_enabled"]) else None
         current_shift = fetch_one("""SELECT id,site_id,site_name,clock_in_at,approval_status
@@ -901,6 +902,9 @@ def employee_home(business_slug: str):
         today_summary=today_summary,
         payslips=payslips,
         agency_settings=agency_settings, assignments=assignments, travel_origin=travel_origin,
+        current_jobs=[job for job in assignments if job["current_job"]],
+        upcoming_jobs=[job for job in assignments if not job["current_job"]],
+        job_history=job_history, uk_input=agency.uk_input,
     )
 
 

@@ -44,9 +44,16 @@
 <form id="assignment-form" method="post" action="{{ url_for('staff.save_assignment',business_slug=business_slug,assignment_id=edit.id) if edit else url_for('staff.save_assignment',business_slug=business_slug) }}">{{ csrf() }}
 <div class="grid"><label>Employee<select name="employee_id" required><option value="">Choose employee</option>{% for e in employees if e.status=='active' %}<option value="{{ e.id }}" {{ 'selected' if edit and edit.employee_id==e.id else '' }}>{{ e.full_name }}</option>{% endfor %}</select></label>
 <label>Client / job site<select name="site_id" required><option value="">Choose site</option>{% for s in sites if s.active %}<option value="{{ s.id }}" {{ 'selected' if edit and edit.site_id==s.id else '' }}>{{ s.name }}{{ ' · '+s.client_reference if s.client_reference else '' }}</option>{% endfor %}</select></label>
-<label>Start (UK time)<input name="starts_at" value="{{ uk_input(edit.starts_at) if edit else '' }}" placeholder="2026-09-23T09:00:00+01:00" required></label>
-<label>End (UK time)<input name="ends_at" value="{{ uk_input(edit.ends_at) if edit else '' }}" placeholder="2026-09-23T17:00:00+01:00" required></label></div>
-<p class="help">Use YYYY-MM-DDTHH:MM, or include an offset during the autumn clock change. Clock-in is allowed from start until end. Consecutive jobs may touch, but cannot overlap. The site must have an address and checked coordinates.</p>
+{% for edge in ('start','end') %}
+<label>{{ edge|title }} date<input type="date" name="{{ edge }}_date" value="{{ assignment_fields[edge ~ '_date'] }}" required></label>
+<label>{{ edge|title }} time<input type="time" step="1" name="{{ edge }}_time" value="{{ assignment_fields[edge ~ '_time'] }}" required></label>
+{% endfor %}</div>
+<details {{ 'open' if assignment_fields.start_offset or assignment_fields.end_offset else '' }}><summary>Autumn clock change: repeated times</summary>
+<p class="help">Normally leave these on Automatic. When 01:00–01:59 occurs twice in autumn, choose the first (BST) or second (GMT) occurrence.</p>
+{% for edge in ('start','end') %}<label>{{ edge|title }} time occurrence<select name="{{ edge }}_offset">
+<option value="">Automatic UK time</option><option value="+01:00" {{ 'selected' if assignment_fields[edge ~ '_offset']=='+01:00' else '' }}>First occurrence (BST)</option><option value="+00:00" {{ 'selected' if assignment_fields[edge ~ '_offset']=='+00:00' else '' }}>Second occurrence (GMT)</option>
+</select></label>{% endfor %}</details>
+<p class="help">All times are UK local time. For overnight jobs choose the following end date. Clock-in is allowed from start until end. Consecutive jobs may touch, but cannot overlap. The site must have an address and checked coordinates.</p>
 <label><input type="checkbox" name="override"> Manager override for a missing assignment</label><p class="help">Create a window covering the intended clock-in time. This records an override in the audit; GPS and photo requirements still apply.</p>
 <label>Reason<textarea name="reason" required maxlength="1000"></textarea></label><button>Save assignment</button></form></section>
 <section id="roster"><h2>Week starting {{ week }}</h2><nav><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=previous_week) }}">Previous week</a><a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,week=next_week) }}">Next week</a></nav>

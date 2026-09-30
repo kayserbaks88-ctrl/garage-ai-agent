@@ -9,8 +9,9 @@ from __future__ import annotations
 import json
 import math
 import os
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from decimal import Decimal, InvalidOperation
+from urllib.parse import urlencode
 
 from psycopg2.extras import Json
 
@@ -59,6 +60,47 @@ def change_mode(cursor, business_id, actor, mode, travel_enabled, reason):
           {"organisation_mode": mode, "travel_enabled": travel_enabled}, reason)
 
 
+def assignment_datetime(values, edge):
+    """Parse UK wall-clock controls, retaining compatibility with existing clients."""
+    label = "assignment " + edge
+    if edge + "_date" not in values and edge + "_time" not in values:
+        return parse_shift_datetime(values.get("starts_at" if edge == "start" else "ends_at"), label)
+    day = values.get(edge + "_date") or (values.get("start_date") if edge == "end" else "")
+    try:
+        clock = time.fromisoformat(values.get(edge + "_time", ""))
+        if clock.tzinfo is not None:
+            raise ValueError()
+        local = datetime.combine(date.fromisoformat(day), clock)
+    except (TypeError, ValueError):
+        raise ValueError(f"Enter a valid {edge} date and time.") from None
+    offset = values.get(edge + "_offset", "")
+    if offset not in {"", "+01:00", "+00:00"}:
+        raise ValueError("Choose automatic UK time, BST or GMT.")
+    if not offset:
+        try:
+            return parse_shift_datetime(local.isoformat(), label)
+        except ValueError:
+            raise ValueError(f"The {edge} time falls in a UK clock change. For a repeated time choose BST or GMT; skipped spring times cannot be used.") from None
+    result = parse_shift_datetime(local.isoformat() + offset, label)
+    if result.astimezone(UK_TIMEZONE).replace(tzinfo=None) != local:
+        raise ValueError(f"The selected BST/GMT option does not match the UK {edge} date and time.")
+    return result
+
+
+def assignment_form_values(assignment):
+    values = {}
+    for edge, column in (("start", "starts_at"), ("end", "ends_at")):
+        if not assignment:
+            values.update({edge + "_date": "", edge + "_time": "", edge + "_offset": ""})
+            continue
+        local = assignment[column].astimezone(UK_TIMEZONE)
+        ambiguous = local.replace(fold=0).utcoffset() != local.replace(fold=1).utcoffset()
+        values.update({edge + "_date": local.date().isoformat(),
+                       edge + "_time": local.strftime("%H:%M:%S"),
+                       edge + "_offset": uk_input(local)[-6:] if ambiguous else ""})
+    return values
+
+
 def save_assignment(cursor, business_id, actor, values, assignment_id=None, cancel=False):
     from trimtech.modules.staff import notifications
     lock_business(cursor, business_id)
@@ -83,8 +125,8 @@ def save_assignment(cursor, business_id, actor, values, assignment_id=None, canc
         employee_id, site_id = int(values.get("employee_id", "")), int(values.get("site_id", ""))
     except (TypeError, ValueError) as error:
         raise ValueError("Select an employee and work site.") from error
-    starts = parse_shift_datetime(values.get("starts_at"), "assignment start")
-    ends = parse_shift_datetime(values.get("ends_at"), "assignment end")
+    starts = assignment_datetime(values, "start")
+    ends = assignment_datetime(values, "end")
     if ends.astimezone(timezone.utc) <= starts.astimezone(timezone.utc):
         raise ValueError("Assignment end must be after its start.")
     cursor.execute("SELECT id FROM staff_employees WHERE id=%s AND business_id=%s AND status='active' FOR UPDATE",
@@ -272,15 +314,36 @@ def gps_evidence(values, required=False):
 def upcoming_assignments(business_id, employee_id):
     origin = origin_for_employee(business_id, employee_id)
     rows = fetch_all("""SELECT a.*,s.name,s.address,s.latitude,s.longitude,s.photo_required,
-        (a.starts_at<=NOW() AND a.ends_at>NOW()) AS eligible
+        s.client_reference,s.active AS site_active,
+        (a.starts_at<=NOW() AND a.ends_at>NOW()) AS current_job,
+        (a.starts_at<=NOW() AND a.ends_at>NOW() AND s.active) AS eligible
         FROM staff_assignments a JOIN staff_sites s ON s.id=a.site_id AND s.business_id=a.business_id
-        WHERE a.business_id=%s AND a.employee_id=%s AND a.status='scheduled' AND s.active
+        WHERE a.business_id=%s AND a.employee_id=%s AND a.status='scheduled'
           AND a.ends_at>NOW() ORDER BY a.starts_at LIMIT 100""", (business_id, employee_id))
     for row in rows:
         row["distance_km"] = distance_km(origin, row)
         row["distance_miles"] = distance_miles(origin, row)
         row["approximate_origin"] = bool(origin and origin.get("approximate"))
+        row["directions_url"] = assignment_directions(row)
     return rows
+
+
+def assignment_directions(row):
+    destination = row.get("address")
+    if row.get("latitude") is not None and row.get("longitude") is not None:
+        destination = f"{row['latitude']},{row['longitude']}"
+    return "https://www.google.com/maps/dir/?" + urlencode({"api": "1", "destination": destination}) if destination else None
+
+
+def assignment_history(business_id, employee_id):
+    """Past windows are history, not proof that an employee worked the job."""
+    return fetch_all("""SELECT a.*,s.name,s.address,s.client_reference,
+        EXISTS (SELECT 1 FROM staff_shifts h WHERE h.assignment_id=a.id
+            AND h.business_id=a.business_id AND h.employee_id=a.employee_id
+            AND h.clock_out_at IS NOT NULL) AS completed
+        FROM staff_assignments a JOIN staff_sites s ON s.id=a.site_id AND s.business_id=a.business_id
+        WHERE a.business_id=%s AND a.employee_id=%s AND (a.status='cancelled' OR a.ends_at<=NOW())
+        ORDER BY a.starts_at DESC,a.id DESC LIMIT 50""", (business_id, employee_id))
 
 
 def correct_shift(cursor, business_id, actor, shift, values, edited_breaks):

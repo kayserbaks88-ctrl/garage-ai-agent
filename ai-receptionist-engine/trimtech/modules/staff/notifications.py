@@ -12,9 +12,28 @@ from trimtech.modules.staff.database import transaction
 from trimtech.modules.staff.payroll import UK_TIMEZONE
 
 logger = logging.getLogger(__name__)
+# Keep Staff email lifecycle visible without changing shared application logging.
+logger.setLevel(logging.INFO)
+if not logger.handlers:
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    logger.addHandler(handler)
+logger.propagate = False
 
 
 def queue(cursor, business_id, assignment_id, action, assignment):
+    """An outbox error must not roll back an otherwise valid assignment."""
+    cursor.execute("SAVEPOINT staff_email_queue")
+    try:
+        _queue(cursor, business_id, assignment_id, action, assignment)
+    except Exception:
+        cursor.execute("ROLLBACK TO SAVEPOINT staff_email_queue")
+        logger.error("Staff assignment email failed: assignment=%s reason=notification_queue_failed", assignment_id)
+    finally:
+        cursor.execute("RELEASE SAVEPOINT staff_email_queue")
+
+
+def _queue(cursor, business_id, assignment_id, action, assignment):
     cursor.execute("SELECT full_name,email FROM staff_employees WHERE id=%s AND business_id=%s",
                    (assignment["employee_id"], business_id))
     employee = cursor.fetchone()
@@ -31,7 +50,8 @@ def queue(cursor, business_id, assignment_id, action, assignment):
 
 
 def message(row):
-    base = os.getenv("STAFF_PUBLIC_BASE_URL", "").strip().rstrip("/")
+    base = (os.getenv("STAFF_PUBLIC_BASE_URL", "").strip()
+            or os.getenv("RENDER_EXTERNAL_URL", "").strip()).rstrip("/")
     parsed = urlsplit(base)
     if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.query or parsed.fragment:
         raise ValueError("portal_url_not_configured")
@@ -70,19 +90,26 @@ def dispatch(business_id, assignment_id):
                     if not row:
                         return
                     status, error, provider_id = "failed", None, None
-                    if os.getenv("STAFF_ASSIGNMENT_EMAIL_ENABLED") != "1":
+                    enabled = os.getenv("STAFF_ASSIGNMENT_EMAIL_ENABLED", "1").strip().lower()
+                    if enabled not in {"1", "true", "yes", "on"}:
                         status, error = "disabled", "email_disabled"
                     elif not row["recipient"] or "@" not in row["recipient"]:
                         error = "employee_email_missing_or_invalid"
                     else:
                         try:
                             subject, text, html = message(row)
+                            logger.info("Staff assignment email attempted: notification=%s assignment=%s action=%s",
+                                        row["id"], assignment_id, row["action"])
                             sent, error, provider_id = send_staff_email(row["recipient"], subject, text, html, row["event_key"])
                             status = "sent" if sent else "failed"
+                        except ValueError:
+                            error = "portal_url_not_configured"
                         except Exception:
                             error = "message_or_delivery_failed"
+                    log = logger.info if status == "sent" else logger.warning
+                    log("Staff assignment email %s: notification=%s assignment=%s reason=%s",
+                        status, row["id"], assignment_id, error or "provider_accepted_not_delivery_confirmed")
                     cursor.execute("""UPDATE staff_assignment_notifications SET status=%s,error_code=%s,
                         provider_id=%s,attempted_at=NOW() WHERE id=%s""", (status, error, provider_id, row["id"]))
-                    logger.info("Staff assignment notification %s: %s (%s)", row["id"], status, error or "provider_accepted")
     except Exception:
         logger.error("Staff assignment notification dispatch could not record its outcome; pending outbox requires review")
