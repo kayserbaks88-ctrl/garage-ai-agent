@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import test_staff_agency as fixtures
 from integrations.email_helper import send_staff_email
-from trimtech.modules.staff import database, migrations, notifications, operations_migration, presence
+from trimtech.modules.staff import database, migrations, notifications, operations_migration, payroll_migration, presence
 
 
 class OperationsUnitTests(unittest.TestCase):
@@ -170,8 +170,31 @@ class OperationsDatabaseTests(unittest.TestCase):
         self.assertEqual(self.post(self.worker,"presence/status").status_code,401)
 
     def restore_v1(self):
+        self.restore_v2()
         database.execute("DROP TABLE staff_presence_events,staff_shift_presence,staff_assignment_notifications")
         database.execute("DELETE FROM staff_schema_migrations WHERE version=%s",(operations_migration.VERSION,))
+
+    def restore_v2(self):
+        # Disposable fixture only: recreate the deployed pre-payroll schema exactly.
+        database.execute("DROP TABLE staff_attendance_reviews,staff_payslip_notifications,staff_payroll_calculations,staff_payroll_profiles")
+        database.execute("ALTER TABLE staff_payroll_runs DROP COLUMN calculation_version,DROP COLUMN payment_date,DROP COLUMN pay_frequency,DROP COLUMN employer_ni,DROP COLUMN employer_pension,DROP COLUMN employer_name")
+        database.execute("ALTER TABLE staff_payslips DROP CONSTRAINT staff_payslips_values_nonnegative")
+        database.execute("""ALTER TABLE staff_payslips ADD CONSTRAINT staff_payslips_values_nonnegative CHECK(
+            worked_minutes>=0 AND paid_break_minutes>=0 AND unpaid_break_minutes>=0 AND payable_minutes>=0
+            AND hourly_rate>=0 AND gross_pay>=0 AND deductions>=0 AND net_pay>=0)""")
+        database.execute("ALTER TABLE staff_payroll_runs DROP CONSTRAINT staff_payroll_runs_totals_nonnegative")
+        database.execute("""ALTER TABLE staff_payroll_runs ADD CONSTRAINT staff_payroll_runs_totals_nonnegative
+            CHECK(total_gross_pay>=0 AND total_deductions>=0 AND total_net_pay>=0)""")
+        database.execute("DELETE FROM staff_schema_migrations WHERE version=%s",(payroll_migration.VERSION,))
+
+    def test_payroll_upgrade_preserves_v2_records_and_fingerprint(self):
+        self.restore_v2()
+        before=database.fetch_one("SELECT * FROM staff_schema_migrations WHERE version=%s",(operations_migration.VERSION,))
+        shift=self.row('staff_shifts',self.old_shift)
+        database.init_staff_database(migrate=True)
+        database.init_staff_database(migrate=True)
+        self.assertEqual(before,database.fetch_one("SELECT * FROM staff_schema_migrations WHERE version=%s",(operations_migration.VERSION,)))
+        self.assertEqual(shift,self.row('staff_shifts',self.old_shift))
 
     def test_upgrade_preserves_legacy_migration_and_records(self):
         self.restore_v1()

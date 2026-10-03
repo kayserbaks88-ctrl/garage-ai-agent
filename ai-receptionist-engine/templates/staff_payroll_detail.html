@@ -1,0 +1,16 @@
+{% extends "staff_base.html" %}{% block title %}Payroll review{% endblock %}{% block content %}
+<h1>Payroll review</h1><p>{{ run.period_start }} – {{ run.period_end }} · {{ run.status|title }} · Payment date {{ run.payment_date or 'Not recorded (legacy)' }}</p>
+<p class="help">TrimTech does not submit to HMRC. Subscribers remain responsible for HMRC/RTI submissions and payments.</p>
+<p>Gross £{{ run.total_gross_pay }} · Deductions £{{ run.total_deductions }} · Net £{{ run.total_net_pay }}</p>
+<p>Employer NI £{{ run.employer_ni }} · Employer pension £{{ run.employer_pension }}</p>
+{% if run.needs_recalculation %}<p class="alert">Review corrected shifts and recalculate this draft before approval or download.</p>{% endif %}
+{% for slip in slips %}<section class="card"><div class="body"><h2>{{ slip.employee_name or ('Employee ' ~ slip.employee_id) }}</h2>
+<p>Gross £{{ slip.gross_pay }} · Net £{{ slip.net_pay }}</p>
+{% if slip.result %}<p>PAYE £{{ slip.result.paye }} · Employee NI £{{ slip.result.employee_ni }} · Employee pension £{{ slip.result.employee_pension }}</p>
+<p>Employer NI £{{ slip.result.employer_ni }} · Employer pension £{{ slip.result.employer_pension }}</p>
+{% if not run.needs_recalculation %}<a class="button" href="{{ url_for('staff.manager_payslip_download',business_slug=business_slug,slip_id=slip.id) }}">Download {{ 'draft preview' if run.status=='draft' else 'payslip' }}</a>{% endif %}
+{% if run.status!='draft' and not run.needs_recalculation %}<form method="post" action="{{ url_for('staff.send_payslip',business_slug=business_slug,slip_id=slip.id) }}">{{ csrf() }}<button type="submit">Send payslip notice</button></form>{% endif %}
+<p class="help">Email: {{ slip.email_status or 'Not sent' }}{% if slip.error_code %} ({{ slip.error_code|replace('_',' ') }}){% endif %}. Employees sign in to download; no pay details are included in email.</p>
+{% else %}<p class="help">Legacy gross-only record: statutory deductions were not calculated.</p>{% endif %}</div></section>{% endfor %}
+{% if run.status=='draft' %}<section class="card"><div class="body"><h2>Discard draft</h2><p class="help">Releases the allocated shifts for a replacement run. The draft and reason remain in the audit record.</p><form method="post" action="{{ url_for('staff.discard_payroll',business_slug=business_slug,run_id=run.id) }}">{{ csrf() }}<label for="discard-reason">Reason</label><input id="discard-reason" name="reason" required maxlength="1000"><button type="submit">Discard this draft</button></form></div></section>{% endif %}
+<a href="{{ url_for('staff.payroll_page',business_slug=business_slug) }}">Back to payroll</a>{% endblock %}

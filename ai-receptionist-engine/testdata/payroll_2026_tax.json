@@ -1,0 +1,1682 @@
+[
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "1156.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "21.40"
+  },
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "1156.26",
+    "previous_pay": "1156.25",
+    "previous_tax": "21.40",
+    "expected": "21.60"
+  },
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "31123.26",
+    "previous_pay": "2312.51",
+    "previous_tax": "43.00",
+    "expected": "10188.00"
+  },
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 4,
+    "basis": "cumulative",
+    "gross": "14465.71",
+    "previous_pay": "33435.77",
+    "previous_tax": "10231.00",
+    "expected": "4838.60"
+  },
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 5,
+    "basis": "cumulative",
+    "gross": "52681.25",
+    "previous_pay": "47901.48",
+    "previous_tax": "15069.60",
+    "expected": "22085.10"
+  },
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 6,
+    "basis": "cumulative",
+    "gross": "50000.00",
+    "previous_pay": "100582.73",
+    "previous_tax": "37154.70",
+    "expected": "20878.65"
+  },
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 7,
+    "basis": "cumulative",
+    "gross": "15000.00",
+    "previous_pay": "150582.73",
+    "previous_tax": "58033.35",
+    "expected": "5128.20"
+  },
+  {
+    "code": "1257L",
+    "frequency": "monthly",
+    "period": 8,
+    "basis": "cumulative",
+    "gross": "14000.55",
+    "previous_pay": "165582.73",
+    "previous_tax": "63161.55",
+    "expected": "4679.10"
+  },
+  {
+    "code": "BR",
+    "frequency": "monthly",
+    "period": 9,
+    "basis": "cumulative",
+    "gross": "12590.45",
+    "previous_pay": "179583.28",
+    "previous_tax": "67840.65",
+    "expected": "-29406.05"
+  },
+  {
+    "code": "NT",
+    "frequency": "monthly",
+    "period": 10,
+    "basis": "cumulative",
+    "gross": "11245.05",
+    "previous_pay": "192173.73",
+    "previous_tax": "38434.60",
+    "expected": "-38434.60"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "267.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "5.00"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "266.08",
+    "previous_pay": "267.07",
+    "previous_tax": "5.00",
+    "expected": "4.80"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "853.05",
+    "previous_pay": "533.15",
+    "previous_tax": "9.80",
+    "expected": "122.20"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 4,
+    "basis": "cumulative",
+    "gross": "2021.09",
+    "previous_pay": "1386.20",
+    "previous_tax": "132.00",
+    "expected": "355.80"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 5,
+    "basis": "cumulative",
+    "gross": "9834.16",
+    "previous_pay": "3407.29",
+    "previous_tax": "487.80",
+    "expected": "3599.60"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 6,
+    "basis": "cumulative",
+    "gross": "15000.00",
+    "previous_pay": "13241.45",
+    "previous_tax": "4087.40",
+    "expected": "6375.68"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 7,
+    "basis": "cumulative",
+    "gross": "242.84",
+    "previous_pay": "28241.45",
+    "previous_tax": "10463.08",
+    "expected": "-264.87"
+  },
+  {
+    "code": "1257L",
+    "frequency": "weekly",
+    "period": 8,
+    "basis": "cumulative",
+    "gross": "243.83",
+    "previous_pay": "28484.29",
+    "previous_tax": "10198.21",
+    "expected": "-264.43"
+  },
+  {
+    "code": "BR",
+    "frequency": "weekly",
+    "period": 9,
+    "basis": "cumulative",
+    "gross": "632.84",
+    "previous_pay": "28728.12",
+    "previous_tax": "9933.78",
+    "expected": "-4061.78"
+  },
+  {
+    "code": "NT",
+    "frequency": "weekly",
+    "period": 10,
+    "basis": "cumulative",
+    "gross": "2893.83",
+    "previous_pay": "29360.96",
+    "previous_tax": "5872.00",
+    "expected": "-5872.00"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "39.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.00"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "39.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.20"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "3164.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "625.00"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "3164.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "625.20"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "10450.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "3536.06"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "10500.78",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "3558.15"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "12539.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "4475.25"
+  },
+  {
+    "code": "45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "12539.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "4475.70"
+  },
+  {
+    "code": "BR",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "19.80"
+  },
+  {
+    "code": "D0",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "39.60"
+  },
+  {
+    "code": "D1",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "44.55"
+  },
+  {
+    "code": "145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "29.05",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.00"
+  },
+  {
+    "code": "145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "29.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.20"
+  },
+  {
+    "code": "145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "750.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "144.40"
+  },
+  {
+    "code": "145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "750.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "144.40"
+  },
+  {
+    "code": "145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "2913.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "1032.92"
+  },
+  {
+    "code": "145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "2913.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "1032.92"
+  },
+  {
+    "code": "BR",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "20.20"
+  },
+  {
+    "code": "D0",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "40.40"
+  },
+  {
+    "code": "D1",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "45.45"
+  },
+  {
+    "code": "BR",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "2870.55",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "574.00"
+  },
+  {
+    "code": "BR",
+    "frequency": "monthly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "3500.95",
+    "previous_pay": "2870.55",
+    "previous_tax": "574.00",
+    "expected": "700.20"
+  },
+  {
+    "code": "BR",
+    "frequency": "monthly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "32000.00",
+    "previous_pay": "6371.50",
+    "previous_tax": "1274.20",
+    "expected": "6400.00"
+  },
+  {
+    "code": "BR",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "650.15",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "130.00"
+  },
+  {
+    "code": "BR",
+    "frequency": "weekly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "995.55",
+    "previous_pay": "650.15",
+    "previous_tax": "130.00",
+    "expected": "199.00"
+  },
+  {
+    "code": "BR",
+    "frequency": "weekly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "7100.35",
+    "previous_pay": "1645.70",
+    "previous_tax": "329.00",
+    "expected": "1420.20"
+  },
+  {
+    "code": "K585",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "895.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "276.60"
+  },
+  {
+    "code": "K585",
+    "frequency": "monthly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "1250.00",
+    "previous_pay": "895.00",
+    "previous_tax": "276.60",
+    "expected": "347.60"
+  },
+  {
+    "code": "K585",
+    "frequency": "monthly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "765.00",
+    "previous_pay": "2145.00",
+    "previous_tax": "624.20",
+    "expected": "250.60"
+  },
+  {
+    "code": "K630",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "150.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "54.20"
+  },
+  {
+    "code": "K630",
+    "frequency": "weekly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "300.00",
+    "previous_pay": "150.00",
+    "previous_tax": "54.20",
+    "expected": "84.20"
+  },
+  {
+    "code": "K630",
+    "frequency": "weekly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "245.00",
+    "previous_pay": "450.00",
+    "previous_tax": "138.40",
+    "expected": "73.40"
+  },
+  {
+    "code": "K45",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "950.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "197.60"
+  },
+  {
+    "code": "K285",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1120.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "271.60"
+  },
+  {
+    "code": "K401",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "885.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "243.80"
+  },
+  {
+    "code": "K27",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "560.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "113.00"
+  },
+  {
+    "code": "K159",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "432.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "92.40"
+  },
+  {
+    "code": "K306",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "810.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "202.60"
+  },
+  {
+    "code": "999L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "2500.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "333.20"
+  },
+  {
+    "code": "1000L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "3000.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "433.00"
+  },
+  {
+    "code": "1001L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "5000.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "1037.66"
+  },
+  {
+    "code": "999L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "750.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "111.40"
+  },
+  {
+    "code": "1000L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "900.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "141.40"
+  },
+  {
+    "code": "1001L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "1500.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "377.80"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "1156.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "20.33"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "1156.26",
+    "previous_pay": "1156.25",
+    "previous_tax": "20.33",
+    "expected": "20.52"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "31123.26",
+    "previous_pay": "2312.51",
+    "previous_tax": "40.85",
+    "expected": "11436.78"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 4,
+    "basis": "cumulative",
+    "gross": "14465.71",
+    "previous_pay": "33435.77",
+    "previous_tax": "11477.63",
+    "expected": "5380.32"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 5,
+    "basis": "cumulative",
+    "gross": "52681.25",
+    "previous_pay": "47901.48",
+    "previous_tax": "16857.95",
+    "expected": "23753.37"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 6,
+    "basis": "cumulative",
+    "gross": "50000.00",
+    "previous_pay": "100582.73",
+    "previous_tax": "40611.32",
+    "expected": "22466.49"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 7,
+    "basis": "cumulative",
+    "gross": "15000.00",
+    "previous_pay": "150582.73",
+    "previous_tax": "63077.81",
+    "expected": "5666.01"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "monthly",
+    "period": 8,
+    "basis": "cumulative",
+    "gross": "14000.55",
+    "previous_pay": "165582.73",
+    "previous_tax": "68743.82",
+    "expected": "5186.97"
+  },
+  {
+    "code": "SBR",
+    "frequency": "monthly",
+    "period": 9,
+    "basis": "cumulative",
+    "gross": "12590.45",
+    "previous_pay": "179583.28",
+    "previous_tax": "73930.79",
+    "expected": "-35496.19"
+  },
+  {
+    "code": "NT",
+    "frequency": "monthly",
+    "period": 10,
+    "basis": "cumulative",
+    "gross": "11245.05",
+    "previous_pay": "192173.73",
+    "previous_tax": "38434.60",
+    "expected": "-38434.60"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "267.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "4.75"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "266.08",
+    "previous_pay": "267.07",
+    "previous_tax": "4.75",
+    "expected": "4.56"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "853.05",
+    "previous_pay": "533.15",
+    "previous_tax": "9.31",
+    "expected": "120.40"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 4,
+    "basis": "cumulative",
+    "gross": "2021.09",
+    "previous_pay": "1386.20",
+    "previous_tax": "129.71",
+    "expected": "376.31"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 5,
+    "basis": "cumulative",
+    "gross": "9834.16",
+    "previous_pay": "3407.29",
+    "previous_tax": "506.02",
+    "expected": "4079.90"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 6,
+    "basis": "cumulative",
+    "gross": "15000.00",
+    "previous_pay": "13241.45",
+    "previous_tax": "4585.92",
+    "expected": "6845.99"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 7,
+    "basis": "cumulative",
+    "gross": "242.84",
+    "previous_pay": "28241.45",
+    "previous_tax": "11431.91",
+    "expected": "-237.32"
+  },
+  {
+    "code": "S1257L",
+    "frequency": "weekly",
+    "period": 8,
+    "basis": "cumulative",
+    "gross": "243.83",
+    "previous_pay": "28484.29",
+    "previous_tax": "11194.59",
+    "expected": "-236.84"
+  },
+  {
+    "code": "SBR",
+    "frequency": "weekly",
+    "period": 9,
+    "basis": "cumulative",
+    "gross": "632.84",
+    "previous_pay": "28728.12",
+    "previous_tax": "10957.75",
+    "expected": "-5085.75"
+  },
+  {
+    "code": "NT",
+    "frequency": "weekly",
+    "period": 10,
+    "basis": "cumulative",
+    "gross": "2893.83",
+    "previous_pay": "29360.96",
+    "previous_tax": "5872.00",
+    "expected": "-5872.00"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "39.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.00"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "39.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.19"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "3164.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "750.95"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "3164.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "751.37"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "10450.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "3967.32"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "10500.78",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "3991.28"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "12539.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "4969.52"
+  },
+  {
+    "code": "S45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "12539.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "4970.00"
+  },
+  {
+    "code": "SBR",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "19.80"
+  },
+  {
+    "code": "SBR",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1450.03",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "290.00"
+  },
+  {
+    "code": "SD0",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "20.79"
+  },
+  {
+    "code": "SD0",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1450.03",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "304.50"
+  },
+  {
+    "code": "SD1",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "41.58"
+  },
+  {
+    "code": "SD1",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1450.03",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "609.00"
+  },
+  {
+    "code": "SD2",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "44.55"
+  },
+  {
+    "code": "SD2",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1450.03",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "652.50"
+  },
+  {
+    "code": "SD2",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "5300.67",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "2385.00"
+  },
+  {
+    "code": "SD3",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "47.52"
+  },
+  {
+    "code": "SD3",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1450.03",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "696.00"
+  },
+  {
+    "code": "SD3",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "5300.67",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "2544.00"
+  },
+  {
+    "code": "S145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "29.05",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.00"
+  },
+  {
+    "code": "S145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "29.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.19"
+  },
+  {
+    "code": "S145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "750.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "173.65"
+  },
+  {
+    "code": "S145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "750.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "173.65"
+  },
+  {
+    "code": "S145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "2913.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "1146.99"
+  },
+  {
+    "code": "S145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "2913.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "1146.99"
+  },
+  {
+    "code": "SBR",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "20.20"
+  },
+  {
+    "code": "SBR",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "324.63",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "64.80"
+  },
+  {
+    "code": "SD0",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "21.21"
+  },
+  {
+    "code": "SD0",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "324.63",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "68.04"
+  },
+  {
+    "code": "SD1",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "42.42"
+  },
+  {
+    "code": "SD1",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "324.63",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "136.08"
+  },
+  {
+    "code": "SD2",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "45.45"
+  },
+  {
+    "code": "SD2",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "324.63",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "145.80"
+  },
+  {
+    "code": "SD2",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1056.81",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "475.20"
+  },
+  {
+    "code": "SD3",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "48.48"
+  },
+  {
+    "code": "SD3",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "324.63",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "155.52"
+  },
+  {
+    "code": "SD3",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "1056.81",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "506.88"
+  },
+  {
+    "code": "SK585",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "895.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "273.29"
+  },
+  {
+    "code": "SK585",
+    "frequency": "monthly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "1250.00",
+    "previous_pay": "895.00",
+    "previous_tax": "273.29",
+    "expected": "347.24"
+  },
+  {
+    "code": "SK585",
+    "frequency": "monthly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "765.00",
+    "previous_pay": "2145.00",
+    "previous_tax": "620.53",
+    "expected": "245.70"
+  },
+  {
+    "code": "SK630",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "150.00",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "53.43"
+  },
+  {
+    "code": "SK630",
+    "frequency": "weekly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "300.00",
+    "previous_pay": "150.00",
+    "previous_tax": "53.43",
+    "expected": "83.84"
+  },
+  {
+    "code": "SK630",
+    "frequency": "weekly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "245.00",
+    "previous_pay": "450.00",
+    "previous_tax": "137.27",
+    "expected": "73.04"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "1156.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "21.40"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "1156.26",
+    "previous_pay": "1156.25",
+    "previous_tax": "21.40",
+    "expected": "21.60"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "31123.26",
+    "previous_pay": "2312.51",
+    "previous_tax": "43.00",
+    "expected": "10188.00"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 4,
+    "basis": "cumulative",
+    "gross": "14465.71",
+    "previous_pay": "33435.77",
+    "previous_tax": "10231.00",
+    "expected": "4838.60"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 5,
+    "basis": "cumulative",
+    "gross": "52681.25",
+    "previous_pay": "47901.48",
+    "previous_tax": "15069.60",
+    "expected": "22085.10"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 6,
+    "basis": "cumulative",
+    "gross": "50000.00",
+    "previous_pay": "100582.73",
+    "previous_tax": "37154.70",
+    "expected": "20878.65"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 7,
+    "basis": "cumulative",
+    "gross": "15000.00",
+    "previous_pay": "150582.73",
+    "previous_tax": "58033.35",
+    "expected": "5128.20"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "monthly",
+    "period": 8,
+    "basis": "cumulative",
+    "gross": "14000.55",
+    "previous_pay": "165582.73",
+    "previous_tax": "63161.55",
+    "expected": "4679.10"
+  },
+  {
+    "code": "CBR",
+    "frequency": "monthly",
+    "period": 9,
+    "basis": "cumulative",
+    "gross": "12590.45",
+    "previous_pay": "179583.28",
+    "previous_tax": "67840.65",
+    "expected": "-29406.05"
+  },
+  {
+    "code": "NT",
+    "frequency": "monthly",
+    "period": 10,
+    "basis": "cumulative",
+    "gross": "11245.05",
+    "previous_pay": "192173.73",
+    "previous_tax": "38434.60",
+    "expected": "-38434.60"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "cumulative",
+    "gross": "267.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "5.00"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 2,
+    "basis": "cumulative",
+    "gross": "266.08",
+    "previous_pay": "267.07",
+    "previous_tax": "5.00",
+    "expected": "4.80"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 3,
+    "basis": "cumulative",
+    "gross": "853.05",
+    "previous_pay": "533.15",
+    "previous_tax": "9.80",
+    "expected": "122.20"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 4,
+    "basis": "cumulative",
+    "gross": "2021.09",
+    "previous_pay": "1386.20",
+    "previous_tax": "132.00",
+    "expected": "355.80"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 5,
+    "basis": "cumulative",
+    "gross": "9834.16",
+    "previous_pay": "3407.29",
+    "previous_tax": "487.80",
+    "expected": "3599.60"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 6,
+    "basis": "cumulative",
+    "gross": "15000.00",
+    "previous_pay": "13241.45",
+    "previous_tax": "4087.40",
+    "expected": "6375.68"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 7,
+    "basis": "cumulative",
+    "gross": "242.84",
+    "previous_pay": "28241.45",
+    "previous_tax": "10463.08",
+    "expected": "-264.87"
+  },
+  {
+    "code": "C1257L",
+    "frequency": "weekly",
+    "period": 8,
+    "basis": "cumulative",
+    "gross": "243.83",
+    "previous_pay": "28484.29",
+    "previous_tax": "10198.21",
+    "expected": "-264.43"
+  },
+  {
+    "code": "CBR",
+    "frequency": "weekly",
+    "period": 9,
+    "basis": "cumulative",
+    "gross": "632.84",
+    "previous_pay": "28728.12",
+    "previous_tax": "9933.78",
+    "expected": "-4061.78"
+  },
+  {
+    "code": "NT",
+    "frequency": "weekly",
+    "period": 10,
+    "basis": "cumulative",
+    "gross": "2893.83",
+    "previous_pay": "29360.96",
+    "previous_tax": "5872.00",
+    "expected": "-5872.00"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "39.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.00"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "39.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.20"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "3164.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "625.00"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "3164.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "625.20"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "10450.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "3536.06"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "10500.78",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "3558.15"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "12539.24",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "4475.25"
+  },
+  {
+    "code": "C45L",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "12539.25",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "4475.70"
+  },
+  {
+    "code": "CBR",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "19.80"
+  },
+  {
+    "code": "CD0",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "39.60"
+  },
+  {
+    "code": "CD1",
+    "frequency": "monthly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "99.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "44.55"
+  },
+  {
+    "code": "C145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "29.05",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.00"
+  },
+  {
+    "code": "C145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "29.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "0.20"
+  },
+  {
+    "code": "C145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "750.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "144.40"
+  },
+  {
+    "code": "C145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "750.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "144.40"
+  },
+  {
+    "code": "C145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "2913.06",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "1032.92"
+  },
+  {
+    "code": "C145L",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "2913.07",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "1032.92"
+  },
+  {
+    "code": "CBR",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "20.20"
+  },
+  {
+    "code": "CD0",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "40.40"
+  },
+  {
+    "code": "CD1",
+    "frequency": "weekly",
+    "period": 1,
+    "basis": "noncumulative",
+    "gross": "101.99",
+    "previous_pay": "0.00",
+    "previous_tax": "0.00",
+    "expected": "45.45"
+  }
+]

@@ -1,0 +1,3138 @@
+[
+  {
+    "gross": "96.03",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "129",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "129.01",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "242.07",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.08",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.31",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "21.95"
+  },
+  {
+    "gross": "242.32",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "21.95"
+  },
+  {
+    "gross": "481.03",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "57.75"
+  },
+  {
+    "gross": "481.04",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "57.76"
+  },
+  {
+    "gross": "966.64",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "130.60"
+  },
+  {
+    "gross": "966.65",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "130.60"
+  },
+  {
+    "gross": "967.04",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "130.66"
+  },
+  {
+    "gross": "967.05",
+    "category": "A",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "130.66"
+  },
+  {
+    "gross": "417.03",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "559",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "559.01",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "1048.07",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.08",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.31",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "94.70"
+  },
+  {
+    "gross": "1048.32",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "94.70"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "249.91"
+  },
+  {
+    "gross": "2083.06",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "249.91"
+  },
+  {
+    "gross": "4188.53",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4188.54",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4189.04",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "565.81"
+  },
+  {
+    "gross": "4189.05",
+    "category": "A",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "565.81"
+  },
+  {
+    "gross": "96.03",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "129",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "129.01",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "242.07",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.08",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.31",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.95"
+  },
+  {
+    "gross": "242.32",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.95"
+  },
+  {
+    "gross": "481.03",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "4.42",
+    "employer": "57.75"
+  },
+  {
+    "gross": "481.04",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "4.42",
+    "employer": "57.76"
+  },
+  {
+    "gross": "966.64",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "13.40",
+    "employer": "130.60"
+  },
+  {
+    "gross": "966.65",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "130.60"
+  },
+  {
+    "gross": "967.04",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "130.66"
+  },
+  {
+    "gross": "967.05",
+    "category": "B",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "130.66"
+  },
+  {
+    "gross": "417.03",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "559",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "559.01",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "1048.07",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.08",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.31",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.70"
+  },
+  {
+    "gross": "1048.32",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.70"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "19.15",
+    "employer": "249.91"
+  },
+  {
+    "gross": "2083.06",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "19.15",
+    "employer": "249.91"
+  },
+  {
+    "gross": "4188.53",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "58.10",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4188.54",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "58.10",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4189.04",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "58.11",
+    "employer": "565.81"
+  },
+  {
+    "gross": "4189.05",
+    "category": "B",
+    "frequency": "monthly",
+    "employee": "58.11",
+    "employer": "565.81"
+  },
+  {
+    "gross": "96.03",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "129",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "129.01",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "242.07",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.08",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.31",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.95"
+  },
+  {
+    "gross": "242.32",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.95"
+  },
+  {
+    "gross": "481.03",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "57.75"
+  },
+  {
+    "gross": "481.04",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "57.76"
+  },
+  {
+    "gross": "966.64",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "130.60"
+  },
+  {
+    "gross": "966.65",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "130.60"
+  },
+  {
+    "gross": "967.04",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "130.66"
+  },
+  {
+    "gross": "967.05",
+    "category": "C",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "130.66"
+  },
+  {
+    "gross": "417.03",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "559",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "559.01",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "1048.07",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.08",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.31",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.70"
+  },
+  {
+    "gross": "1048.32",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.70"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "249.91"
+  },
+  {
+    "gross": "2083.06",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "249.91"
+  },
+  {
+    "gross": "4188.53",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4188.54",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4189.04",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "565.81"
+  },
+  {
+    "gross": "4189.05",
+    "category": "C",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "565.81"
+  },
+  {
+    "gross": "96.03",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.64",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.65",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "0.00"
+  },
+  {
+    "gross": "967.04",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "967.05",
+    "category": "H",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "417.03",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.06",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.53",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.54",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4189.04",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4189.05",
+    "category": "H",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "0.01"
+  },
+  {
+    "gross": "96.03",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "129",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "129.01",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "4.95"
+  },
+  {
+    "gross": "242.07",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.08",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "21.91"
+  },
+  {
+    "gross": "242.31",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "21.95"
+  },
+  {
+    "gross": "242.32",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "21.95"
+  },
+  {
+    "gross": "481.03",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "57.75"
+  },
+  {
+    "gross": "481.04",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "57.76"
+  },
+  {
+    "gross": "966.64",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "130.60"
+  },
+  {
+    "gross": "966.65",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "130.60"
+  },
+  {
+    "gross": "967.04",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "130.66"
+  },
+  {
+    "gross": "967.05",
+    "category": "J",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "130.66"
+  },
+  {
+    "gross": "417.03",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "559",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "559.01",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "21.30"
+  },
+  {
+    "gross": "1048.07",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.08",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "94.66"
+  },
+  {
+    "gross": "1048.31",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "94.70"
+  },
+  {
+    "gross": "1048.32",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "94.70"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "249.91"
+  },
+  {
+    "gross": "2083.06",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "249.91"
+  },
+  {
+    "gross": "4188.53",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4188.54",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "565.73"
+  },
+  {
+    "gross": "4189.04",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "565.81"
+  },
+  {
+    "gross": "4189.05",
+    "category": "J",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "565.81"
+  },
+  {
+    "gross": "96.03",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.64",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.65",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "0.00"
+  },
+  {
+    "gross": "967.04",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "967.05",
+    "category": "M",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "417.03",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.06",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.53",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.54",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4189.04",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4189.05",
+    "category": "M",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "0.01"
+  },
+  {
+    "gross": "96.03",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.64",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.65",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "0.00"
+  },
+  {
+    "gross": "967.04",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "967.05",
+    "category": "V",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "417.03",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.06",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.53",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.54",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4189.04",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4189.05",
+    "category": "V",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "0.01"
+  },
+  {
+    "gross": "96.03",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.64",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "0.00"
+  },
+  {
+    "gross": "966.65",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "0.00"
+  },
+  {
+    "gross": "967.04",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "0.01"
+  },
+  {
+    "gross": "967.05",
+    "category": "Z",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "0.01"
+  },
+  {
+    "gross": "417.03",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.06",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.53",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4188.54",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "0.00"
+  },
+  {
+    "gross": "4189.04",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4189.05",
+    "category": "Z",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "0.01"
+  },
+  {
+    "gross": "96.03",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "F",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "F",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "315.91"
+  },
+  {
+    "gross": "96.03",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "4.42",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "4.42",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "13.40",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "I",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "19.15",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "19.15",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "58.10",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "58.10",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "58.11",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "I",
+    "frequency": "monthly",
+    "employee": "58.11",
+    "employer": "315.91"
+  },
+  {
+    "gross": "96.03",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "S",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "S",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.91"
+  },
+  {
+    "gross": "96.03",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "L",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "L",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "315.91"
+  },
+  {
+    "gross": "96.03",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "4.78",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "14.49",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "D",
+    "frequency": "weekly",
+    "employee": "14.50",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "20.70",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "62.81",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "D",
+    "frequency": "monthly",
+    "employee": "62.82",
+    "employer": "315.91"
+  },
+  {
+    "gross": "96.03",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "4.42",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "4.42",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "13.40",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "E",
+    "frequency": "weekly",
+    "employee": "13.41",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "19.15",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "19.15",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "58.10",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "58.10",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "58.11",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "E",
+    "frequency": "monthly",
+    "employee": "58.11",
+    "employer": "315.91"
+  },
+  {
+    "gross": "96.03",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "K",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "K",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "315.91"
+  },
+  {
+    "gross": "96.03",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "96.04",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "129.01",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.07",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.08",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.31",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "242.32",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.03",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.00"
+  },
+  {
+    "gross": "481.04",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "19.12",
+    "employer": "0.01"
+  },
+  {
+    "gross": "966.64",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "72.85"
+  },
+  {
+    "gross": "966.65",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "57.97",
+    "employer": "72.85"
+  },
+  {
+    "gross": "967.04",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "967.05",
+    "category": "N",
+    "frequency": "weekly",
+    "employee": "58.00",
+    "employer": "72.91"
+  },
+  {
+    "gross": "417.03",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "417.04",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "559.01",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.07",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.00",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.08",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.01",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.31",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "1048.32",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "0.02",
+    "employer": "0.00"
+  },
+  {
+    "gross": "2083.04",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.01"
+  },
+  {
+    "gross": "2083.0500000000002",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "82.80",
+    "employer": "0.01"
+  },
+  {
+    "gross": "4188.53",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4188.54",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "251.24",
+    "employer": "315.83"
+  },
+  {
+    "gross": "4189.04",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "315.91"
+  },
+  {
+    "gross": "4189.05",
+    "category": "N",
+    "frequency": "monthly",
+    "employee": "251.28",
+    "employer": "315.91"
+  }
+]

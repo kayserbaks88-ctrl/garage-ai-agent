@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from trimtech.modules.staff import operations_migration
+from trimtech.modules.staff import operations_migration, payroll_migration
 
 
 VERSION = "20260923_agency_v1"
@@ -187,13 +187,25 @@ def migrate(cursor):
 def _upgrade_operations(cursor):
     cursor.execute("SELECT checksum FROM staff_schema_migrations WHERE version=%s", (operations_migration.VERSION,))
     if cursor.fetchone():
-        verify(cursor)
+        _upgrade_payroll(cursor)
         return
     # Reject drift before upgrading a previously deployed v1 schema.
     _verify_record(cursor, VERSION, CHECKSUM)
     cursor.execute(operations_migration.SQL)
     cursor.execute("INSERT INTO staff_schema_migrations (version,checksum,schema_fingerprint) VALUES (%s,%s,%s)",
                    (operations_migration.VERSION, operations_migration.CHECKSUM, schema_fingerprint(cursor)))
+    _upgrade_payroll(cursor)
+
+
+def _upgrade_payroll(cursor):
+    cursor.execute("SELECT checksum FROM staff_schema_migrations WHERE version=%s", (payroll_migration.VERSION,))
+    if cursor.fetchone():
+        verify(cursor)
+        return
+    _verify_record(cursor, operations_migration.VERSION, operations_migration.CHECKSUM)
+    cursor.execute(payroll_migration.SQL)
+    cursor.execute("INSERT INTO staff_schema_migrations (version,checksum,schema_fingerprint) VALUES (%s,%s,%s)",
+                   (payroll_migration.VERSION, payroll_migration.CHECKSUM, schema_fingerprint(cursor)))
 
 
 def _verify_record(cursor, version, checksum):
@@ -214,11 +226,15 @@ def verify(cursor):
     row = cursor.fetchone()
     if not row or row[0] != CHECKSUM:
         raise StaffDatabaseError("Staff Manager migration checksum or schema drift detected; review the staging migration.")
-    _verify_record(cursor, operations_migration.VERSION, operations_migration.CHECKSUM)
+    cursor.execute("SELECT checksum FROM staff_schema_migrations WHERE version=%s", (operations_migration.VERSION,))
+    row = cursor.fetchone()
+    if not row or row[0] != operations_migration.CHECKSUM:
+        raise StaffDatabaseError("Staff Manager operations migration checksum mismatch.")
+    _verify_record(cursor, payroll_migration.VERSION, payroll_migration.CHECKSUM)
 
 
 if __name__ == "__main__":
     from trimtech.modules.staff.database import init_staff_database
 
     init_staff_database(migrate=True)
-    print(f"Verified Staff Manager migrations {VERSION} and {operations_migration.VERSION}; organisation modes preserved.")
+    print(f"Verified Staff Manager migrations through {payroll_migration.VERSION}; organisation modes preserved.")

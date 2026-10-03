@@ -53,7 +53,7 @@ class EmployeeCentreTests(unittest.TestCase):
             self.assertNotIn(marker, home)
         self.assertIn(b'Optional travel origin', self.worker.get('/staff/alpha/employee/profile').data)
         self.assertIn(b'id="leave-form"', self.worker.get('/staff/alpha/employee/leave').data)
-        self.assertIn(b'Statutory deductions', self.worker.get('/staff/alpha/employee/pay').data)
+        self.assertIn(b'Approved payroll records', self.worker.get('/staff/alpha/employee/pay').data)
 
     def test_home_shows_only_current_or_next_job_and_jobs_keep_history(self):
         now = datetime.now(timezone.utc)
@@ -83,7 +83,9 @@ class EmployeeCentreTests(unittest.TestCase):
         shift = self.current()
         self.post(self.worker, 'employee/clock-out', {'shift_id': shift['id'], **self.gps()})
         self.post(self.manager, 'shifts/approve-selected', {'shift_ids': [shift['id']]})
-        self.payroll(shift['id'])
+        run = self.payroll(shift['id'])
+        self.assertNotIn(b'Gross:', self.worker.get('/staff/alpha/employee/pay').data)
+        self.post(self.manager, f"payroll/{run['id']}/approve")
         self.assertIn(b'Gross:', self.worker.get('/staff/alpha/employee/pay').data)
         self.assertNotIn(b'Gross:', self.worker2.get('/staff/alpha/employee/pay').data)
         self.assertIn(b'Old shift', self.worker.get('/staff/alpha/employee/hours').data)

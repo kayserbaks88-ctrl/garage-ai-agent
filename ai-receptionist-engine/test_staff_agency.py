@@ -160,7 +160,12 @@ class AgencyDatabaseTests(unittest.TestCase):
     def payroll(self, shift_id):
         shift = self.row("staff_shifts", shift_id)
         day = shift["clock_in_at"].astimezone(agency.UK_TIMEZONE).date().isoformat()
-        self.post(self.manager, "payroll/generate", {"period_start": day, "period_end": day})
+        # Legacy gross-only fixtures preserve coverage of pre-statutory records.
+        # New statutory generation and its required setup are tested separately.
+        from datetime import date
+        from trimtech.modules.staff.payroll import generate_payroll_run
+        with database.transaction() as connection:
+            generate_payroll_run(connection, "alpha", date.fromisoformat(day), date.fromisoformat(day))
         row = database.fetch_one("SELECT * FROM staff_payroll_runs WHERE business_id='alpha'")
         self.assertIsNotNone(row)
         return row

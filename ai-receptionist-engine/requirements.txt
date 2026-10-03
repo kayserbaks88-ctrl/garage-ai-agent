@@ -66,3 +66,4 @@ wheel==0.45.1
 yarl==1.22.0
 gunicorn==22.0.0
 cryptography==50.0.1
+reportlab==4.4.9

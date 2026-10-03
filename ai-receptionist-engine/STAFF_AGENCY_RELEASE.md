@@ -1,5 +1,9 @@
 # Staff Manager agency extension — local review
 
+For the subsequent payroll and attendance work on `staff-v2-polish`, see
+`STAFF_PAYROLL_RELEASE.md`. That change requires a new versioned migration;
+the historical no-migration note below applies only to the earlier polish release.
+
 ## Staff v2 polish (`staff-v2-polish`)
 
 No database migration or service configuration change is introduced by this work.

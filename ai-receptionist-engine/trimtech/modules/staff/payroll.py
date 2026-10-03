@@ -176,7 +176,7 @@ def period_end_exclusive(period_end: date) -> datetime:
     return datetime.combine(period_end + timedelta(days=1), datetime.min.time())
 
 
-def generate_payroll_run(connection, business_id: str, period_start: date, period_end: date) -> dict[str, Any]:
+def generate_payroll_run(connection, business_id: str, period_start: date, period_end: date, payroll_frequency=None) -> dict[str, Any]:
     """Create one draft run and atomically claim its eligible shifts.
 
     The caller must provide an open transaction. The unique shift allocation
@@ -213,6 +213,10 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
                JOIN staff_employees AS employee
                  ON employee.id=shift.employee_id AND employee.business_id=shift.business_id
                WHERE shift.business_id=%s
+                 AND (%s IS NULL OR NOT EXISTS (SELECT 1 FROM staff_payroll_profiles pr
+                     WHERE pr.business_id=employee.business_id AND pr.employee_id=employee.id)
+                     OR EXISTS (SELECT 1 FROM staff_payroll_profiles pr WHERE pr.business_id=employee.business_id
+                         AND pr.employee_id=employee.id AND pr.frequency=%s))
                  AND shift.clock_out_at IS NOT NULL
                  AND shift.approval_status='approved'
                  AND (shift.clock_in_at AT TIME ZONE 'Europe/London')::date >= %s
@@ -223,7 +227,7 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
                  )
                ORDER BY shift.employee_id,shift.clock_in_at,shift.id
                FOR UPDATE OF shift,employee""",
-            (business_id, period_start, period_end),
+            (business_id, payroll_frequency, payroll_frequency, period_start, period_end),
         )
         shifts = [dict(row) for row in cursor.fetchall()]
         if not shifts:
@@ -347,7 +351,7 @@ def recalculate_payroll_run(connection, business_id, run_id, actor):
                 for key in totals:
                     totals[key] += getattr(result, key)
                 gross += result.gross_pay
-            if payslip["deductions"]:
+            if payslip["deductions"] and not run.get("calculation_version"):
                 raise PayrollError("A draft with manual deductions requires a payroll adjustment review.")
             cursor.execute("""UPDATE staff_payslips SET worked_minutes=%s,paid_break_minutes=%s,
                 unpaid_break_minutes=%s,payable_minutes=%s,gross_pay=%s,net_pay=%s,updated_at=NOW()
@@ -358,3 +362,6 @@ def recalculate_payroll_run(connection, business_id, run_id, actor):
             (gross_total, gross_total, run_id, business_id))
         audit(cursor, business_id, actor, "draft_recalculated", "payroll", run_id,
               dict(run), {"gross_pay": gross_total}, "Manager explicitly recalculated reviewed shifts")
+    if run.get("calculation_version"):
+        from trimtech.modules.staff.payroll_ledger import apply_calculations
+        apply_calculations(connection, business_id, run_id, run["payment_date"], run["pay_frequency"])

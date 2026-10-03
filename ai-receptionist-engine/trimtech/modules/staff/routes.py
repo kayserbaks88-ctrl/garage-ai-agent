@@ -12,7 +12,7 @@ from typing import Any
 
 from flask import (
     Blueprint, abort, current_app, flash, g, redirect, render_template,
-    request, session, url_for, jsonify,
+    request, session, url_for, jsonify, make_response,
 )
 from psycopg2 import Error as PostgreSQLError
 from psycopg2.extras import RealDictCursor
@@ -26,7 +26,7 @@ from trimtech.modules.staff.payroll import (
     PayrollError, generate_payroll_run, parse_shift_datetime, period_dates,
     validate_shift_edit,
 )
-from trimtech.modules.staff import agency, presence
+from trimtech.modules.staff import agency, presence, attendance_exceptions, payroll_ledger, payslips as payslip_delivery
 from trimtech.modules.staff.address_lookup import lookup as lookup_address, AddressLookupError
 
 
@@ -276,6 +276,7 @@ def employees_page(business_slug: str):
 def attendance_page(business_slug: str):
     business_id = _business_id(business_slug)
     live_shifts = []
+    exceptions = []
     try:
         init_staff_database()
         shift_query = """
@@ -295,6 +296,7 @@ def attendance_page(business_slug: str):
                      shift.clock_in_at DESC
         """, (business_id,))
         current_presence = presence.overview(business_id)
+        exceptions = attendance_exceptions.collect(business_id, current_presence)
         for live_shift in live_shifts:
             live_shift["presence"] = current_presence.get(live_shift["id"])
     except _DB_ERRORS:
@@ -302,8 +304,35 @@ def attendance_page(business_slug: str):
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
     return render_template(
         "staff_attendance.html", business_slug=business_slug, live_shifts=live_shifts,
-        csrf_token=_get_csrf_token,
+        csrf_token=_get_csrf_token, exceptions=exceptions,
     )
+
+
+@staff_blueprint.post("/<business_slug>/attendance/review")
+@dashboard_login_required
+def review_attendance_exception(business_slug):
+    business_id = _business_id(business_slug)
+    try:
+        key = request.form.get("event_key", "")
+        note = _clean_text(request.form.get("note"), 1000)
+        if not note:
+            raise ValueError("Enter a review note.")
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                agency.lock_business(cursor, business_id)
+                events = attendance_exceptions.collect(business_id, presence.overview(business_id))
+                if key not in {event['event_key'] for event in events}:
+                    raise ValueError("That attendance exception is no longer available.")
+                cursor.execute("""INSERT INTO staff_attendance_reviews(business_id,event_key,note,reviewed_by)
+                    VALUES (%s,%s,%s,'manager') ON CONFLICT(business_id,event_key) DO NOTHING""",(business_id,key,note))
+                agency.audit(cursor,business_id,"manager","attendance_reviewed","attendance",None,None,
+                             {"event_key":key},note)
+        flash("Attendance exception reviewed. Pay and attendance records are unchanged.","success")
+    except ValueError as error:
+        flash(str(error),"error")
+    except _DB_ERRORS:
+        _database_message()
+    return _page_redirect("staff.attendance_page",business_slug)
 
 
 @staff_blueprint.get("/<business_slug>/leave")
@@ -358,20 +387,24 @@ def payroll_page(business_slug: str):
     business_id = _business_id(business_slug)
     break_policy = "unpaid"
     payroll_runs = []
+    payroll_employees = []
     try:
         init_staff_database()
         settings = fetch_one("SELECT break_policy FROM staff_business_settings WHERE business_id=%s", (business_id,))
         break_policy = (settings or {}).get("break_policy") or "unpaid"
         payroll_runs = fetch_all("""
-            SELECT id,period_start,period_end,status,total_gross_pay,total_deductions,total_net_pay,created_at,needs_recalculation
+            SELECT *
             FROM staff_payroll_runs WHERE business_id=%s ORDER BY period_end DESC,id DESC LIMIT 20
         """, (business_id,))
+        payroll_employees = fetch_all("""SELECT e.id,e.full_name,p.* FROM staff_employees e
+            LEFT JOIN staff_payroll_profiles p ON p.employee_id=e.id AND p.business_id=e.business_id
+            WHERE e.business_id=%s ORDER BY e.full_name""", (business_id,))
     except _DB_ERRORS:
         current_app.logger.exception("Staff payroll page could not load")
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
     return render_template(
         "staff_payroll_page.html", business_slug=business_slug,
-        break_policy=break_policy, payroll_runs=payroll_runs, csrf_token=_get_csrf_token,
+        break_policy=break_policy, payroll_runs=payroll_runs, payroll_employees=payroll_employees, csrf_token=_get_csrf_token,
     )
 
 
@@ -892,11 +925,12 @@ def employee_home(business_slug: str, page: str = "home"):
             payslips = fetch_all("""
                 SELECT payslip.id,payslip.worked_minutes,payslip.paid_break_minutes,
                        payslip.unpaid_break_minutes,payslip.payable_minutes,payslip.hourly_rate,
-                       payslip.gross_pay,payslip.deductions,payslip.net_pay,
+                       payslip.gross_pay,payslip.deductions,payslip.net_pay,run.calculation_version,
                        run.period_start,run.period_end,run.status
                 FROM staff_payslips AS payslip
                 JOIN staff_payroll_runs AS run ON run.id=payslip.payroll_run_id
                 WHERE payslip.business_id=%s AND payslip.employee_id=%s AND NOT run.needs_recalculation
+                  AND run.status IN ('approved','sent','paid')
                 ORDER BY run.period_end DESC,payslip.id DESC LIMIT 20
             """, parameters)
         sites = fetch_all("""SELECT id,name,address,photo_required,allowed_radius_metres FROM staff_sites
@@ -1344,15 +1378,111 @@ def generate_payroll(business_slug: str):
     try:
         period_start = period_dates(request.form.get("period_start"), "start date")
         period_end = period_dates(request.form.get("period_end"), "end date")
+        payment_date = period_dates(request.form.get("payment_date"), "payment date")
+        frequency = request.form.get("frequency", "")
         with transaction() as connection:
             with connection.cursor() as cursor:
                 agency.lock_business(cursor, _business_id(business_slug))
-            result = generate_payroll_run(connection, _business_id(business_slug), period_start, period_end)
+            result = generate_payroll_run(connection, _business_id(business_slug), period_start, period_end,frequency)
+            payroll_ledger.apply_calculations(connection, _business_id(business_slug), result["id"], payment_date, frequency,request.form.get('employer_name'))
         flash(
             f"Draft payroll created for {result['shift_count']} approved shift(s) and "
             f"{result['payslip_count']} employee(s). Gross pay: £{result['total_gross_pay']:.2f}.",
             "success",
         )
+    except PayrollError as error:
+        flash(str(error), "error")
+    except _DB_ERRORS:
+        _database_message()
+    return _page_redirect("staff.payroll_page", business_slug)
+
+
+@staff_blueprint.post("/<business_slug>/payroll/profiles/<int:employee_id>")
+@dashboard_login_required
+def payroll_profile(business_slug, employee_id):
+    try:
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                payroll_ledger.save_profile(cursor, _business_id(business_slug), employee_id, request.form, "manager")
+        flash("Payroll settings reviewed and saved. Affected drafts must be recalculated.", "success")
+    except PayrollError as error:
+        flash(str(error), "error")
+    except _DB_ERRORS:
+        _database_message()
+    return _page_redirect("staff.payroll_page", business_slug)
+
+
+@staff_blueprint.post("/<business_slug>/payroll/<int:run_id>/discard")
+@dashboard_login_required
+def discard_payroll(business_slug,run_id):
+    try:
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                payroll_ledger.discard_draft(cursor,_business_id(business_slug),run_id,request.form.get('reason'),'manager')
+        flash('Draft discarded and its shifts released. The audit record is retained.','success')
+    except PayrollError as error:
+        flash(str(error),'error')
+    except _DB_ERRORS:
+        _database_message()
+    return _page_redirect('staff.payroll_page',business_slug)
+
+
+@staff_blueprint.get("/<business_slug>/payroll/<int:run_id>")
+@dashboard_login_required
+def payroll_detail(business_slug, run_id):
+    business_id = _business_id(business_slug)
+    run = fetch_one("SELECT * FROM staff_payroll_runs WHERE id=%s AND business_id=%s", (run_id,business_id))
+    if not run:
+        abort(404)
+    slips = fetch_all("""SELECT p.*,c.employee_name,c.result,n.status AS email_status,n.error_code
+        FROM staff_payslips p LEFT JOIN staff_payroll_calculations c ON c.payslip_id=p.id AND c.business_id=p.business_id
+        LEFT JOIN staff_payslip_notifications n ON n.payslip_id=p.id AND n.business_id=p.business_id
+        WHERE p.payroll_run_id=%s AND p.business_id=%s ORDER BY p.employee_id""", (run_id,business_id))
+    return render_template("staff_payroll_detail.html",run=run,slips=slips,business_slug=business_slug,csrf_token=_get_csrf_token)
+
+
+def _payslip_document(business_slug, slip_id, employee_id=None):
+    slip = fetch_one("""SELECT p.*,r.status,r.needs_recalculation,r.period_start,r.period_end,c.payment_date,
+        c.tax_year,c.tax_period,c.frequency,c.profile,c.employee_name,c.employer_name,c.result
+        FROM staff_payslips p JOIN staff_payroll_runs r ON r.id=p.payroll_run_id AND r.business_id=p.business_id
+        JOIN staff_payroll_calculations c ON c.payslip_id=p.id AND c.business_id=p.business_id
+        WHERE p.id=%s AND p.business_id=%s AND (%s IS NULL OR p.employee_id=%s)""",
+        (slip_id, _business_id(business_slug), employee_id, employee_id))
+    if not slip or slip["needs_recalculation"] or (employee_id is not None and slip["status"] == "draft"):
+        abort(404)
+    from trimtech.modules.staff.payslip_pdf import render as render_pdf
+    response = make_response(render_pdf(slip))
+    response.headers["Content-Type"] = 'application/pdf'
+    response.headers["Content-Disposition"] = f'attachment; filename="payslip-{slip_id}.pdf"'
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+@staff_blueprint.get("/<business_slug>/payroll/payslips/<int:slip_id>/download")
+@dashboard_login_required
+def manager_payslip_download(business_slug, slip_id):
+    return _payslip_document(business_slug, slip_id)
+
+
+@staff_blueprint.get("/<business_slug>/employee/payslips/<int:slip_id>/download")
+@employee_login_required
+def employee_payslip_download(business_slug, slip_id):
+    return _payslip_document(business_slug, slip_id, int(g.staff_employee["id"]))
+
+
+@staff_blueprint.post("/<business_slug>/payroll/payslips/<int:slip_id>/send")
+@dashboard_login_required
+def send_payslip(business_slug, slip_id):
+    business_id = _business_id(business_slug)
+    try:
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                payslip_delivery.queue(cursor, business_id, slip_id)
+        status = payslip_delivery.dispatch(business_id, slip_id)
+        flash({"sent":"Payslip notice accepted by email provider; inbox delivery is not confirmed.",
+               "failed":"Payslip email failed. Check delivery status and configuration.",
+               "disabled":"Payslip email is disabled.","pending":"Payslip notice is queued."}[status],
+              "success" if status == "sent" else "error")
     except PayrollError as error:
         flash(str(error), "error")
     except _DB_ERRORS:
