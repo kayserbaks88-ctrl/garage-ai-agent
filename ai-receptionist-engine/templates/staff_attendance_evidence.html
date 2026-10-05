@@ -1,0 +1,5 @@
+{% if evidence.late_minutes %}<p><strong>Late by {{ evidence.late_minutes }} minutes</strong></p>{% endif %}
+{% if evidence.timeline %}<details><summary>Attendance timeline</summary>
+<ol>{% for event in evidence.timeline %}<li>{{ event.label }} &middot; {{ stamp(event.at) }}</li>{% endfor %}</ol>
+<p class="help">Location evidence is approximate and only available while updates are enabled. Stale location is not proof of leaving. Attendance flags do not change approved hours or pay.</p>
+</details>{% endif %}

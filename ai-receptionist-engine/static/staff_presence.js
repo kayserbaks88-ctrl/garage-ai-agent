@@ -1,5 +1,7 @@
 'use strict';
 (() => {
+  const labels = {on_site:'On site', returned:'On site', left_site:'Left site', location_stale:'Location unavailable/stale'};
+  const confirmedText = value => value ? 'Last confirmed: ' + new Date(value).toLocaleString('en-GB', {timeZone:'Europe/London', timeZoneName:'short'}) : 'No confirmed location';
   const portal = document.querySelector('[data-presence-portal]');
   async function post(url, values) {
     const controller = new AbortController();
@@ -35,13 +37,13 @@
           shift_id:portal.dataset.shiftId,latitude:position.coords.latitude,longitude:position.coords.longitude,
           accuracy:position.coords.accuracy,captured_at:new Date(position.timestamp).toISOString()});
         if (current!==generation) return;
-        state.textContent=data.status;
-        lastReceived=Date.parse(data.last_received_at);
+        state.textContent=labels[data.status] || labels.location_stale;
+        lastReceived=Date.parse(data.last_confirmed_at) || 0;
         staleSeconds=data.stale_seconds;
         message.textContent='Location received. Updates run only while this page is visible.';
       } catch(error) {
         if(current===generation) message.textContent=error.code===1 ? 'Location permission denied. Allow location access, then restart updates.' :
-          'Unable to send a fresh location. Status becomes location_stale if updates stop. ' + (error.message || '');
+          'Unable to send a fresh location. Location becomes unavailable/stale if confirmed updates stop. ' + (error.message || '');
       } finally { busy=false; schedule(); }
     }
     start.addEventListener('click', () => {
@@ -52,14 +54,14 @@
     });
     stop.addEventListener('click', () => {
       enabled=false;generation++;clearTimeout(timer);start.disabled=false;stop.disabled=true;
-      message.textContent='Updates stopped. The last location will become location_stale when it expires.';
+      message.textContent='Updates stopped. The last location will become unavailable/stale when it expires.';
     });
     document.addEventListener('visibilitychange', () => {
       clearTimeout(timer);
       if(document.hidden) message.textContent='Updates paused while this page is hidden. Your location may become stale.';
       else if(enabled) update();
     });
-    setInterval(() => { if(!lastReceived || Date.now()-lastReceived>=staleSeconds*1000) state.textContent='location_stale'; },1000);
+    setInterval(() => { if(!lastReceived || Date.now()-lastReceived>=staleSeconds*1000) state.textContent=labels.location_stale; },1000);
   }
   const dashboard = document.querySelector('[data-presence-dashboard]');
   if(dashboard) {
@@ -72,10 +74,10 @@
         const data=await post(dashboard.dataset.presenceUrl,{csrf_token:dashboard.dataset.csrf});
         cells.forEach(cell => {
           const state=data.shifts[cell.dataset.presenceShift];
-          cell.textContent=state ? state.status : 'Shift ended — refresh attendance';
-          cell.dataset.lastReceived=state ? state.last_received_at || '' : '';
+          cell.textContent=state ? (labels[state.status] || labels.location_stale) + ' · ' + confirmedText(state.last_confirmed_at) : 'Shift ended — refresh attendance';
+          cell.dataset.lastReceived=state ? state.last_confirmed_at || '' : '';
           cell.dataset.staleSeconds=state ? state.stale_seconds : '0';
-          cell.title=state && state.last_received_at ? 'Last received: '+new Date(state.last_received_at).toLocaleString('en-GB') : 'No fresh location';
+          cell.title=confirmedText(state && state.last_confirmed_at);
         });
       } catch(_) {
         cells.forEach(cell => { cell.title='Presence refresh failed. Refresh this page to retry.'; });
@@ -83,7 +85,7 @@
     }
     setInterval(() => cells.forEach(cell => {
       if(Number(cell.dataset.staleSeconds)>0 && (!cell.dataset.lastReceived ||
-        Date.now()-Date.parse(cell.dataset.lastReceived)>=Number(cell.dataset.staleSeconds)*1000)) cell.textContent='location_stale';
+        Date.now()-Date.parse(cell.dataset.lastReceived)>=Number(cell.dataset.staleSeconds)*1000)) cell.textContent=labels.location_stale + ' · ' + confirmedText(cell.dataset.lastReceived);
     }),1000);
     setInterval(refresh,30000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});

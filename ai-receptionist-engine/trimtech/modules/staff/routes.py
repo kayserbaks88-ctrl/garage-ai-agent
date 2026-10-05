@@ -26,7 +26,7 @@ from trimtech.modules.staff.payroll import (
     PayrollError, generate_payroll_run, parse_shift_datetime, period_dates,
     validate_shift_edit,
 )
-from trimtech.modules.staff import agency, presence, attendance_exceptions, payroll_ledger, payslips as payslip_delivery
+from trimtech.modules.staff import agency, presence, attendance, attendance_exceptions, payroll_ledger, payslips as payslip_delivery
 from trimtech.modules.staff.address_lookup import lookup as lookup_address, AddressLookupError
 
 
@@ -219,6 +219,7 @@ def approvals_page(business_slug: str):
                     FROM staff_breaks WHERE business_id=%s AND shift_id=%s
                     ORDER BY started_at,id
                 """, (business_id, edit_shift_id))
+        attendance.enrich(business_id, pending_shifts + ([edit_shift] if edit_shift else []))
     except _DB_ERRORS:
         current_app.logger.exception("Staff approvals could not load")
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
@@ -296,6 +297,7 @@ def attendance_page(business_slug: str):
                      shift.clock_in_at DESC
         """, (business_id,))
         current_presence = presence.overview(business_id)
+        attendance.enrich(business_id, live_shifts)
         exceptions = attendance_exceptions.collect(business_id, current_presence)
         for live_shift in live_shifts:
             live_shift["presence"] = current_presence.get(live_shift["id"])
@@ -304,7 +306,7 @@ def attendance_page(business_slug: str):
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
     return render_template(
         "staff_attendance.html", business_slug=business_slug, live_shifts=live_shifts,
-        csrf_token=_get_csrf_token, exceptions=exceptions,
+        csrf_token=_get_csrf_token, exceptions=exceptions, late_grace=attendance.grace_minutes(),
     )
 
 

@@ -3,6 +3,7 @@
 No inference of a fixed worker's expected start when no schedule exists.
 Location unavailable is a review alert, never proof of absence or a pay deduction.
 """
+from trimtech.modules.staff import attendance
 from datetime import datetime, timedelta, timezone
 from trimtech.modules.staff.database import fetch_all
 from trimtech.modules.staff.payroll import UK_TIMEZONE
@@ -39,19 +40,14 @@ def collect(business_id, current_presence=None, now=None):
         elif not a['clocked_at'] and now >= a['starts_at']+timedelta(minutes=15):
             add(f"assignment:{a['id']}:missed",'Missed clock-in',a['full_name'],a['name'],a['starts_at'],
                 'No clock-in recorded for this assignment 15 minutes after its scheduled start. Check with the employee.')
-        elif a['clocked_at'] and a['clocked_at']>a['starts_at']+timedelta(minutes=5):
-            # Fixed-workplace shifts do not carry agency schedule snapshots.
-            fixed = fetch_all("SELECT organisation_mode FROM staff_settings WHERE business_id=%s",(business_id,))
-            if not a['linked_shift'] and (not fixed or fixed[0]['organisation_mode']=='fixed'):
-                add(f"assignment:{a['id']}:late:{a['clocked_at'].isoformat()}",'Late clock-in',a['full_name'],a['name'],a['clocked_at'],
-                    'Clocked in more than 5 minutes after the scheduled start at this workplace.')
     shifts = fetch_all("""SELECT sh.*,e.full_name FROM staff_shifts sh JOIN staff_employees e
         ON e.id=sh.employee_id AND e.business_id=sh.business_id
         WHERE sh.business_id=%s AND (sh.clock_in_at>=%s OR sh.clock_out_at IS NULL) ORDER BY sh.clock_in_at DESC""",(business_id,since))
+    attendance.enrich(business_id, shifts)
     for s in shifts:
-        if s['planned_start_at'] and s['clock_in_at'] > s['planned_start_at']+timedelta(minutes=5):
-            minutes = int((s['clock_in_at']-s['planned_start_at']).total_seconds()//60)
-            add(f"shift:{s['id']}:late:{s['clock_in_at'].isoformat()}",'Late clock-in',s['full_name'],s['site_name'],s['clock_in_at'],f'{minutes} minutes after the recorded planned start (5-minute grace).')
+        if s['late_minutes']:
+            add(s['late_event_key'],'Late clock-in',s['full_name'],s['site_name'],s['clock_in_at'],
+                f"Late by {s['late_minutes']} minutes ({attendance.grace_minutes()}-minute grace). Manager review only; pay is unchanged.")
         if s['clock_out_at'] is None:
             end = s['planned_end_at'] or s['clock_in_at']+timedelta(hours=16)
             if now > end+timedelta(minutes=30):

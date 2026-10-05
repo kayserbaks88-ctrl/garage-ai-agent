@@ -3,7 +3,7 @@ import os
 from datetime import datetime, timedelta, timezone
 
 from psycopg2.extras import RealDictCursor
-from trimtech.modules.staff.agency import coordinate
+from trimtech.modules.staff.agency import coordinate, uk_display
 from trimtech.modules.staff.database import transaction
 from trimtech.modules.staff.location import distance_metres
 
@@ -43,20 +43,31 @@ def _ensure(cursor, shift, now):
     created = bool(cursor.fetchone())
     cursor.execute("SELECT * FROM staff_shift_presence WHERE shift_id=%s FOR UPDATE", (shift["id"],))
     state = dict(cursor.fetchone())
+    cursor.execute("""SELECT captured_at FROM staff_presence_events
+        WHERE business_id=%s AND shift_id=%s
+          AND reason IN ('inside_radius','outside_confirmed')
+        ORDER BY id DESC LIMIT 1""", (shift["business_id"], shift["id"]))
+    confirmed = cursor.fetchone()
+    state["last_confirmed_at"] = confirmed["captured_at"] if confirmed else None
     if created:
         _event(cursor, state, now, "awaiting_fresh_location")
     return state
 
 
 def _expire(cursor, state, now, config):
-    last = state["last_received_at"]
-    if last and now - last >= timedelta(seconds=config["stale_seconds"]):
+    last = state["last_confirmed_at"]
+    interval = timedelta(seconds=config["stale_seconds"])
+    sample_gap = state["last_received_at"] and now - state["last_received_at"] >= interval
+    if (last and now - last >= interval) or sample_gap:
         changed = state["status"] != "location_stale"
-        state.update(status="location_stale", outside_since=None, outside_count=0)
-        cursor.execute("""UPDATE staff_shift_presence SET status='location_stale',outside_since=NULL,
-            outside_count=0,updated_at=%s WHERE shift_id=%s""", (now, state["shift_id"]))
+        # Keep consecutive fresh outside samples while waiting for confirmation.
+        # Only a newly stale status or an actual sampling gap breaks that chain.
+        if changed or sample_gap:
+            state.update(status="location_stale", outside_since=None, outside_count=0)
+            cursor.execute("""UPDATE staff_shift_presence SET status='location_stale',outside_since=NULL,
+                outside_count=0,updated_at=%s WHERE shift_id=%s""", (now, state["shift_id"]))
         if changed:
-            _event(cursor, state, now, "updates_stopped", effective=last + timedelta(seconds=config["stale_seconds"]))
+            _event(cursor, state, now, "updates_stopped", effective=(last or state["last_received_at"]) + interval)
 
 
 def advance(state, distance, accuracy, now, config):
@@ -116,7 +127,10 @@ def record(cursor, business_id, employee_id, shift_id, values):
         outside_since=%s,outside_count=%s,departed=%s,updated_at=%s WHERE shift_id=%s""",
         (updated["status"], captured, now, updated["outside_since"], updated["outside_count"], updated["departed"], now, shift_id))
     _event(cursor, updated, now, reason, captured, round(distance, 2), accuracy)
-    return {"status": updated["status"], "last_received_at": now.isoformat(), "stale_seconds": config["stale_seconds"]}
+    confirmed = captured if reason in {"inside_radius", "outside_confirmed"} else state["last_confirmed_at"]
+    return {"status": updated["status"], "last_received_at": now.isoformat(),
+            "last_confirmed_at": confirmed.isoformat() if confirmed else None,
+            "stale_seconds": config["stale_seconds"]}
 
 
 def overview(business_id):
@@ -131,6 +145,10 @@ def overview(business_id):
                 state = _ensure(cursor, shift, now)
                 _expire(cursor, state, now, config)
                 result[shift["id"]] = {"status": state["status"],
+                    "label": {"on_site": "On site", "returned": "On site", "left_site": "Left site",
+                              "location_stale": "Location unavailable/stale"}[state["status"]],
+                    "last_confirmed_at": state["last_confirmed_at"].isoformat() if state["last_confirmed_at"] else None,
+                    "last_confirmed_display": uk_display(state["last_confirmed_at"]),
                     "last_received_at": state["last_received_at"].isoformat() if state["last_received_at"] else None,
                     "outside_count": state["outside_count"], "stale_seconds": config["stale_seconds"]}
             return result
