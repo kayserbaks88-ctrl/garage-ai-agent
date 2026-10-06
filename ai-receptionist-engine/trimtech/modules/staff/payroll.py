@@ -190,6 +190,29 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
 
     with connection.cursor(cursor_factory=RealDictCursor) as cursor:
         lock_business(cursor, business_id)
+        # Report exclusions rather than silently hiding work outside this run.
+        cursor.execute("""SELECT sh.id,e.id AS employee_id,e.full_name,sh.clock_out_at,
+            sh.approval_status,p.frequency,claimed.shift_id AS claimed
+            FROM staff_shifts sh JOIN staff_employees e ON e.id=sh.employee_id AND e.business_id=sh.business_id
+            LEFT JOIN staff_payroll_profiles p ON p.employee_id=e.id AND p.business_id=e.business_id
+            LEFT JOIN staff_payslip_shifts claimed ON claimed.shift_id=sh.id
+            WHERE sh.business_id=%s AND (sh.clock_in_at AT TIME ZONE 'Europe/London')::date BETWEEN %s AND %s
+            ORDER BY e.full_name,sh.id""", (business_id, period_start, period_end))
+        exclusions = []
+        missing_profiles = set()
+        for row in cursor.fetchall():
+            reason = None
+            if row['claimed']:
+                reason = 'Already allocated to another payroll run'
+            elif not row['clock_out_at']:
+                reason = 'Shift still open'
+            elif row['approval_status'] != 'approved':
+                reason = 'Shift not approved (' + row['approval_status'] + ')'
+            elif payroll_frequency and row['frequency'] and row['frequency'] != payroll_frequency:
+                reason = 'Different reviewed pay frequency: ' + row['frequency']
+            if reason:
+                exclusions.append(dict(employee_id=row['employee_id'], employee_name=row['full_name'],
+                                       shift_id=row['id'], reason=reason))
         cursor.execute(
             """SELECT id FROM staff_payroll_runs
                WHERE business_id=%s AND period_start=%s AND period_end=%s
@@ -208,7 +231,9 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
         run_id = int(cursor.fetchone()["id"])
         cursor.execute(
             """SELECT shift.id,shift.employee_id,shift.clock_in_at,shift.clock_out_at,
-                      shift.approval_status,employee.hourly_rate
+                      shift.approval_status,employee.hourly_rate,employee.full_name,
+                      EXISTS(SELECT 1 FROM staff_payroll_profiles pr WHERE pr.business_id=employee.business_id
+                          AND pr.employee_id=employee.id) AS has_payroll_profile
                FROM staff_shifts AS shift
                JOIN staff_employees AS employee
                  ON employee.id=shift.employee_id AND employee.business_id=shift.business_id
@@ -243,6 +268,13 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
                 (business_id, shift["id"], shift["employee_id"]),
             )
             result = calculate_shift_pay(shift, cursor.fetchall())
+            if payroll_frequency and result.payable_minutes == 0:
+                exclusions.append(dict(employee_id=shift['employee_id'], employee_name=shift['full_name'],
+                                       shift_id=shift['id'], reason='No payable minutes after breaks'))
+                continue
+            if payroll_frequency and not shift['has_payroll_profile']:
+                missing_profiles.add(shift['full_name'])
+                continue
             totals = employee_totals.setdefault(
                 result.employee_id,
                 {
@@ -265,6 +297,10 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
             totals["net_pay"] += result.net_pay
             totals["shift_ids"].append(result.shift_id)
 
+        if missing_profiles:
+            raise PayrollError('Review payroll settings and pay frequency for: ' + ', '.join(sorted(missing_profiles)) + '. No draft was created.')
+        if not employee_totals:
+            raise PayrollError('No payable minutes remain after breaks. No draft was created.')
         total_gross = Decimal("0.00")
         total_deductions = Decimal("0.00")
         total_net = Decimal("0.00")
@@ -314,8 +350,9 @@ def generate_payroll_run(connection, business_id: str, period_start: date, perio
             "total_gross_pay": total_gross,
             "total_deductions": total_deductions,
             "total_net_pay": total_net,
-            "shift_count": len(shifts),
+            "shift_count": sum(len(t['shift_ids']) for t in employee_totals.values()),
             "payslip_count": len(employee_totals),
+            "exclusions": exclusions,
         }
 
 

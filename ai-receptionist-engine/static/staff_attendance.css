@@ -1,0 +1,28 @@
+.attendance-mobile{display:none}
+@media(max-width:650px){
+  .attendance-mobile{display:block}
+  .attendance-desktop{display:none}
+  #attendance>.heading .help{display:none}
+  .attendance-tools{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .attendance-tools p{margin:0 0 6px}
+  .attendance-mobile .attendance-filter-options{padding:0}
+  .attendance-filter-options>summary{padding:10px 0;font-size:13px}
+  .attendance-filter-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .attendance-filter-grid label{min-width:0}
+  .attendance-mobile .attendance-person{padding:0;border-bottom:1px solid var(--line)}
+  .attendance-person>summary{padding:10px 14px;min-height:44px;list-style:none;color:var(--text)}
+  .attendance-person>summary::-webkit-details-marker{display:none}
+  .attendance-person-title{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+  .attendance-person-title>span{font-size:11px;color:var(--muted);text-align:right}
+  .attendance-person-title>strong{overflow-wrap:anywhere}
+  .attendance-person-title>span::after{content:' +';color:var(--green)}
+  .attendance-person[open] .attendance-person-title>span::after{content:' −'}
+  .attendance-person-meta{display:block;font-size:12px;font-weight:400;color:var(--muted);overflow-wrap:anywhere}
+  .attendance-person-meta time{white-space:normal}
+  .attendance-warning{color:#fde68a;font-weight:700}
+  .attendance-expanded{padding:8px 14px 14px;font-size:14px;border-top:1px solid var(--line)}
+  .attendance-expanded section{padding:10px 0;border-bottom:1px solid var(--line)}
+  .attendance-expanded section h3{font-size:15px}
+  .attendance-expanded details>summary{padding:8px 0}
+  .attendance-expanded ol{padding-left:20px}
+}

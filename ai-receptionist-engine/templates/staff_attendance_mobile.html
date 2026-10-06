@@ -1,0 +1,34 @@
+<div class="attendance-mobile" data-attendance-mobile>
+  <div class="attendance-tools">
+    <p class="help" data-attendance-count aria-live="polite">{{ mobile_attendance|length }} staff shown</p>
+    <label for="attendance-search">Employee search</label>
+    <input id="attendance-search" type="search" placeholder="Find employee" autocomplete="off" data-attendance-search>
+    <details class="attendance-filter-options"><summary>Filter by site, status or alerts</summary>
+      <div class="attendance-filter-grid">
+        <label>Site<select data-attendance-site><option value="">All sites</option>{% set sites=namespace(values=[]) %}{% for card in mobile_attendance %}{% for site in card.sites %}{% if site not in sites.values %}{% set sites.values=sites.values+[site] %}{% endif %}{% endfor %}{% endfor %}{% for site in sites.values|sort %}<option value="{{ site }}">{{ site }}</option>{% endfor %}</select></label>
+        <label>Status<select data-attendance-status><option value="">All statuses</option><option value="on_shift">On shift</option><option value="finished">Finished</option><option value="approved">Approved</option><option value="pending">Pending approval</option><option value="rejected">Rejected</option><option value="no_clocking">No clocking shown</option></select></label>
+        <label>Alerts<select data-attendance-alert><option value="">All staff</option><option value="any">Any alert</option><option value="late">Late clock-in</option><option value="missed">Missed clocking</option><option value="left_site">Left site</option><option value="location_stale">Location unavailable/stale</option></select></label>
+        <button type="button" data-attendance-reset>Clear filters</button>
+      </div>
+    </details>
+  </div>
+  {% for card in mobile_attendance %}{% set s=card.headline %}
+  <details class="attendance-person" data-attendance-person data-name="{{ card.name }}" data-sites='{{ card.sites|tojson }}' data-state="{{ card.state }}" data-statuses='{{ card.statuses|tojson }}' data-alert="{{ '1' if card.alert else '0' }}" data-late="{{ '1' if card.late else '0' }}" data-missed="{{ '1' if card.missed else '0' }}">
+    <summary>
+      <span class="attendance-person-title"><strong>{{ card.name }}</strong><span>{{ 'On shift' if card.state=='on_shift' else ('Finished / ' ~ s.approval_status|title) if s else 'No clocking shown' }}</span></span>
+      <span class="attendance-person-meta">{{ s.site_name if s else card.sites|join(', ') }}{% if s %} &middot; In {{ stamp(s.clock_in_at) }}{% endif %}</span>
+      <span class="attendance-person-meta">{% if s and not s.clock_out_at %}<span data-presence-shift="{{ s.id }}" data-presence-compact data-presence-state="{{ s.presence.status }}" data-last-received="{{ s.presence.last_confirmed_at or '' }}" data-stale-seconds="{{ s.presence.stale_seconds }}">{{ s.presence.label }}</span>{% endif %} <span class="attendance-warning" data-attendance-warning {% if not card.alert and not (s and s.presence and s.presence.status in ['left_site','location_stale']) %}hidden{% endif %}>Alert / review</span></span>
+    </summary>
+    <div class="attendance-expanded">
+      {{ person(card.employee_id,card.name) }}
+      {% for shift in card.shifts %}<section><h3>{{ shift.site_name }}</h3><p>Clocked in {{ stamp(shift.clock_in_at) }}{% if shift.clock_out_at %}<br>Clocked out {{ stamp(shift.clock_out_at) }}{% endif %}<br>{{ shift.hours_worked }} hours before break deductions &middot; {{ shift.approval_status|title }}</p>
+        {% if not shift.clock_out_at %}<p data-presence-shift="{{ shift.id }}" data-last-received="{{ shift.presence.last_confirmed_at or '' }}" data-stale-seconds="{{ shift.presence.stale_seconds }}">{{ shift.presence.label }} &middot; Last confirmed: {{ shift.presence.last_confirmed_display or 'Unavailable' }}</p>{% endif %}
+        {% with evidence=shift %}{% include 'staff_attendance_evidence.html' %}{% endwith %}
+        {% if shift.clock_out_at %}<p><a href="{{ url_for('staff.approvals_page',business_slug=business_slug,edit_shift=shift.id,_anchor='shift-edit') }}">Review / edit shift evidence</a></p>{% endif %}
+      </section>{% endfor %}
+      {% for event in card.exceptions %}<section><h3>{{ event.kind }}</h3><p>{{ event.site_name }} &middot; {{ event.display_time }}</p><p>{{ event.detail }}</p>{% if event.review %}<p class="help">Reviewed: {{ event.review.note }}</p>{% else %}<form method="post" action="{{ url_for('staff.review_attendance_exception',business_slug=business_slug) }}">{{ csrf() }}<input type="hidden" name="event_key" value="{{ event.event_key }}"><label>Review note<input name="note" maxlength="1000" required></label><button type="submit">Mark reviewed</button></form>{% endif %}</section>{% endfor %}
+      <p class="help">Missing location is not proof of leaving. Flags do not change pay or approved hours.</p>
+    </div>
+  </details>{% endfor %}
+  <p class="empty" data-attendance-empty {% if mobile_attendance %}hidden{% endif %}>No employees match these filters.</p>
+</div>

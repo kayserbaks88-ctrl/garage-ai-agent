@@ -61,7 +61,10 @@ def collect(business_id, current_presence=None, now=None):
                 add(f"shift:{s['id']}:presence:{event_id}",'Left site' if state['status']=='left_site' else 'Location unavailable',
                     s['full_name'],s['site_name'],at,'Review recorded location evidence. This alert does not establish absence or alter pay.')
     reviews = {r['event_key']:r for r in fetch_all("SELECT * FROM staff_attendance_reviews WHERE business_id=%s",(business_id,))}
+    owners = {f"assignment:{a['id']}": a['employee_id'] for a in assignments}
+    owners.update({f"shift:{s['id']}": s['employee_id'] for s in shifts})
     for event in events:
+        event['employee_id'] = owners.get(':'.join(event['event_key'].split(':')[:2]))
         event['review'] = reviews.get(event['event_key'])
         event['display_time'] = event['at'].astimezone(UK_TIMEZONE).strftime('%d %b %Y %H:%M %Z')
     return sorted(events,key=lambda e:(bool(e['review']),-e['at'].timestamp(),e['event_key']))

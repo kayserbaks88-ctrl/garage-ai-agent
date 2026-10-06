@@ -4,9 +4,12 @@
 <p>Gross £{{ run.total_gross_pay }} · Deductions £{{ run.total_deductions }} · Net £{{ run.total_net_pay }}</p>
 <p>Employer NI £{{ run.employer_ni }} · Employer pension £{{ run.employer_pension }}</p>
 {% if run.needs_recalculation %}<p class="alert">Review corrected shifts and recalculate this draft before approval or download.</p>{% endif %}
+<section class="card"><div class="body"><h2>Period inclusion review</h2><p>{{ slips|length }} employees included automatically. This run remains {{ run.status }}; creation does not approve payroll.</p>
+<p class="help">Exclusions below were recorded when the draft was created. Later corrections do not automatically add omitted shifts; review them before approving this run.</p>
+{% if exclusions %}<details open><summary>{{ exclusions|length }} excluded shifts to review</summary><ul>{% for item in exclusions %}<li>{{ item.employee_name }} &middot; Shift {{ item.shift_id }}: {{ item.reason }}</li>{% endfor %}</ul></details>{% else %}<p>No exclusions recorded for this draft.</p>{% endif %}</div></section>
 {% for slip in slips %}<section class="card"><div class="body"><h2>{{ slip.employee_name or ('Employee ' ~ slip.employee_id) }}</h2>
 <p>Gross £{{ slip.gross_pay }} · Net £{{ slip.net_pay }}</p>
-{% if slip.result %}<p>PAYE £{{ slip.result.paye }} · Employee NI £{{ slip.result.employee_ni }} · Employee pension £{{ slip.result.employee_pension }}</p>
+{% if slip.hourly_rate==0 %}<p class="alert">Hourly rate is zero. Review this employee before approving payroll.</p>{% endif %}{% if slip.result %}<p>PAYE £{{ slip.result.paye }} · Employee NI £{{ slip.result.employee_ni }} · Employee pension £{{ slip.result.employee_pension }}</p>
 <p>Employer NI £{{ slip.result.employer_ni }} · Employer pension £{{ slip.result.employer_pension }}</p>
 {% if not run.needs_recalculation %}<a class="button" href="{{ url_for('staff.manager_payslip_download',business_slug=business_slug,slip_id=slip.id) }}">Download {{ 'draft preview' if run.status=='draft' else 'payslip' }}</a>{% endif %}
 {% if run.status!='draft' and not run.needs_recalculation %}<form method="post" action="{{ url_for('staff.send_payslip',business_slug=business_slug,slip_id=slip.id) }}">{{ csrf() }}<button type="submit">Send payslip notice</button></form>{% endif %}

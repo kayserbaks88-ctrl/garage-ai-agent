@@ -5,6 +5,36 @@ import os
 from trimtech.modules.staff.database import fetch_all
 
 
+def mobile_cards(shifts, exceptions):
+    """One collapsible employee card, including exceptions without any clock-in."""
+    cards = {}
+    for shift in shifts:
+        card = cards.setdefault(shift['employee_id'], {
+            'employee_id': shift['employee_id'], 'name': shift['full_name'],
+            'shifts': [], 'exceptions': [], 'sites': set()})
+        card['shifts'].append(shift)
+        card['sites'].add(shift['site_name'])
+    for event in exceptions:
+        if event.get('employee_id') is None:
+            continue
+        card = cards.setdefault(event['employee_id'], {
+            'employee_id': event['employee_id'], 'name': event['full_name'],
+            'shifts': [], 'exceptions': [], 'sites': set()})
+        card['exceptions'].append(event)
+        card['sites'].add(event['site_name'])
+    for card in cards.values():
+        card['sites'] = sorted(site for site in card['sites'] if site)
+        card['headline'] = next((s for s in card['shifts'] if not s['clock_out_at']),
+                                card['shifts'][0] if card['shifts'] else None)
+        head = card['headline']
+        card['state'] = 'on_shift' if head and not head['clock_out_at'] else 'finished' if head else 'no_clocking'
+        card['statuses'] = sorted({s['approval_status'] for s in card['shifts']})
+        card['alert'] = any(not e['review'] for e in card['exceptions']) or any(s.get('late_minutes') for s in card['shifts'])
+        card['late'] = any(s.get('late_minutes') for s in card['shifts']) or any(e['kind']=='Late clock-in' for e in card['exceptions'])
+        card['missed'] = any('Missed clock' in e['kind'] for e in card['exceptions'])
+    return sorted(cards.values(), key=lambda c: (c['state'] != 'on_shift', c['name'].casefold(), c['employee_id']))
+
+
 def grace_minutes():
     try:
         return max(0, min(120, int(os.getenv("STAFF_LATE_GRACE_MINUTES", "5"))))

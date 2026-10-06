@@ -75,18 +75,29 @@
         cells.forEach(cell => {
           const state=data.shifts[cell.dataset.presenceShift];
           cell.textContent=state ? (labels[state.status] || labels.location_stale) + ' · ' + confirmedText(state.last_confirmed_at) : 'Shift ended — refresh attendance';
+          if(state && cell.hasAttribute('data-presence-compact')) cell.textContent=labels[state.status] || labels.location_stale;
+          cell.dataset.presenceState=state ? state.status : 'ended';
           cell.dataset.lastReceived=state ? state.last_confirmed_at || '' : '';
           cell.dataset.staleSeconds=state ? state.stale_seconds : '0';
           cell.title=confirmedText(state && state.last_confirmed_at);
         });
+        document.dispatchEvent(new Event('staff-presence-updated'));
       } catch(_) {
         cells.forEach(cell => { cell.title='Presence refresh failed. Refresh this page to retry.'; });
       } finally {busy=false;}
     }
-    setInterval(() => cells.forEach(cell => {
+    setInterval(() => {
+      let changed=false;
+      cells.forEach(cell => {
       if(Number(cell.dataset.staleSeconds)>0 && (!cell.dataset.lastReceived ||
-        Date.now()-Date.parse(cell.dataset.lastReceived)>=Number(cell.dataset.staleSeconds)*1000)) cell.textContent=labels.location_stale + ' · ' + confirmedText(cell.dataset.lastReceived);
-    }),1000);
+        Date.now()-Date.parse(cell.dataset.lastReceived)>=Number(cell.dataset.staleSeconds)*1000)) {
+        cell.textContent=labels.location_stale + (cell.hasAttribute('data-presence-compact') ? '' : ' · ' + confirmedText(cell.dataset.lastReceived));
+        changed=changed || cell.dataset.presenceState!=='location_stale';
+        cell.dataset.presenceState='location_stale';
+      }
+      });
+      if(changed) document.dispatchEvent(new Event('staff-presence-updated'));
+    },1000);
     setInterval(refresh,30000);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)refresh();});
     refresh();

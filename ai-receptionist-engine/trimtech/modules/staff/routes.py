@@ -307,6 +307,7 @@ def attendance_page(business_slug: str):
     return render_template(
         "staff_attendance.html", business_slug=business_slug, live_shifts=live_shifts,
         csrf_token=_get_csrf_token, exceptions=exceptions, late_grace=attendance.grace_minutes(),
+        mobile_attendance=attendance.mobile_cards(live_shifts, exceptions),
     )
 
 
@@ -390,6 +391,7 @@ def payroll_page(business_slug: str):
     break_policy = "unpaid"
     payroll_runs = []
     payroll_employees = []
+    payroll_defaults = {'employer_name': '', 'frequency': ''}
     try:
         init_staff_database()
         settings = fetch_one("SELECT break_policy FROM staff_business_settings WHERE business_id=%s", (business_id,))
@@ -401,11 +403,19 @@ def payroll_page(business_slug: str):
         payroll_employees = fetch_all("""SELECT e.id,e.full_name,p.* FROM staff_employees e
             LEFT JOIN staff_payroll_profiles p ON p.employee_id=e.id AND p.business_id=e.business_id
             WHERE e.business_id=%s ORDER BY e.full_name""", (business_id,))
+        frequencies = {e['frequency'] for e in payroll_employees if e.get('reviewed_by') and e.get('frequency')}
+        if len(frequencies) == 1:
+            payroll_defaults['frequency'] = next(iter(frequencies))
+        previous = next((run for run in payroll_runs if run.get('employer_name')
+                         and run.get('pay_frequency') in {'weekly', 'monthly'}), None)
+        if previous:
+            payroll_defaults = {'employer_name': previous['employer_name'], 'frequency': previous['pay_frequency']}
     except _DB_ERRORS:
         current_app.logger.exception("Staff payroll page could not load")
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
     return render_template(
         "staff_payroll_page.html", business_slug=business_slug,
+        payroll_defaults=payroll_defaults,
         break_policy=break_policy, payroll_runs=payroll_runs, payroll_employees=payroll_employees, csrf_token=_get_csrf_token,
     )
 
@@ -1387,11 +1397,16 @@ def generate_payroll(business_slug: str):
                 agency.lock_business(cursor, _business_id(business_slug))
             result = generate_payroll_run(connection, _business_id(business_slug), period_start, period_end,frequency)
             payroll_ledger.apply_calculations(connection, _business_id(business_slug), result["id"], payment_date, frequency,request.form.get('employer_name'))
+            with connection.cursor() as cursor:
+                agency.audit(cursor, _business_id(business_slug), _manager_actor(), 'payroll_draft_created',
+                             'payroll', result['id'], None, {'exclusions': result['exclusions']},
+                             'Period-based draft; eligible employees included automatically')
         flash(
             f"Draft payroll created for {result['shift_count']} approved shift(s) and "
             f"{result['payslip_count']} employee(s). Gross pay: £{result['total_gross_pay']:.2f}.",
             "success",
         )
+        return redirect(url_for('staff.payroll_detail',business_slug=business_slug,run_id=result['id']))
     except PayrollError as error:
         flash(str(error), "error")
     except _DB_ERRORS:
@@ -1440,7 +1455,12 @@ def payroll_detail(business_slug, run_id):
         FROM staff_payslips p LEFT JOIN staff_payroll_calculations c ON c.payslip_id=p.id AND c.business_id=p.business_id
         LEFT JOIN staff_payslip_notifications n ON n.payslip_id=p.id AND n.business_id=p.business_id
         WHERE p.payroll_run_id=%s AND p.business_id=%s ORDER BY p.employee_id""", (run_id,business_id))
-    return render_template("staff_payroll_detail.html",run=run,slips=slips,business_slug=business_slug,csrf_token=_get_csrf_token)
+    draft_audit = fetch_one("""SELECT new_values FROM staff_audit WHERE business_id=%s
+        AND entity_type='payroll' AND entity_id=%s AND action='payroll_draft_created'
+        ORDER BY id DESC LIMIT 1""", (business_id,run_id))
+    exclusions = (draft_audit or {}).get('new_values', {}).get('exclusions', [])
+    return render_template("staff_payroll_detail.html",run=run,slips=slips,business_slug=business_slug,
+                           exclusions=exclusions,csrf_token=_get_csrf_token)
 
 
 def _payslip_document(business_slug, slip_id, employee_id=None):
