@@ -1,10 +1,22 @@
 """Payslip navigation/download and assignment-backed weekly rota regressions."""
 import os
 import unittest
+from html.parser import HTMLParser
 from datetime import datetime, timezone
 
 import test_staff_statutory as fixtures
 from trimtech.modules.staff import database
+
+
+class PageLinks(HTMLParser):
+    def __init__(self, html):
+        super().__init__()
+        self.links = []
+        self.feed(html)
+
+    def handle_starttag(self, tag, attrs):
+        if tag == 'a':
+            self.links.append(dict(attrs))
 
 
 @unittest.skipUnless(os.getenv('STAFF_TEST_DATABASE_URL'), 'Requires disposable local PostgreSQL')
@@ -16,6 +28,45 @@ class PayslipRotaTests(unittest.TestCase):
     def payroll(self):
         self.profile(); self.shift(); self.generate()
         return database.fetch_one('SELECT * FROM staff_payroll_runs'), database.fetch_one('SELECT * FROM staff_payslips')
+
+    def test_ios_download_links_preserve_portal_and_view_back_destinations(self):
+        run, slip = self.payroll()
+        self.post(self.manager, f"payroll/{run['id']}/approve")
+        notices = database.fetch_all('SELECT * FROM staff_payslip_notifications')
+        safari = {'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'}
+        for client, prefix, listing in (
+            (self.manager, 'payroll', f"/staff/alpha/payroll/{run['id']}"),
+            (self.worker, 'employee', '/staff/alpha/employee/pay'),
+        ):
+            base = f"/staff/alpha/{prefix}/payslips/{slip['id']}"
+            for url in (listing, base + '/view'):
+                response = client.get(url, headers=safari)
+                self.assertEqual(response.status_code, 200)
+                html = response.get_data(as_text=True)
+                links = PageLinks(html).links
+                downloads = [link for link in links if link.get('href') == base + '/download']
+                self.assertEqual(len(downloads), 1)
+                download = downloads[0]
+                self.assertIn('download', download)
+                self.assertEqual(download['target'], '_blank')
+                self.assertEqual(set(download['rel'].split()), {'noopener', 'noreferrer'})
+                self.assertEqual(download['aria-describedby'], 'pdf-download-help')
+                self.assertEqual(html.count('id="pdf-download-help"'), 1)
+                self.assertIn('Save to Files', html)
+                if url == listing:
+                    view = next(link for link in links if link.get('href') == base + '/view')
+                    self.assertNotIn('download', view)
+                    self.assertNotIn('target', view)
+                else:
+                    self.assertIn(f'href="{listing}">Back to payslips</a>', html)
+            pdf = client.get(base + '/download', headers=safari)
+            self.assertEqual(pdf.mimetype, 'application/pdf')
+            self.assertTrue(pdf.data.startswith(b'%PDF-'))
+            self.assertEqual(pdf.headers['Content-Disposition'],
+                             'attachment; filename="TrimTech-Payslip-2026-04-30.pdf"')
+            self.assertEqual(pdf.headers['X-Content-Type-Options'], 'nosniff')
+            self.assertIn('no-store', pdf.headers['Cache-Control'])
+        self.assertEqual(notices, database.fetch_all('SELECT * FROM staff_payslip_notifications'))
 
     def test_manager_view_and_genuine_pdf_download_have_separate_navigation(self):
         run,slip=self.payroll()
@@ -29,7 +80,7 @@ class PayslipRotaTests(unittest.TestCase):
         self.assertIn('no-store',pdf.headers['Cache-Control'])
         page=self.manager.get(base+'/view')
         self.assertEqual(page.mimetype,'text/html')
-        self.assertIn(b'Back to payroll review',page.data)
+        self.assertIn(b'Back to payslips',page.data)
         self.assertIn(f'/staff/alpha/payroll/{run["id"]}'.encode(),page.data)
         self.assertIn(b'Back to payroll',page.data)
         self.assertIn(b'Download draft PDF',page.data)
@@ -54,7 +105,7 @@ class PayslipRotaTests(unittest.TestCase):
             self.assertEqual(self.worker.get(base.replace('/alpha/','/beta/')+'/'+action).status_code,302)
             self.assertEqual(self.manager.get(f"/staff/beta/payroll/payslips/{slip['id']}/{action}").status_code,404)
         page=self.worker.get(base+'/view').get_data(as_text=True)
-        self.assertIn('Back to Pay / payslips',page)
+        self.assertIn('Back to payslips',page)
         self.assertIn('href="/staff/alpha/employee/pay"',page)
         self.assertNotIn('Back to payroll review',page)
         self.assertIn('Download PDF',page)

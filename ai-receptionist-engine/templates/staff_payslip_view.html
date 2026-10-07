@@ -2,10 +2,11 @@
 {% block title %}{{ 'Draft preview' if slip.status=='draft' else 'Payslip' }} · Staff Manager{% endblock %}
 {% block content %}
 <nav class="actions" aria-label="Payslip navigation">
-{% if employee_view %}<a class="button" href="{{ url_for('staff.employee_pay',business_slug=business_slug) }}">Back to Pay / payslips</a>
-{% else %}<a class="button" href="{{ url_for('staff.payroll_detail',business_slug=business_slug,run_id=slip.payroll_run_id) }}">Back to payroll review</a><a class="button" href="{{ url_for('staff.payroll_page',business_slug=business_slug) }}">Back to payroll</a>{% endif %}
-<a class="button primary" href="{{ download_url }}" download>{{ 'Download draft PDF' if slip.status=='draft' else 'Download PDF' }}</a>
+{% if employee_view %}<a class="button" href="{{ url_for('staff.employee_pay',business_slug=business_slug) }}">Back to payslips</a>
+{% else %}<a class="button" href="{{ url_for('staff.payroll_detail',business_slug=business_slug,run_id=slip.payroll_run_id) }}">Back to payslips</a><a class="button" href="{{ url_for('staff.payroll_page',business_slug=business_slug) }}">Back to payroll</a>{% endif %}
+<a class="button primary" href="{{ download_url }}" download target="_blank" rel="noopener noreferrer" aria-describedby="pdf-download-help">{{ 'Download draft PDF' if slip.status=='draft' else 'Download PDF' }}</a>
 </nav>
+<p class="help" id="pdf-download-help">Download PDF requests a separate browser window so you can return to this portal. On iPhone, Safari or iOS may show a preview or download prompt. If a preview opens, use Share then Save to Files when available; close the preview or switch back to Staff Manager to return. Saving is controlled by your device.</p>
 <section class="card"><div class="body">
 <h1>{{ 'Draft payroll preview' if slip.status=='draft' else 'Payslip' }}</h1>
 <h2>{{ slip.employee_name }}</h2><p>{{ slip.employer_name }}</p>
