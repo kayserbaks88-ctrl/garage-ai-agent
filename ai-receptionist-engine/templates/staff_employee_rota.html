@@ -1,0 +1,22 @@
+{% extends 'staff_employee_base.html' %}
+{% block title %}My rota{% endblock %}
+{% block content %}
+<h1>My rota</h1><p>{{ date_text(week.start) }} – {{ date_text(week.end) }} · UK local times</p>
+<nav class="actions" aria-label="Rota weeks">
+<a class="button" href="{{ url_for('staff.employee_rota',business_slug=business_slug,week=week.previous.isoformat()) }}">Previous week</a>
+<a class="button" href="{{ url_for('staff.employee_rota',business_slug=business_slug) }}">This week</a>
+<a class="button" href="{{ url_for('staff.employee_rota',business_slug=business_slug,week=week.following.isoformat()) }}">Next week</a>
+</nav>
+<p class="help">Your existing assignments, with no separate rota entry required. Overnight jobs appear on each day they overlap; “Continues” refers to the same assignment.</p>
+<div class="rota-week">
+{% for day in week.days %}<section class="card rota-day" aria-label="{{ day.date.strftime('%A %d %B') }}">
+<h2>{{ day.date.strftime('%A') }}{% if day.today %} · Today{% endif %}</h2><p>{{ date_text(day.date) }}</p>
+{% for job in day.jobs %}<article class="record" data-assignment-id="{{ job.id }}"><h3>{{ job.site_name }}</h3>
+<p><strong>{{ job.status|title }}{% if job.continues %} · Continues from previous day{% endif %}</strong></p>
+<p>Start: {{ time_text(job.starts_at) }}<br>Finish: {{ time_text(job.ends_at) }}</p>
+</article>{% else %}<p class="muted">No assignments</p>{% endfor %}
+</section>{% endfor %}
+</div>
+<a class="button" href="{{ url_for('staff.employee_jobs',business_slug=business_slug) }}">My jobs and clocking details</a>
+<style>.rota-week{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:16px 0}.rota-week .rota-day{min-width:0;padding:14px}.rota-day h2{font-size:18px}.rota-day time{white-space:normal}.rota-day .record{overflow-wrap:anywhere}@media(max-width:500px){.rota-week{grid-template-columns:1fr}}</style>
+{% endblock %}

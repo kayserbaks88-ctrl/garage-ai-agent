@@ -80,7 +80,7 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 {% set token = csrf_token() %}
-{% set sections = [('jobs','My jobs','Current, upcoming and past assignments'),('clocking','Clock in / out','Clocking, breaks and site GPS checks'),('hours','My hours','Weekly summary and shift history'),('leave','Leave','Request leave and track approvals'),('pay','Pay / payslips','Your available payroll information'),('profile','My profile','Your details and travel settings')] %}
+{% set sections = [('jobs','My jobs','Current, upcoming and past assignments'),('rota','My rota','Your existing assignments by week'),('clocking','Clock in / out','Clocking, breaks and site GPS checks'),('hours','My hours','Weekly summary and shift history'),('leave','Leave','Request leave and track approvals'),('pay','Pay / payslips','Your available payroll information'),('profile','My profile','Your details and travel settings')] %}
 {% macro date_text(value) %}{{ value.strftime('%d %b %Y') if value else '—' }}{% endmacro %}
 {% macro time_text(value) %}{% if value %}<time datetime="{{ value.isoformat() }}">{{ uk_display(value) }}</time>{% else %}&mdash;{% endif %}{% endmacro %}
 {% macro job_card(job, current=false) %}
@@ -103,7 +103,7 @@
 <a class="brand button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}"><span class="brand-mark" aria-hidden="true">S</span><span><strong>Staff Manager</strong><small>Employee control centre</small></span></a>
 <nav class="actions" aria-label="Account">
 {% if page != 'home' %}<a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Back to home</a>{% endif %}
-<a class="button" href="{{ url_for(request.endpoint,business_slug=business_slug) }}">Refresh</a>
+<a class="button" href="{{ refresh_url if refresh_url is defined else url_for(request.endpoint,business_slug=business_slug) }}">Refresh</a>
 <form method="post" action="{{ url_for('staff.employee_logout',business_slug=business_slug) }}"><input type="hidden" name="csrf_token" value="{{ token }}"><button type="submit">Sign out</button></form>
 </nav></header>
 {% if page != 'home' %}<nav class="section-nav" aria-label="Employee tools">{% for key,label,description in sections %}<a class="button" {{ 'aria-current=page' if page==key else '' }} href="{{ url_for('staff.employee_' ~ key,business_slug=business_slug) }}">{{ label }}</a>{% endfor %}</nav>{% endif %}

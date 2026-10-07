@@ -1,0 +1,29 @@
+{% extends base_template %}
+{% block title %}{{ 'Draft preview' if slip.status=='draft' else 'Payslip' }} · Staff Manager{% endblock %}
+{% block content %}
+<nav class="actions" aria-label="Payslip navigation">
+{% if employee_view %}<a class="button" href="{{ url_for('staff.employee_pay',business_slug=business_slug) }}">Back to Pay / payslips</a>
+{% else %}<a class="button" href="{{ url_for('staff.payroll_detail',business_slug=business_slug,run_id=slip.payroll_run_id) }}">Back to payroll review</a><a class="button" href="{{ url_for('staff.payroll_page',business_slug=business_slug) }}">Back to payroll</a>{% endif %}
+<a class="button primary" href="{{ download_url }}" download>{{ 'Download draft PDF' if slip.status=='draft' else 'Download PDF' }}</a>
+</nav>
+<section class="card"><div class="body">
+<h1>{{ 'Draft payroll preview' if slip.status=='draft' else 'Payslip' }}</h1>
+<h2>{{ slip.employee_name }}</h2><p>{{ slip.employer_name }}</p>
+<p>Payment date: {{ slip.payment_date.strftime('%d %b %Y') }}<br>Work period: {{ slip.period_start.strftime('%d %b %Y') }} – {{ slip.period_end.strftime('%d %b %Y') }}<br>{{ slip.frequency|title }} · Tax year {{ slip.tax_year }} · Period {{ slip.tax_period }}</p>
+<p>Tax code: {{ slip.profile.tax_code }} ({{ slip.profile.tax_basis }}) · NI category {{ slip.profile.ni_category }}</p>
+<dl class="details-list">
+<div><dt>Payable hours</dt><dd>{{ '%.2f'|format(slip.payable_minutes/60) }}</dd></div>
+<div><dt>Hourly rate</dt><dd>£{{ '%.2f'|format(slip.hourly_rate) }}</dd></div>
+<div><dt>Gross pay</dt><dd>£{{ '%.2f'|format(slip.gross_pay) }}</dd></div>
+<div><dt>PAYE (negative is a refund)</dt><dd>£{{ slip.result.paye }}</dd></div>
+<div><dt>Employee National Insurance</dt><dd>£{{ slip.result.employee_ni }}</dd></div>
+<div><dt>Employee pension</dt><dd>£{{ slip.result.employee_pension }}</dd></div>
+<div><dt>Total deductions</dt><dd>£{{ slip.result.deductions }}</dd></div>
+<div><dt>Net pay</dt><dd><strong>£{{ slip.result.net_pay }}</strong></dd></div>
+<div><dt>Employer pension contribution</dt><dd>£{{ slip.result.employer_pension }}</dd></div>
+<div><dt>Taxable pay year to date</dt><dd>£{{ slip.result.taxable_pay_ytd }}</dd></div>
+<div><dt>PAYE year to date</dt><dd>£{{ slip.result.paye_ytd }}</dd></div>
+</dl>
+<p class="help">These are the saved payroll figures. Year-to-date totals include recorded opening balances. This document does not confirm a bank payment.</p>
+</div></section>
+{% endblock %}

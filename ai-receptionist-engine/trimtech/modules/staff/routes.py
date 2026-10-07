@@ -1465,7 +1465,7 @@ def payroll_detail(business_slug, run_id):
                            missing_notices=any(not s['email_status'] for s in slips))
 
 
-def _payslip_document(business_slug, slip_id, employee_id=None):
+def _payslip_record(business_slug, slip_id, employee_id=None):
     slip = fetch_one("""SELECT p.*,r.status,r.needs_recalculation,r.period_start,r.period_end,c.payment_date,
         c.tax_year,c.tax_period,c.frequency,c.profile,c.employee_name,c.employer_name,c.result
         FROM staff_payslips p JOIN staff_payroll_runs r ON r.id=p.payroll_run_id AND r.business_id=p.business_id
@@ -1474,12 +1474,58 @@ def _payslip_document(business_slug, slip_id, employee_id=None):
         (slip_id, _business_id(business_slug), employee_id, employee_id))
     if not slip or slip["needs_recalculation"] or (employee_id is not None and slip["status"] == "draft"):
         abort(404)
+    return slip
+
+
+def _payslip_document(business_slug, slip_id, employee_id=None):
+    slip = _payslip_record(business_slug, slip_id, employee_id)
     from trimtech.modules.staff.payslip_pdf import render as render_pdf
     response = make_response(render_pdf(slip))
     response.headers["Content-Type"] = 'application/pdf'
-    response.headers["Content-Disposition"] = f'attachment; filename="payslip-{slip_id}.pdf"'
+    response.headers["Content-Disposition"] = f'attachment; filename="TrimTech-Payslip-{slip["payment_date"].isoformat()}.pdf"'
     response.headers["X-Content-Type-Options"] = "nosniff"
     return response
+
+
+def _payslip_view(business_slug, slip_id, employee_id=None):
+    slip = _payslip_record(business_slug, slip_id, employee_id)
+    employee_view = employee_id is not None
+    return render_template('staff_payslip_view.html', slip=slip, business_slug=business_slug,
+        base_template='staff_employee_base.html' if employee_view else 'staff_base.html',
+        employee_view=employee_view, employee=g.staff_employee if employee_view else None,
+        page='pay', csrf_token=_get_csrf_token,
+        refresh_url=url_for('staff.employee_payslip_view' if employee_view else 'staff.manager_payslip_view',
+                            business_slug=business_slug,slip_id=slip_id),
+        download_url=url_for('staff.employee_payslip_download' if employee_view else 'staff.manager_payslip_download',
+                            business_slug=business_slug,slip_id=slip_id))
+
+
+@staff_blueprint.get("/<business_slug>/payroll/payslips/<int:slip_id>/view")
+@dashboard_login_required
+def manager_payslip_view(business_slug, slip_id):
+    return _payslip_view(business_slug, slip_id)
+
+
+@staff_blueprint.get("/<business_slug>/employee/payslips/<int:slip_id>/view")
+@employee_login_required
+def employee_payslip_view(business_slug, slip_id):
+    return _payslip_view(business_slug, slip_id, int(g.staff_employee['id']))
+
+
+@staff_blueprint.get("/<business_slug>/employee/rota")
+@employee_login_required
+def employee_rota(business_slug):
+    from trimtech.modules.staff.rota import weekly
+    try:
+        week = weekly(_business_id(business_slug), int(g.staff_employee['id']), request.args.get('week'))
+    except (ValueError, OverflowError):
+        abort(400, description='Choose a valid rota week date (YYYY-MM-DD).')
+    except _DB_ERRORS:
+        abort(503, description='Your rota is temporarily unavailable. Please try again.')
+    return render_template('staff_employee_rota.html',business_slug=business_slug,
+        employee=g.staff_employee,page='rota',csrf_token=_get_csrf_token,week=week,
+        uk_display=agency.uk_display,
+        refresh_url=url_for('staff.employee_rota',business_slug=business_slug,week=week['start'].isoformat()))
 
 
 @staff_blueprint.get("/<business_slug>/payroll/payslips/<int:slip_id>/download")

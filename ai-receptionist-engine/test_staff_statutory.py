@@ -102,7 +102,7 @@ class StatutoryDatabaseTests(unittest.TestCase):
         self.assertEqual(self.worker2.get(route).status_code,404)
         self.assertEqual(self.client().get(route).status_code,302)
         self.assertEqual(self.manager.get(f"/staff/beta/payroll/payslips/{slip['id']}/download").status_code,404)
-        self.assertIn(b'Download payslip',self.worker.get('/staff/alpha/employee/pay').data)
+        self.assertIn(b'Download PDF',self.worker.get('/staff/alpha/employee/pay').data)
         self.assertEqual(database.fetch_one('SELECT status FROM staff_payslip_notifications')['status'], 'failed')
 
     def test_profile_change_recalculates_and_finalized_snapshots_are_immutable(self):
