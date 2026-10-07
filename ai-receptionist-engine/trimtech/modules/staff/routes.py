@@ -1460,7 +1460,9 @@ def payroll_detail(business_slug, run_id):
         ORDER BY id DESC LIMIT 1""", (business_id,run_id))
     exclusions = (draft_audit or {}).get('new_values', {}).get('exclusions', [])
     return render_template("staff_payroll_detail.html",run=run,slips=slips,business_slug=business_slug,
-                           exclusions=exclusions,csrf_token=_get_csrf_token)
+                           exclusions=exclusions,csrf_token=_get_csrf_token,
+                           pending_notices=sum(s['email_status']=='pending' for s in slips),
+                           missing_notices=any(not s['email_status'] for s in slips))
 
 
 def _payslip_document(business_slug, slip_id, employee_id=None):
@@ -1496,10 +1498,13 @@ def employee_payslip_download(business_slug, slip_id):
 @dashboard_login_required
 def send_payslip(business_slug, slip_id):
     business_id = _business_id(business_slug)
+    slip = fetch_one("SELECT payroll_run_id FROM staff_payslips WHERE id=%s AND business_id=%s", (slip_id,business_id))
+    if not slip:
+        abort(404)
     try:
         with transaction() as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-                payslip_delivery.queue(cursor, business_id, slip_id)
+                payslip_delivery.queue(cursor, business_id, slip_id, retry=True)
         status = payslip_delivery.dispatch(business_id, slip_id)
         flash({"sent":"Payslip notice accepted by email provider; inbox delivery is not confirmed.",
                "failed":"Payslip email failed. Check delivery status and configuration.",
@@ -1509,25 +1514,53 @@ def send_payslip(business_slug, slip_id):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
-    return _page_redirect("staff.payroll_page", business_slug)
+    return redirect(url_for("staff.payroll_detail",business_slug=business_slug,run_id=slip["payroll_run_id"]))
 
 
 @staff_blueprint.post("/<business_slug>/payroll/<int:run_id>/approve")
 @dashboard_login_required
 def approve_payroll(business_slug: str, run_id: int):
+    business_id = _business_id(business_slug)
     try:
         with transaction() as connection:
-            with connection.cursor() as cursor:
-                agency.lock_business(cursor, _business_id(business_slug))
-                cursor.execute("""UPDATE staff_payroll_runs SET status='approved',approved_at=NOW(),updated_at=NOW()
-                    WHERE id=%s AND business_id=%s AND status='draft' AND NOT needs_recalculation""",
-                    (run_id, _business_id(business_slug)))
-                count = cursor.rowcount
-        flash("Payroll run approved." if count else "That draft is unavailable or needs recalculation.",
-              "success" if count else "error")
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                statutory = payslip_delivery.approve_and_queue(cursor, business_id, run_id, _manager_actor())
+    except PayrollError as error:
+        flash(str(error), "error")
+        return _page_redirect("staff.payroll_page", business_slug)
     except _DB_ERRORS:
         _database_message()
-    return _page_redirect("staff.payroll_page", business_slug)
+        return _page_redirect("staff.payroll_page", business_slug)
+    # Approval and every queue record have committed before any external email.
+    if statutory:
+        try:
+            payslip_delivery.dispatch_next(business_id, run_id)
+        except Exception:
+            current_app.logger.warning("Staff payroll approved; email queue processing interrupted: run=%s", run_id)
+        flash("Payroll approved and payslips issued to employee portals. Email notifications are processed separately; review each status below.", "success")
+    else:
+        flash("Legacy gross-only payroll approved. Statutory payslip issuing is unavailable for this historical run.", "success")
+    return redirect(url_for("staff.payroll_detail", business_slug=business_slug,run_id=run_id))
+
+
+@staff_blueprint.post("/<business_slug>/payroll/<int:run_id>/issue-pending")
+@dashboard_login_required
+def issue_pending_payslips(business_slug, run_id):
+    business_id = _business_id(business_slug)
+    run = fetch_one("SELECT status,needs_recalculation FROM staff_payroll_runs WHERE business_id=%s AND id=%s", (business_id,run_id))
+    if not run:
+        abort(404)
+    if run['status'] not in {'approved','sent','paid'} or run['needs_recalculation']:
+        return jsonify(error="This run is not ready to issue payslips."), 409
+    try:
+        payslip_delivery.dispatch_next(business_id,run_id)
+        states = fetch_all("""SELECT p.id,n.status,n.error_code FROM staff_payslips p
+            JOIN staff_payslip_notifications n ON n.payslip_id=p.id AND n.business_id=p.business_id
+            WHERE p.business_id=%s AND p.payroll_run_id=%s ORDER BY p.id""", (business_id,run_id))
+        return jsonify(notices=states, pending=sum(s['status']=='pending' for s in states))
+    except Exception:
+        current_app.logger.warning("Staff payslip queue processing interrupted: run=%s", run_id)
+        return jsonify(error="Payroll remains approved. Email processing paused; reopen this review to resume."), 503
 
 
 @staff_blueprint.post("/<business_slug>/employees/<int:employee_id>/edit")

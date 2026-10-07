@@ -103,7 +103,7 @@ class StatutoryDatabaseTests(unittest.TestCase):
         self.assertEqual(self.client().get(route).status_code,302)
         self.assertEqual(self.manager.get(f"/staff/beta/payroll/payslips/{slip['id']}/download").status_code,404)
         self.assertIn(b'Download payslip',self.worker.get('/staff/alpha/employee/pay').data)
-        self.assertFalse(database.fetch_all('SELECT * FROM staff_payslip_notifications'))
+        self.assertEqual(database.fetch_one('SELECT status FROM staff_payslip_notifications')['status'], 'failed')
 
     def test_profile_change_recalculates_and_finalized_snapshots_are_immutable(self):
         self.profile(); self.shift(); self.generate()
@@ -225,7 +225,6 @@ class StatutoryDatabaseTests(unittest.TestCase):
             self.post(self.manager,f"payroll/payslips/{slip['id']}/send")
         self.assertEqual(database.fetch_one('SELECT status FROM staff_payslip_notifications')['status'],'failed')
         self.assertEqual(self.row('staff_payroll_runs',run['id'])['status'],'approved')
-        database.execute('DELETE FROM staff_payslip_notifications')
         with patch.dict(os.environ,{'STAFF_PAYSLIP_EMAIL_ENABLED':'0'}),patch.object(payslips,'send_staff_email') as send:
             self.post(self.manager,f"payroll/payslips/{slip['id']}/send")
             send.assert_not_called()
