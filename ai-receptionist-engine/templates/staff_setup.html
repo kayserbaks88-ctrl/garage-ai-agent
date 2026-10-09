@@ -1,0 +1,15 @@
+{% extends 'staff_base.html' %}
+{% block title %}Set up Staff Manager{% endblock %}
+{% block content %}
+<h1>Set up Staff Manager</h1><p>Your progress is saved after each step. Return here whenever you are ready.</p>
+<p>{{ progress.count }} of {{ steps|length }} steps completed</p><progress value="{{ progress.count }}" max="{{ steps|length }}" aria-label="Setup progress" style="width:100%"></progress>
+<nav class="actions" aria-label="Setup steps">{% for key in steps %}<a class="button" href="{{ url_for('staff.setup',business_slug=business_slug,step=key) }}" {% if step==key %}aria-current="step"{% endif %}>{{ loop.index }}. {{ content[key][0] }}{% if progress.done[key] %} - Done{% endif %}</a>{% endfor %}</nav>
+<section class="card"><div class="body"><h2>{{ content[step][0] }}</h2><p>{{ content[step][1] }}</p>
+{% if content[step][2] %}<a class="button primary" href="{{ url_for(content[step][2],business_slug=business_slug) }}">{{ content[step][3] }}</a><p class="help">Use the Set up Staff Manager link at the top of the tool page to return here. Your saved records are reused.</p>{% endif %}
+{% if step=='invitations' %}{% for employee in employees %}<article class="item"><strong>{{ employee.full_name }}</strong><p>{{ employee.email or 'Add an email address in Employees first.' }}</p><p>{{ 'Portal activated' if employee.activated_at else employee.invitation_status|default('Not invited',true)|replace('_',' ') }}</p><form method="post" action="{{ url_for('staff.invite_employee',business_slug=business_slug,employee_id=employee.id) }}">{{ csrf() }}<button {% if not employee.email %}disabled{% endif %}>{{ 'Send password reset invitation' if employee.activated_at else 'Invite / resend' }}</button></form></article>{% else %}<p>Add employees before sending invitations.</p>{% endfor %}{% endif %}
+{% if step=='review' %}<ul>{% for key in steps[:-1] %}<li>{{ content[key][0] }}: {{ 'Complete' if progress.done[key] else 'Needs attention' }}</li>{% endfor %}</ul>{% endif %}
+<form method="post" action="{{ url_for('staff.setup',business_slug=business_slug) }}">{{ csrf() }}<input type="hidden" name="step" value="{{ step }}">
+{% if step=='company' %}<div class="form-grid"><label>Company name<input name="business_name" value="{{ request.form.get('business_name',business.name) }}" required maxlength="160" autocomplete="organization"></label><label>Business type<input name="business_type" value="{{ request.form.get('business_type',progress.business_type) }}" required maxlength="100" placeholder="For example, security or cleaning"></label><label>Company address<textarea name="company_address" required maxlength="1000" autocomplete="street-address">{{ request.form.get('company_address',progress.company_address) }}</textarea></label></div>{% endif %}
+<p><label><input type="checkbox" name="reviewed" required> I have reviewed this step and its saved records.</label></p><button>{{ 'Finish setup' if step=='review' else 'Save and continue' }}</button></form>
+</div></section>
+{% endblock %}

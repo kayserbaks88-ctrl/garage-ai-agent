@@ -80,16 +80,16 @@
                     <p class="hint" id="phone-hint">Use the number your manager has on file, including the country code if recorded.</p>
                 </div>
                 <div class="field">
-                    <label for="payroll_number">Payroll number</label>
+                    <label for="payroll_number">{{ 'Password' if secure_portal else 'Payroll number' }}</label>
                     <input type="password" id="payroll_number" name="payroll_number"
-                           autocomplete="current-password" maxlength="60"
+                           autocomplete="current-password" maxlength="128"
                            autocapitalize="none" spellcheck="false"
                            aria-describedby="payroll-hint" required>
-                    <p class="hint" id="payroll-hint">Enter it exactly as provided, including any letters or leading zeros.</p>
+                    <p class="hint" id="payroll-hint">{{ 'Use the password you set through your email invitation.' if secure_portal else 'Enter it exactly as provided, including any letters or leading zeros.' }}</p>
                 </div>
                 <button type="submit" class="submit">Sign in</button>
             </form>
-            <p class="help">Need your login details? Ask your manager for the phone number and payroll number on your staff record.</p>
+            <p class="help">{{ 'Need access or a password reset? Ask your manager for a new email invitation.' if secure_portal else 'Need your login details? Ask your manager for the phone number and payroll number on your staff record.' }}</p>
         </section>
         <footer>Your workplace, in one place.</footer>
     </main>

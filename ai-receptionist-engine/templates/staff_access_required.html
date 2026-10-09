@@ -1,0 +1,5 @@
+{% extends 'staff_base.html' %}{% block title %}Subscription required{% endblock %}
+{% block content %}<section class="card body"><h1>A subscription is needed to continue</h1>
+<p>Your business records and payslips are preserved. You can view existing information, and employees can finish open shifts. A business owner can review subscription options.</p>
+<a class="button primary" href="{{ url_for('staff.subscription',business_slug=business_slug) }}">Subscription information</a>
+<a class="button" href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">Back to Staff Manager</a></section>{% endblock %}

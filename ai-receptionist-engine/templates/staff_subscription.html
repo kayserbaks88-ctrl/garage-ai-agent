@@ -1,0 +1,21 @@
+{% extends 'staff_base.html' %}
+{% block title %}Staff Manager subscription{% endblock %}
+{% block content %}
+<section class="card body"><h1>Your Staff Manager subscription</h1>
+<p>Subscription payments are for TrimTech Staff Manager software, supplied by <strong>TrimTech AI LTD</strong>. Employee wages and client invoice payments are not collected here.</p>
+{% if trial.state=='active' %}<p>You have {{ trial.days }} days left in your card-free trial. You will not be charged automatically when it ends.</p>{% elif trial.state=='expired' %}<p>Your trial or paid access has ended. Your records and payslips remain available to view. Subscribe or resolve your payment to resume changes.</p>{% elif trial.state=='paid' %}<p>Your paid subscription currently provides access.</p>{% elif trial.state=='legacy' %}<p>Your existing access remains unchanged unless you choose to subscribe.</p>{% else %}<p>Verify your business account before subscribing.</p>{% endif %}
+{% if request.args.get('checkout')=='returned' %}<p role="status">You have returned from Stripe. This return does not confirm payment. Review the status below or refresh it securely.</p>{% elif request.args.get('checkout')=='cancelled' %}<p role="status">You have returned without a payment confirmation. You can resume an open checkout below. Your original trial end date is unchanged.</p>{% endif %}
+{% if error %}<p class="alert" role="status">{{ error }}</p>{% endif %}
+{% for subscription in billing.subscriptions %}<article class="item"><h2>{{ {'active':'Active','past_due':'Payment overdue','unpaid':'Payment failed','canceled':'Cancelled','incomplete':'Payment incomplete','incomplete_expired':'Payment expired','trialing':'Awaiting payment','paused':'Paused','invalid':'Needs billing review'}.get(subscription.status,'Needs review') }}</h2>
+{% if subscription.cancel_at_period_end %}<p>Cancellation is scheduled. Access continues until the verified paid period ends.</p>{% endif %}
+{% if subscription.paid_until %}<p>Verified paid period ends: {{ stamp(subscription.paid_until) }}.</p>{% endif %}
+{% if subscription.status in ['past_due','unpaid','incomplete'] %}<p>Your payment needs attention. Open billing management to review your payment method. Changes require a valid trial or confirmed paid access.</p>{% endif %}
+{% if subscription.status in ['canceled','incomplete_expired'] %}<p>No business data has been deleted. You may start a new subscription when ready.</p>{% endif %}</article>{% else %}<p>No Staff Manager subscription has been confirmed.</p>{% endfor %}
+{% if billing.customer %}<div class="actions"><form method="post" action="{{ url_for('staff.billing_refresh',business_slug=business_slug) }}">{{ csrf() }}<button>Refresh subscription status</button></form><form method="post" action="{{ url_for('staff.billing_portal',business_slug=business_slug) }}">{{ csrf() }}<button>Manage payment method or cancellation</button></form></div>{% endif %}
+</section>
+{% if plan %}<section class="card body"><h2>Subscribe to Staff Manager</h2><p><strong>&pound;{{ plan.amount }} per {{ plan.interval }}</strong>. {{ 'Tax is included where applicable.' if plan.tax_behavior=='inclusive' else 'Applicable tax is added at Checkout.' }} Stripe shows the final total before you pay.</p>
+<p>Continuing opens secure Stripe Checkout. Completing payment starts a recurring paid subscription immediately, even if trial days remain. It renews at the interval shown until cancelled. The trial is never restarted.</p>
+<form method="post" action="{{ url_for('staff.billing_checkout',business_slug=business_slug) }}">{{ csrf() }}<p><label><input type="checkbox" name="subscription_consent" value="yes" required> I understand this is a recurring Staff Manager software subscription and want to continue to Stripe Checkout.</label></p><button class="primary">{{ 'Resume secure Checkout' if billing.pending else 'Continue to secure Checkout' }}</button></form>
+<p>Already subscribed? Use billing management above. We will check for an existing subscription before creating a new checkout.</p></section>{% endif %}
+<p><a class="button" href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">Back to Staff Manager</a></p>
+{% endblock %}

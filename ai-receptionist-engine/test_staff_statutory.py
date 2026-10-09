@@ -231,7 +231,9 @@ class StatutoryDatabaseTests(unittest.TestCase):
         self.assertEqual(database.fetch_one('SELECT status FROM staff_payslip_notifications')['status'],'disabled')
 
     def test_attendance_cancel_leave_fixed_clocking_and_grace_boundaries(self):
-        now=datetime.now(timezone.utc)
+        # Keep assignment start and approved leave on the same UK date,
+        # including when this test runs just after midnight.
+        now=datetime.now(UK_TIMEZONE).replace(hour=12,minute=0,second=0,microsecond=0).astimezone(timezone.utc)
         assignment=self.assignment(start=now-timedelta(minutes=15),end=now+timedelta(hours=2))
         self.assertNotIn('Missed clock-in',[e['kind'] for e in attendance_exceptions.collect('alpha',now=now-timedelta(seconds=1))])
         self.assertIn('Missed clock-in',[e['kind'] for e in attendance_exceptions.collect('alpha',now=now)])

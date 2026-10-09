@@ -25,6 +25,7 @@
 {% macro status(value) %}<span>[{{ value|replace('_',' ')|title }}]</span>{% endmacro %}
 <nav><a href="#roster">Weekly roster</a><a href="#assignment">Create assignment</a><a href="#sites">Work sites</a><a href="#adjustments">Payroll adjustments</a><a href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">&larr; Back to Staff Manager</a></nav>
 <h1>Assignments &amp; travel</h1><p>{{ business_slug }} · UK local times (UTC offset shown)</p>
+{% if staff_setup %}<p><a href="{{ url_for('staff.setup',business_slug=business_slug) }}">Set up Staff Manager</a> &middot; Return to your saved setup checklist.</p>{% endif %}
 {% for category,message in get_flashed_messages(with_categories=true) %}<p class="alert {{ category }}" role="status">{{ message }}</p>{% endfor %}
 <details><summary>Organisation settings: {{ config.organisation_mode|title }}</summary>
 <form method="post" action="{{ url_for('staff.organisation_settings',business_slug=business_slug) }}">{{ csrf() }}

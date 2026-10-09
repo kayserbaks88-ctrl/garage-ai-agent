@@ -4,6 +4,7 @@
 {% set hub = true %}
 {% block content %}
 <p class="eyebrow">{{ business_slug|replace('-',' ') }}</p><h1>Staff control centre</h1><p class="muted">A quick summary. Open a section below for its full tools, forms and filters.</p>
+{% if staff_setup %}<section class="card body" aria-label="Setup checklist"><h2>Your setup checklist</h2><p>{{ staff_setup.count }} of 7 steps completed.</p><ul>{% for key,done in staff_setup.done.items() %}<li><a href="{{ url_for('staff.setup',business_slug=business_slug,step=key) }}">{{ key|title }}</a> - {{ 'Complete' if done else 'To do' }}</li>{% endfor %}</ul><a class="button primary" href="{{ url_for('staff.setup',business_slug=business_slug) }}">Resume setup</a></section>{% endif %}
 <nav class="actions" aria-label="Staff sections">
 <a class="button" href="{{ url_for('staff.agency_dashboard',business_slug=business_slug) }}">Assignments &amp; travel · {{ agency_settings.organisation_mode|title }}</a>
 <a class="button" href="{{ url_for('staff.approvals_page',business_slug=business_slug) }}">Shift approvals</a>

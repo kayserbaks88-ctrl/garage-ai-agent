@@ -1,0 +1,6 @@
+{% extends 'staff_employee_base.html' %}
+{% block title %}Staff Manager access{% endblock %}
+{% block content %}<section class="card">
+<h1>Your employer needs to renew access</h1><p>Your existing records and payslips remain available. You can still finish an open shift or end its break. Contact your manager about continuing access.</p>
+<p><a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Back to employee home</a> <a class="button" href="{{ url_for('staff.employee_pay',business_slug=business_slug) }}">View my payslips</a></p>
+</section>{% endblock %}

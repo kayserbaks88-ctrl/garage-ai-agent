@@ -3,7 +3,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 import requests
-from flask import Flask
+from flask import Flask, request
 
 from dashboard_auth import dashboard_auth
 from trimtech.modules.staff.routes import staff_blueprint, _address_lookup_requests, _site_values
@@ -23,9 +23,19 @@ class AddressLookupTests(unittest.TestCase):
         self.app.secret_key = "test-key"
         self.app.register_blueprint(dashboard_auth)
         self.app.register_blueprint(staff_blueprint)
+        self.identity = patch('trimtech.modules.staff.manager_auth.identity', side_effect=lambda: {'id':'test-manager'} if request.cookies.get('__Host-staff_admin') else None)
+        self.identity.start()
+        self.addCleanup(self.identity.stop)
+        self.membership = patch('trimtech.modules.staff.accounts.membership',return_value={'role':'owner'})
+        self.membership.start()
+        self.addCleanup(self.membership.stop)
+        self.trial=patch('trimtech.modules.staff.onboarding.status',return_value={'state':'legacy'})
+        self.trial.start();self.addCleanup(self.trial.stop)
+        self.subscription=patch('trimtech.modules.staff.billing.entitlement',return_value={'managed':False,'paid':False})
+        self.subscription.start();self.addCleanup(self.subscription.stop)
         self.client = self.app.test_client()
+        self.client.set_cookie('__Host-staff_admin','unit-test-session')
         with self.client.session_transaction() as session:
-            session["dashboard_authenticated"] = True
             session["_staff_csrf_token"] = "csrf"
         _address_lookup_requests.clear()
 
@@ -65,11 +75,9 @@ class AddressLookupTests(unittest.TestCase):
         self.assertEqual(self.client.post("/staff/alpha/sites/address-lookup", data={"query": "London"}).status_code, 400)
         for values in ({"query": "ab"}, {"query": "x" * 201}, {"address_id": "../keys"}):
             self.assertEqual(self.post(**values).status_code, 400)
-        with self.client.session_transaction() as session:
-            session.pop("dashboard_authenticated")
+        self.client.delete_cookie('__Host-staff_admin')
         self.assertEqual(self.post(query="London").status_code, 401)
-        with self.client.session_transaction() as session:
-            session["dashboard_authenticated"] = True
+        self.client.set_cookie('__Host-staff_admin','unit-test-session')
         import time
         _address_lookup_requests["alpha"] = (time.monotonic(), 60)
         self.assertEqual(self.post(query="London").status_code, 429)

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from flask import abort, flash, g, redirect, render_template, request, url_for
 from psycopg2.extras import RealDictCursor
 
-from dashboard_auth import dashboard_login_required
+from trimtech.modules.staff.manager_auth import dashboard_login_required
 from trimtech.modules.staff import agency, notifications
 from trimtech.modules.staff.database import fetch_all, fetch_one, transaction
 from trimtech.modules.staff.payroll import UK_TIMEZONE, recalculate_payroll_run

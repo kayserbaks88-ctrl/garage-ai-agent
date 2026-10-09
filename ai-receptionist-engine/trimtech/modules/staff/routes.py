@@ -17,7 +17,7 @@ from flask import (
 from psycopg2 import Error as PostgreSQLError
 from psycopg2.extras import RealDictCursor
 
-from dashboard_auth import dashboard_login_required, dashboard_api_login_required
+from trimtech.modules.staff.manager_auth import dashboard_login_required, dashboard_api_login_required
 from trimtech.modules.staff.database import (
     StaffDatabaseError, execute, fetch_all, fetch_one,
     init_staff_database, transaction,
@@ -26,6 +26,8 @@ from trimtech.modules.staff.payroll import (
     PayrollError, generate_payroll_run, parse_shift_datetime, period_dates,
     validate_shift_edit,
 )
+from trimtech.modules.staff import onboarding, employee_invitations, accounts
+from trimtech.modules.staff.trusted_proxy import client_address, ProxyConfigurationError
 from trimtech.modules.staff import agency, presence, attendance, attendance_exceptions, payroll_ledger, payslips as payslip_delivery
 from trimtech.modules.staff.address_lookup import lookup as lookup_address, AddressLookupError
 
@@ -46,6 +48,11 @@ def _get_csrf_token() -> str:
 
 @staff_blueprint.before_request
 def _protect_staff_forms():
+    if request.endpoint == 'staff.billing_webhook':
+        # Only this endpoint is exempt; its raw body must pass Stripe signature verification.
+        return None
+    if ((request.endpoint or "").startswith("staff.account_") or request.endpoint=="staff.accept_employee_invite") and request.content_length and request.content_length > 16384:
+        abort(413)
     if request.method != "POST":
         return None
     expected = session.get("_staff_csrf_token", "")
@@ -804,6 +811,14 @@ def _current_employee(business_slug: str) -> dict[str, Any] | None:
         FROM staff_employees WHERE id=%s AND business_id=%s AND status='active'""", (employee_id, business_id))
     if not employee:
         session.pop(_EMPLOYEE_SESSION_KEY, None)
+        return None
+    credential=employee_invitations.credential(business_id,employee_id)
+    if credential and not fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND active',(business_id,)):
+        session.pop(_EMPLOYEE_SESSION_KEY,None)
+        return None
+    if (credential and auth.get('credential_version')!=credential['version']) or (not credential and onboarding.status(business_id)['state']!='legacy'):
+        session.pop(_EMPLOYEE_SESSION_KEY,None)
+        return None
     return employee
 
 
@@ -817,6 +832,14 @@ def employee_login_required(view_function):
         if employee is None:
             return redirect(url_for("staff.employee_login", business_slug=business_slug))
         g.staff_employee = employee
+        try:
+            trial=onboarding.access(_business_id(business_slug))
+        except _DB_ERRORS:
+            abort(503,description='Employee access is temporarily unavailable.')
+        if trial['state'] in ('expired','pending') and request.method=='POST' and request.endpoint not in {'staff.employee_clock_out','staff.employee_break_end','staff.employee_presence'}:
+            return render_template('staff_employee_access.html',business_slug=business_slug,
+                employee=employee,page='access',csrf_token=_get_csrf_token,
+                refresh_url=url_for('staff.employee_home',business_slug=business_slug)),402
         return view_function(business_slug, *args, **kwargs)
     return protected_view
 
@@ -832,18 +855,23 @@ def _prevent_employee_page_caching(response):
 def employee_login(business_slug: str):
     business_id = _business_id(business_slug)
     error_message, phone_value, status_code = "", "", 200
+    secure_portal=False
     try:
+        secure_portal=onboarding.status(business_id)['state']!='legacy'
         if request.method == "GET":
             if _current_employee(business_slug) is not None:
                 return _employee_redirect(business_slug)
         else:
             raw_phone = request.form.get("phone", "").strip()
-            payroll_number = request.form.get("payroll_number", "").strip()
+            payroll_number = request.form.get("payroll_number", "")
+            if not secure_portal:
+                payroll_number = payroll_number.strip()
             phone_value = raw_phone[:40]
             phone = "".join(c for c in raw_phone if c.isdigit() or c == "+")
             valid = (0 < len(raw_phone) <= 100 and 0 < len(phone) <= 40
-                     and any(c.isdigit() for c in phone) and 0 < len(payroll_number) <= 60)
-            if not _employee_login_allowed(business_id, phone[:40]):
+                     and any(c.isdigit() for c in phone) and 0 < len(payroll_number) <= 128)
+            allowed = accounts.limited('employee-login',business_id+':'+phone[:40],client_address(),str(current_app.secret_key)) if secure_portal else _employee_login_allowed(business_id, phone[:40])
+            if not allowed:
                 error_message = "Too many login attempts. Please try again in 15 minutes."
                 status_code = 429
             else:
@@ -852,19 +880,23 @@ def employee_login(business_slug: str):
                     employee = fetch_one("""SELECT id,payroll_number FROM staff_employees
                         WHERE business_id=%s AND phone=%s AND status='active'""", (business_id, phone))
                 stored = str((employee or {}).get("payroll_number") or "")
-                matches = hmac.compare_digest(payroll_number.encode("utf-8"), stored.encode("utf-8"))
-                if employee and valid and stored and matches:
+                credential=employee_invitations.credential(business_id,employee['id']) if employee else None
+                matches = employee_invitations.matches(credential,payroll_number) if secure_portal or credential else bool(stored) and hmac.compare_digest(payroll_number.encode("utf-8"), stored.encode("utf-8"))
+                if credential and not fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND active',(business_id,)):
+                    matches = False
+                if employee and valid and matches:
                     session[_EMPLOYEE_SESSION_KEY] = {
                         "employee_id": int(employee["id"]), "business_id": business_id,
                         "issued_at": int(time.time()),
+                        "credential_version": credential['version'] if credential else None,
                     }
                     return _employee_redirect(business_slug)
-                error_message, status_code = "Phone number or payroll number is incorrect.", 401
-    except _DB_ERRORS:
+                error_message, status_code = "Phone number or password is incorrect." if secure_portal else "Phone number or payroll number is incorrect.", 401
+    except (*_DB_ERRORS, ProxyConfigurationError):
         error_message = "Employee login is temporarily unavailable. Please try again later."
         status_code = 503
     return render_template("staff_employee_login.html", business_slug=business_slug,
-                           error_message=error_message, phone_value=phone_value,
+                           error_message=error_message, phone_value=phone_value,secure_portal=secure_portal,
                            csrf_token=_get_csrf_token), status_code
 
 
@@ -1678,10 +1710,19 @@ def _today_hours(business_id, employee_id):
 
 
 def _manager_actor():
-    return "manager:" + str(session.get("dashboard_username") or "dashboard")
+    return "manager:" + str(g.staff_administrator["id"])
 
 
 from trimtech.modules.staff.agency_routes import register_routes
 import sys
 
 register_routes(sys.modules[__name__])
+
+from trimtech.modules.staff.manager_auth import register_routes as register_account_routes
+register_account_routes(sys.modules[__name__])
+
+from trimtech.modules.staff.onboarding_routes import register_routes as register_setup_routes
+register_setup_routes(sys.modules[__name__])
+
+from trimtech.modules.staff.billing_routes import register_routes as register_billing_routes
+register_billing_routes(sys.modules[__name__])

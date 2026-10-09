@@ -20,7 +20,7 @@ from psycopg2 import sql
 from psycopg2.extras import RealDictCursor
 
 from dashboard_auth import dashboard_auth
-from trimtech.modules.staff import agency, database, migrations
+from trimtech.modules.staff import agency, database, migrations, accounts, accounts_migration, onboarding_migration, billing_migration
 from trimtech.modules.staff.payroll import parse_shift_datetime
 from trimtech.modules.staff.routes import staff_blueprint
 
@@ -59,7 +59,7 @@ class AgencyDatabaseTests(unittest.TestCase):
         self.connection_patch.start()
         self.addCleanup(self.connection_patch.stop)
         self.key_patch = patch.dict(os.environ, {"STAFF_TRAVEL_KEY": Fernet.generate_key().decode(),
-                                               "STAFF_ASSIGNMENT_EMAIL_ENABLED": "0"})
+                                               "STAFF_ASSIGNMENT_EMAIL_ENABLED": "0", "STAFF_STRIPE_ENABLED": "0"})
         self.key_patch.start()
         self.addCleanup(self.key_patch.stop)
         with database.transaction() as connection:
@@ -83,6 +83,14 @@ class AgencyDatabaseTests(unittest.TestCase):
             VALUES ('alpha',%s,%s,'Old shift',NOW()-INTERVAL '5 days',NOW()-INTERVAL '5 days'+INTERVAL '1 hour') RETURNING id""",
             (self.employee, self.site))
         database.init_staff_database(migrate=True)
+        with database.transaction() as connection:
+            with connection.cursor() as cursor:
+                accounts_migration.migrate(cursor)
+                onboarding_migration.migrate(cursor)
+                billing_migration.migrate(cursor)
+                cursor.execute("INSERT INTO sm_businesses(id,name) VALUES ('alpha','Alpha'),('beta','Beta')")
+                cursor.execute("INSERT INTO sm_administrators(id,email,contact_name,password_hash,verified_at) VALUES ('test-manager','manager@example.test','Reviewer','not-a-login-hash',NOW())")
+                cursor.execute("INSERT INTO sm_memberships(administrator_id,business_id) VALUES ('test-manager','alpha')")
         self.app = Flask(__name__, template_folder=str(Path(__file__).parent / "templates"))
         self.app.secret_key = "test-session-key"
         self.app.testing = True
@@ -107,11 +115,13 @@ class AgencyDatabaseTests(unittest.TestCase):
 
     def client(self, employee=None, manager=False, business="alpha"):
         client = self.app.test_client()
+        if manager:
+            import secrets
+            raw = secrets.token_urlsafe(32)
+            database.execute("INSERT INTO sm_sessions(token_hash,administrator_id,expires_at) VALUES (%s,'test-manager',NOW()+INTERVAL '8 hours')",(accounts.digest(raw),))
+            client.set_cookie('__Host-staff_admin',raw)
         with client.session_transaction() as session:
             session["_staff_csrf_token"] = "test-csrf"
-            if manager:
-                session["dashboard_authenticated"] = True
-                session["dashboard_username"] = "reviewer"
             if employee:
                 session["_staff_employee_auth"] = {"business_id": business, "employee_id": employee, "issued_at": int(time.time())}
         return client

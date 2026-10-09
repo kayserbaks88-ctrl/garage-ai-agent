@@ -833,6 +833,11 @@ def handle_message(
 
     try:
         init_staff_database()
+        from trimtech.modules.staff import onboarding
+        if onboarding.status(business_id)['state'] != 'legacy' or onboarding.access(business_id)['state'] in ('expired','pending'):
+            return ('Open your secure Staff Manager employee portal to view jobs, '
+                    'clock in or out, manage breaks and request leave. '
+                    'Ask your manager for an invitation if you need access.')
         employee = _find_employee(business_id, phone)
         if not employee:
             return (

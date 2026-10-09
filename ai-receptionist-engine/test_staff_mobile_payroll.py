@@ -115,6 +115,9 @@ class MobilePayrollDatabaseTests(unittest.TestCase):
         settings = self.manager.get('/staff/alpha/payroll').get_data(as_text=True)
         self.assertIn('value="Alpha Limited"', settings)
         self.assertIn('value="monthly" selected', settings)
+        self.assertEqual(self.manager.get('/staff/beta/payroll').status_code,404)
+        # Explicit multi-business membership is required before checking Beta defaults.
+        database.execute("INSERT INTO sm_memberships(administrator_id,business_id) VALUES ('test-manager','beta')")
         fresh = self.manager.get('/staff/beta/payroll').get_data(as_text=True)
         self.assertNotIn('value="Alpha Limited"', fresh)
         self.assertIn('Select pay frequency', fresh)
