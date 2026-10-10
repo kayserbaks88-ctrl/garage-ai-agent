@@ -15,28 +15,54 @@ if (assignmentForm) {
 document.querySelectorAll('[data-site-fields]').forEach(fields => {
   const search = fields.querySelector('[data-address-search]');
   const results = fields.querySelector('[data-address-results]');
-  const address = fields.querySelector('[name="address"]');
+  const address = fields.querySelector('[name="address"], [name="company_address"]');
   const message = fields.querySelector('[data-address-message]');
   const review = fields.querySelector('[data-coordinates-reviewed]');
+  // Scrollable buttons avoid the iOS native select picker; labels remain plain text.
+  const choices = document.createElement('div');
+  choices.className = 'address-choices';
+  choices.setAttribute('role', 'group');
+  choices.setAttribute('aria-label', 'Matching addresses');
+  results.after(choices);
+  results.hidden = true;
+  function showChoices() {
+    choices.replaceChildren();
+    Array.from(results.options).filter(option => option.value).forEach(option => {
+      const choice = document.createElement('button');
+      choice.type = 'button';
+      choice.textContent = option.textContent;
+      choice.disabled = results.disabled;
+      choice.setAttribute('aria-pressed', String(results.value === option.value));
+      choice.addEventListener('click', () => {
+        results.value = option.value;
+        results.dispatchEvent(new Event('change'));
+      });
+      choices.append(choice);
+    });
+  }
+  new MutationObserver(showChoices).observe(results, {childList: true, attributes: true, attributeFilter: ['disabled']});
+  showChoices();
   function requireCoordinateReview() {
+    if (!review) return;
     fields.querySelector('[data-coordinate-review]').hidden = false;
     fields.querySelector('[name="address_lookup_selected"]').value = '1';
     review.required = true;
     review.checked = false;
   }
   address.addEventListener('input', () => {
-    if (review.required) review.checked = false;
+    if (review && review.required) review.checked = false;
   });
   ['latitude', 'longitude'].forEach(name => fields.querySelector('[name="' + name + '"]')
-    .addEventListener('input', () => { if (review.required) review.checked = false; }));
+    ?.addEventListener('input', () => { if (review && review.required) review.checked = false; }));
   let timer, sequence = 0;
   let controller;
   fields.closest('form').addEventListener('reset', () => {
     clearTimeout(timer);
     ++sequence;
     if (controller) controller.abort();
-    review.required = false;
-    fields.querySelector('[data-coordinate-review]').hidden = true;
+    if (review) review.required = false;
+    const coordinateReview = fields.querySelector('[data-coordinate-review]');
+    if (coordinateReview) coordinateReview.hidden = true;
     results.replaceChildren(new Option('Type above to search', ''));
     results.disabled = false;
     message.textContent = 'Type at least 3 characters, then choose a match.';
@@ -74,7 +100,7 @@ document.querySelectorAll('[data-site-fields]').forEach(fields => {
         if (current !== sequence) return;
         data.suggestions.forEach(hit => results.add(new Option(hit.label, hit.id)));
         results.disabled = data.suggestions.length === 0;
-        message.textContent = data.suggestions.length ? 'Choose a matching address below.' : 'No matches. Try adding the town or postcode, or enter the address manually.';
+        message.textContent = data.suggestions.length ? 'Scroll to choose a matching address. Up to 20 matches are returned; add a building number or street to narrow the search.' : 'No matches. Try adding the town or postcode, or enter the address manually.';
       } catch (error) {
         if (current === sequence && error.name !== 'AbortError') message.textContent = error.message;
       }
@@ -102,7 +128,9 @@ document.querySelectorAll('[data-site-fields]').forEach(fields => {
       address.value = data.address;
       requireCoordinateReview();
       message.textContent = 'Full address filled. GPS is not verified: capture your location at the site or verify the coordinates below.';
-      fields.querySelector('[data-location-message]').textContent = 'Address selected. Existing coordinates have not been verified for this address. Capture or verify them before saving.';
+      const locationNote = fields.querySelector('[data-location-message]');
+      if (locationNote) locationNote.textContent = 'Address selected. Existing coordinates have not been verified for this address. Capture or verify them before saving.';
+      else message.textContent = 'Company address filled. You can edit it manually before saving.';
     } catch (error) {
       if (current === sequence && error.name !== 'AbortError') message.textContent = error.message;
     } finally {
@@ -110,6 +138,7 @@ document.querySelectorAll('[data-site-fields]').forEach(fields => {
     }
   });
   const button = fields.querySelector('[data-use-location]');
+  if (!button) return;
   const locationMessage = fields.querySelector('[data-location-message]');
   button.addEventListener('click', () => {
     if (!navigator.geolocation) {
@@ -128,7 +157,7 @@ document.querySelectorAll('[data-site-fields]').forEach(fields => {
       }
       fields.querySelector('[name="latitude"]').value = c.latitude.toFixed(7);
       fields.querySelector('[name="longitude"]').value = c.longitude.toFixed(7);
-      if (review.required) review.checked = true;
+      if (review && review.required) review.checked = true;
       locationMessage.textContent = 'Coordinates filled. Accuracy: ' + Math.round(c.accuracy) + ' metres. Check you are at the intended site before saving.';
     }, error => {
       button.disabled = false;

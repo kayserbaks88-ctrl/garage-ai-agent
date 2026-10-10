@@ -1,7 +1,7 @@
 """Card-free trials and a checklist over the existing Staff records."""
 from psycopg2.extras import RealDictCursor, Json
 from trimtech.modules.staff.database import transaction, fetch_one
-from trimtech.modules.staff import onboarding_migration
+from trimtech.modules.staff import onboarding_migration, agency
 
 STEPS=('company','sites','employees','invitations','assignments','payroll','review')
 
@@ -65,13 +65,14 @@ def checklist(business_id):
     return dict(**row,done=done,count=sum(done.values()),facts=facts)
 
 
-def save(business_id,step,values):
+def save(business_id,step,values,actor='Staff setup'):
     if step not in STEPS:
         raise ValueError('Choose a valid setup step.')
     if values.get('reviewed')!='on':
         raise ValueError('Confirm that you have reviewed this step before continuing.')
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            agency.lock_business(cursor,business_id)
             cursor.execute('SELECT * FROM so_setup WHERE business_id=%s FOR UPDATE',(business_id,))
             row=cursor.fetchone()
             if not row:
@@ -82,6 +83,12 @@ def save(business_id,step,values):
                 address=(values.get('company_address') or '').strip()
                 if not 1<=len(name)<=160 or not 1<=len(kind)<=100 or not 1<=len(address)<=1000:
                     raise ValueError('Enter your company name, business type and company address.')
+                config=agency.locked_settings(cursor,business_id)
+                mode=values.get('organisation_mode',config['organisation_mode'])
+                if mode!=config['organisation_mode']:
+                    agency.change_mode(cursor,business_id,actor,mode,config['travel_enabled'],'Administrator selected workforce mode during company setup.')
+                elif mode not in {'fixed','agency'}:
+                    raise ValueError('Select fixed workplace or agency.')
                 cursor.execute('UPDATE sm_businesses SET name=%s WHERE id=%s',(name,business_id))
                 cursor.execute('UPDATE so_setup SET business_type=%s,company_address=%s WHERE business_id=%s',(kind,address,business_id))
             else:

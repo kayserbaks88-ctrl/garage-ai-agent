@@ -22,7 +22,7 @@
     <label class="field" for="{{ prefix }}-longitude">Longitude<input id="{{ prefix }}-longitude" name="longitude" type="number" min="-180" max="180" step="0.0000001" value="{{ site.longitude if site else '' }}" required></label>
     <div class="wide" data-coordinate-review hidden><input type="hidden" name="address_lookup_selected" value="0"><label for="{{ prefix }}-review"><input id="{{ prefix }}-review" type="checkbox" name="coordinates_reviewed" data-coordinates-reviewed> I have captured my location at this site or checked that these coordinates identify this work site.</label></div>
     <label class="field wide" for="{{ prefix }}-radius">Allowed GPS radius (metres)<input id="{{ prefix }}-radius" name="allowed_radius_metres" type="number" min="10" max="10000" value="{{ site.allowed_radius_metres if site else 250 }}" required></label>
-    {% if site %}<label class="field wide" for="{{ prefix }}-status">Status<select id="{{ prefix }}-status" name="status"><option value="active" {{ 'selected' if site.active else '' }}>Active</option><option value="inactive" {{ 'selected' if not site.active else '' }}>Inactive</option></select></label>{% endif %}
+    {% if site and not site.draft %}<label class="field wide" for="{{ prefix }}-status">Status<select id="{{ prefix }}-status" name="status"><option value="active" {{ 'selected' if site.active else '' }}>Active</option><option value="inactive" {{ 'selected' if not site.active else '' }}>Inactive</option></select></label>{% endif %}
   </div>
 </div>
 {% endmacro %}

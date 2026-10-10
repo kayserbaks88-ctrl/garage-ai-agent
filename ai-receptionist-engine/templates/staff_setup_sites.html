@@ -1,0 +1,20 @@
+{% extends 'staff_base.html' %}
+{% block title %}Set up work sites{% endblock %}
+{% block content %}
+<h1>Work sites and GPS</h1>
+<p>Add or edit work sites here. Capture your location only when you are at the site, or enter checked coordinates. An address lookup does not verify GPS.</p>
+<a class="button" href="{{ url_for('staff.setup',business_slug=business_slug,step='company') }}">Back to company details</a>
+<section class="card"><div class="body"><h2>Add work site</h2>
+<form method="post" action="{{ url_for('staff.add_site',business_slug=business_slug) }}">
+{{ csrf() }}<input type="hidden" name="return_setup" value="sites">
+{{ site_fields('setup-new',sites,draft,assignment=true,lookup_url=url_for('staff.address_lookup',business_slug=business_slug)) }}
+<button type="submit">Save work site</button></form></div></section>
+{% for site in sites %}<section class="card"><div class="body"><h2>{{ site.name }}</h2>
+<form method="post" action="{{ url_for('staff.edit_site',business_slug=business_slug,site_id=site.id) }}">
+{{ csrf() }}<input type="hidden" name="return_setup" value="sites">
+{{ site_fields('setup-edit-' ~ site.id,sites,site,assignment=true,lookup_url=url_for('staff.address_lookup',business_slug=business_slug)) }}
+<button type="submit">Save changes</button></form></div></section>{% endfor %}
+<form method="post" action="{{ url_for('staff.setup',business_slug=business_slug) }}">
+{{ csrf() }}<input type="hidden" name="step" value="sites"><label><input type="checkbox" name="reviewed" required> I have checked the work-site addresses, coordinates and clock-in radii.</label>
+<button type="submit">Save and continue</button></form>
+{% endblock %}

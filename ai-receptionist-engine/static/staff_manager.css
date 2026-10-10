@@ -26,3 +26,7 @@ td,th,.item,p{overflow-wrap:anywhere}
   table.mobile-cards td[data-label]::before{content:attr(data-label);display:block;font-size:12px;font-weight:700;color:#adbdcf;margin-bottom:3px}
   .directory-tools input,.directory-tools select{max-width:none}
 }
+
+.address-choices{max-height:16rem;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:grid;gap:6px;margin:8px 0;touch-action:pan-y}
+.address-choices button{width:100%;min-height:48px;text-align:left;white-space:normal;overflow-wrap:anywhere}
+.address-choices button[aria-pressed=true]{outline:2px solid #38bdf8}

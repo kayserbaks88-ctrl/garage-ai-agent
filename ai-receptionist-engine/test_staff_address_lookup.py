@@ -64,6 +64,13 @@ class AddressLookupTests(unittest.TestCase):
         self.assertEqual(result.json, {"address": "Test Building, 10 Test Street, London, SW1A 1AA"})
         self.assertTrue(self.get.call_args.args[0].endswith("/paf_123/gbr"))
 
+    def test_twenty_result_limit_is_server_side_not_a_mobile_display_limit(self):
+        self.get.return_value.json.return_value={'code':2000,'result':{'hits':[{'id':f'paf_{i}','suggestion':f'{i} Test Street'} for i in range(25)]}}
+        response=self.post(query='SW1A 1AA')
+        self.assertEqual(len(response.json['suggestions']),20)
+        self.assertEqual(response.json['suggestions'][-1]['id'],'paf_19')
+        self.assertEqual(self.get.call_args.kwargs['params']['limit'],20)
+
     def test_staging_gate_and_missing_key_fail_without_network(self):
         for settings in ({"STAFF_ADDRESS_LOOKUP_ENVIRONMENT": "production"},
                          {"STAFF_IDEAL_POSTCODES_API_KEY": ""}):

@@ -533,11 +533,15 @@ def add_site(business_slug: str):
     inline = request.accept_mimetypes.best == "application/json"
     try:
         name, address, latitude, longitude, radius, reference = _site_values(request.form)
-        if inline and not address:
-            raise ValueError("Enter an address for the assigned work site.")
+        if (inline or request.form.get('return_setup')=='sites') and not address:
+            raise ValueError("Enter an address for the work site.")
         with transaction() as connection:
             with connection.cursor(cursor_factory=RealDictCursor) as cursor:
                 agency.lock_business(cursor, business_id)
+                if request.form.get('return_setup')=='sites' and address:
+                    cursor.execute("SELECT id FROM staff_sites WHERE business_id=%s AND LOWER(BTRIM(address))=LOWER(BTRIM(%s))",(business_id,address))
+                    if cursor.fetchone():
+                        raise ValueError('This address already has a work site. Edit the existing site instead.')
                 cursor.execute("SELECT id FROM staff_sites WHERE business_id=%s AND LOWER(name)=LOWER(%s)",
                                (business_id, name))
                 if cursor.fetchone():
@@ -560,6 +564,8 @@ def add_site(business_slug: str):
         if inline:
             return jsonify(error="Could not save the work site. Please try again."), 503
         _database_message()
+    if request.form.get('return_setup')=='sites':
+        return redirect(url_for('staff.setup_sites',business_slug=business_slug))
     return _page_redirect("staff.agency_dashboard", business_slug)
 
 
@@ -569,6 +575,8 @@ def edit_site(business_slug: str, site_id: int):
     business_id = _business_id(business_slug)
     try:
         name, address, latitude, longitude, radius, reference = _site_values(request.form)
+        if request.form.get('return_setup')=='sites' and not address:
+            raise ValueError('Enter an address for the work site.')
         status = request.form.get("status")
         if status not in {"active", "inactive"}:
             raise ValueError("Select a valid site status.")
@@ -594,6 +602,8 @@ def edit_site(business_slug: str, site_id: int):
         flash(str(error), "error")
     except _DB_ERRORS:
         _database_message()
+    if request.form.get('return_setup')=='sites':
+        return redirect(url_for('staff.setup_sites',business_slug=business_slug))
     return redirect(url_for("staff.agency_dashboard", business_slug=business_slug, _anchor="sites"))
 
 

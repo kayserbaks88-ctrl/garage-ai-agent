@@ -1,14 +1,14 @@
 """Guided setup around existing Staff tools; no billing implementation."""
 import os
 from flask import abort, flash, g, redirect, render_template, request, url_for, session
-from trimtech.modules.staff import onboarding, employee_invitations, accounts
+from trimtech.modules.staff import onboarding, employee_invitations, accounts, agency
 from trimtech.modules.staff.database import fetch_all, fetch_one
 from trimtech.modules.staff.manager_auth import dashboard_login_required, ERRORS
 from trimtech.modules.staff.trusted_proxy import client_address
 
 CONTENT={
- 'company':('Company details','Confirm your trading name, company address and business type. Choose fixed workplace or agency mode in the existing organisation settings.','staff.agency_dashboard','Organisation settings'),
- 'sites':('Work sites and GPS','Add the full UK address, then capture or check the site location and choose its GPS radius. Address search may be unavailable; manual address entry remains available. GPS evidence never automatically reduces pay.','staff.agency_dashboard','Manage work sites'),
+ 'company':('Company details','Confirm your trading name, company address, business type and workforce mode.',None,None),
+ 'sites':('Work sites and GPS','Add the full UK address, then capture or check the site location and choose its GPS radius. Manual address entry remains available.','staff.setup_sites','Manage work sites'),
  'employees':('Employees and pay rates','Add active employees, their email and phone number, employment role, payroll number and agreed hourly rate. Check zero rates carefully. Tax and pension details are reviewed separately.','staff.employees_page','Manage employees'),
  'invitations':('Employee invitations','Send each employee an invitation to choose a secure portal password. Links expire after 48 hours; resending replaces earlier unused links. Provider acceptance is not proof of inbox delivery. This step completes when active employees have activated access.',None,None),
  'assignments':('Schedules and weekly rotas','Use existing assignments to record the site, date and UK start/finish times, including overnight jobs. These appear automatically in My rota: no second schedule is needed. Agency mode requires a scheduled assignment; fixed workplaces may review this guidance and schedule later.','staff.agency_dashboard','Manage assignments and rota'),
@@ -39,8 +39,10 @@ def register_routes(staff):
             abort(400)
         if request.method=='POST':
             try:
-                following=onboarding.save(business_slug,step,request.form)
+                following=onboarding.save(business_slug,step,request.form,staff._manager_actor())
                 flash('Setup progress saved.','success')
+                if step=='company' and request.form.get('use_company_site')=='on':
+                    return redirect(url_for('staff.setup_sites',business_slug=business_slug,use_company='1'))
                 return redirect(url_for('staff.setup',business_slug=business_slug,step=following))
             except ValueError as error:
                 flash(str(error),'error')
@@ -51,7 +53,23 @@ def register_routes(staff):
             LEFT JOIN LATERAL (SELECT status FROM so_employee_invites WHERE employee_id=e.id AND business_id=e.business_id ORDER BY created_at DESC,id DESC LIMIT 1) i ON TRUE
             WHERE e.business_id=%s AND e.status='active' ORDER BY e.full_name""",(business_slug,)) if step=='invitations' else []
         return render_template('staff_setup.html',business_slug=business_slug,progress=progress,steps=onboarding.STEPS,
-            step=step,content=CONTENT,employees=employees,business=fetch_one('SELECT name FROM sm_businesses WHERE id=%s',(business_slug,)),csrf_token=staff._get_csrf_token)
+            step=step,content=CONTENT,employees=employees,config=agency.settings(business_slug),business=fetch_one('SELECT name FROM sm_businesses WHERE id=%s',(business_slug,)),csrf_token=staff._get_csrf_token)
+
+    @bp.get('/<business_slug>/setup/sites')
+    @dashboard_login_required
+    def setup_sites(business_slug):
+        progress=onboarding.checklist(business_slug)
+        if not progress:
+            abort(404)
+        sites=fetch_all('SELECT * FROM staff_sites WHERE business_id=%s ORDER BY name',(business_slug,))
+        draft=None
+        if request.args.get('use_company')=='1' and progress['company_address']:
+            if not any((site['address'] or '').strip().casefold()==progress['company_address'].strip().casefold() for site in sites):
+                business=fetch_one('SELECT name FROM sm_businesses WHERE id=%s',(business_slug,))
+                draft=dict(draft=True,name=business['name'],address=progress['company_address'],latitude='',longitude='',allowed_radius_metres=250,client_reference='')
+            else:
+                flash('The company address is already saved as a work site. Edit that site below.','success')
+        return render_template('staff_setup_sites.html',business_slug=business_slug,sites=sites,draft=draft,csrf_token=staff._get_csrf_token)
 
     @bp.post('/<business_slug>/setup/invitations/<int:employee_id>')
     @dashboard_login_required

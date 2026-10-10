@@ -27,6 +27,52 @@ class OnboardingTests(unittest.TestCase):
     def expire(self):
         database.execute("UPDATE so_trials SET starts_at=NOW()-INTERVAL '337 hours',ends_at=NOW()-INTERVAL '1 hour' WHERE business_id='alpha'")
 
+    def test_company_mode_address_and_first_site_are_saved_without_duplicates(self):
+        from trimtech.modules.staff import agency
+        self.enrol()
+        before=onboarding.status('alpha')
+        values=dict(step='company',reviewed='on',business_name='Alpha company',business_type='Cleaning',company_address='10 New Road, London SW1A 1AA',organisation_mode='agency',use_company_site='on')
+        response=self.post(self.manager,'setup',values)
+        self.assertEqual(response.status_code,302)
+        self.assertIn('/setup/sites?use_company=1',response.location)
+        self.assertEqual(agency.settings('alpha')['organisation_mode'],'agency')
+        page=self.manager.get(response.location)
+        self.assertEqual(page.status_code,200)
+        self.assertIn(b'10 New Road',page.data)
+        self.assertIn(b'name="latitude"',page.data)
+        site=dict(name='Company workplace',address=values['company_address'],latitude='51.5',longitude='-0.1',allowed_radius_metres='150',return_setup='sites')
+        response=self.post(self.manager,'sites',site)
+        self.assertTrue(response.location.endswith('/setup/sites'))
+        self.post(self.manager,'sites',{**site,'name':'Another name'})
+        self.assertEqual(database.fetch_one('SELECT COUNT(*) AS n FROM staff_sites WHERE business_id=%s AND address=%s',('alpha',site['address']))['n'],1)
+        self.assertIn(b'already saved',self.manager.get('/staff/alpha/setup/sites?use_company=1').data)
+        self.assertEqual(onboarding.status('alpha')['ends_at'],before['ends_at'])
+        self.assertTrue(onboarding.checklist('alpha')['done']['company'])
+
+    def test_setup_sites_navigation_edit_ownership_and_progression(self):
+        self.enrol()
+        page=self.manager.get('/staff/alpha/setup?step=sites')
+        self.assertIn(b'/staff/alpha/setup/sites',page.data)
+        self.assertNotIn(b'>Manage assignments',page.data)
+        self.assertEqual(self.manager.get('/staff/beta/setup/sites').status_code,404)
+        self.assertEqual(self.client().get('/staff/alpha/setup/sites').status_code,302)
+        values=dict(name='Edited site',address='20 Road, London SW1A 1AA',latitude='51.5',longitude='-0.12',allowed_radius_metres='100',status='active',return_setup='sites')
+        before=self.row('staff_sites',self.foreign_site)
+        self.assertEqual(self.post(self.manager,f'sites/{self.foreign_site}/edit',values).status_code,404)
+        self.assertEqual(self.row('staff_sites',self.foreign_site),before)
+        response=self.post(self.manager,f'sites/{self.site}/edit',values)
+        self.assertTrue(response.location.endswith('/setup/sites'))
+        self.assertEqual(self.row('staff_sites',self.site)['allowed_radius_metres'],100)
+        self.assertEqual(self.post(self.manager,'setup',dict(step='sites',reviewed='on')).location,'/staff/alpha/setup?step=employees')
+        self.assertTrue(onboarding.checklist('alpha')['done']['sites'])
+
+    def test_company_mode_change_with_open_shift_rolls_back_company_details(self):
+        self.enrol()
+        self.insert("INSERT INTO staff_shifts(business_id,employee_id,site_id,site_name) VALUES ('alpha',%s,%s,'First site') RETURNING id",(self.employee,self.site))
+        with self.assertRaises(ValueError):
+            onboarding.save('alpha','company',dict(reviewed='on',business_name='Must roll back',business_type='Cleaning',company_address='10 Road',organisation_mode='agency'))
+        self.assertEqual(database.fetch_one("SELECT name FROM sm_businesses WHERE id='alpha'")['name'],'Alpha')
+
     def invite(self, employee=None):
         employee = employee or self.employee
         database.execute('UPDATE staff_employees SET email=%s WHERE id=%s', ('worker@example.test', employee))
