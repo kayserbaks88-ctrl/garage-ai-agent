@@ -4,17 +4,20 @@
 {% set hub = true %}
 {% block content %}
 <p class="eyebrow">{{ business_slug|replace('-',' ') }}</p><h1>Staff control centre</h1><p class="muted">A quick summary. Open a section below for its full tools, forms and filters.</p>
-{% if staff_setup %}<section class="card body" aria-label="Setup checklist"><h2>Your setup checklist</h2><p>{{ staff_setup.count }} of 7 steps completed.</p><ul>{% for key,done in staff_setup.done.items() %}<li><a href="{{ url_for('staff.setup',business_slug=business_slug,step=key) }}">{{ key|title }}</a> - {{ 'Complete' if done else 'To do' }}</li>{% endfor %}</ul><a class="button primary" href="{{ url_for('staff.setup',business_slug=business_slug) }}">Resume setup</a></section>{% endif %}
+{% if staff_setup %}<section class="card body" aria-label="Setup checklist"><h2>Your setup checklist</h2><p>{{ staff_setup.display_count }} of 6 steps completed.</p><ul>{% for key,done in staff_setup.display_done.items() %}<li><a href="{{ url_for('staff.setup',business_slug=business_slug,step=key) }}">{{ key|title }}</a> - {{ 'Set up later' if staff_setup.set_up_later.get(key) else 'Complete' if done else 'To do' }}</li>{% endfor %}</ul><a class="button primary" href="{{ url_for('staff.setup',business_slug=business_slug) }}">Resume setup</a></section>{% endif %}
+{% if staff_setup and staff_setup.payroll_deferred %}<section class="card body"><h2>Payroll: Set up later</h2><p>Hours, breaks and shifts continue. Estimated gross wages are not final net pay or completed payroll.</p><a class="button primary" href="{{ url_for('staff.payroll_page',business_slug=business_slug) }}">Activate Payroll Later</a></section>{% endif %}
+{% if wage_estimate %}<section class="card body" aria-label="Estimated gross wages"><h2>Estimated gross wages this week: ?{{ '%.2f'|format(wage_estimate.estimated_gross) }}</h2><p>{{ wage_estimate.hours }} recorded hours; {{ wage_estimate.unpaid_break_hours }} unpaid break hours deducted. Current employee rates; includes open and pending shifts, excludes rejected shifts. Subject to review and payroll adjustments. Before tax and deductions ? not final net pay or completed payroll.</p></section>{% endif %}
 <nav class="actions" aria-label="Staff sections">
 <a class="button" href="{{ url_for('staff.agency_dashboard',business_slug=business_slug) }}">Assignments &amp; travel · {{ agency_settings.organisation_mode|title }}</a>
 <a class="button" href="{{ url_for('staff.approvals_page',business_slug=business_slug) }}">Shift approvals</a>
-<a class="button" href="{{ url_for('staff.employees_page',business_slug=business_slug) }}">Employees</a>
+<a class="button" href="{{ url_for('staff.employees_page',business_slug=business_slug) }}">Employees</a><a class="button" href="{{ url_for('staff.employee_onboarding',business_slug=business_slug) }}">Employees &amp; Invitations</a>
 <a class="button" href="{{ url_for('staff.attendance_page',business_slug=business_slug) }}">Attendance</a>
 <a class="button" href="{{ url_for('staff.leave_page',business_slug=business_slug) }}">Leave</a>
 <a class="button" href="{{ url_for('staff.payroll_page',business_slug=business_slug) }}">Payroll</a>
 <a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Employee portal</a>
 </nav>
 <section class="metrics" aria-label="Workforce summary">
+{% for key,label in [('pending','Pending registrations'),('awaiting','Invitations awaiting acceptance'),('rejected','Rejected registrations')] %}<a class="metric" href="{{ url_for('staff.employee_onboarding',business_slug=business_slug) }}"><span>{{ label }}</span><strong>{{ workforce[key] }}</strong></a>{% endfor %}
 <a class="metric" href="{{ url_for('staff.employees_page',business_slug=business_slug) }}"><span>Active employees</span><strong>{{ summary.active_employees or 0 }}</strong><span>Staff records</span></a>
 <a class="metric" href="{{ url_for('staff.attendance_page',business_slug=business_slug) }}"><span>Clocked in now</span><strong>{{ summary.staff_clocked_in or 0 }}</strong><span>Open shifts</span></a>
 <a class="metric" href="{{ url_for('staff.leave_page',business_slug=business_slug) }}"><span>On holiday today</span><strong>{{ summary.on_holiday_today or 0 }}</strong><span>Approved holidays</span></a>

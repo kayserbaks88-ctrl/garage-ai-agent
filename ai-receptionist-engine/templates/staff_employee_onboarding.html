@@ -1,0 +1,22 @@
+{% extends 'staff_base.html' %}
+{% block title %}Employees & Invitations{% endblock %}
+{% block content %}
+<h1>Employees &amp; Invitations</h1><p>Add employees now or return later. Pending registrations have no employee access.</p>
+<nav class="actions"><a class="button" href="{{ url_for('staff.employees_page',business_slug=business_slug) }}">Add employee manually / edit details</a>{% if staff_setup %}<a class="button" href="{{ url_for('staff.setup',business_slug=business_slug,step='employees') }}">Return to setup</a>{% endif %}</nav>
+<section class="card body" id="joining-link"><h2>Company joining link</h2>
+{% if joining.available %}
+{% if joining_url %}<label>Copy and share privately<input id="joining-url" value="{{ joining_url }}" readonly autocomplete="off"></label><button type="button" data-copy-joining>Copy joining link</button><p>Share with your staff by email or WhatsApp. The code is stored securely; copy this link before leaving the page.</p>{% endif %}
+{% if joining.link %}<p>Current link expires {{ joining.link.expires_at }}. Regenerating revokes the previous link.</p>{% endif %}
+<form method="post">{{ csrf() }}<label>Expires in days<input name="expiry_days" type="number" min="1" max="30" value="7" required></label><button name="action" value="generate">{{ 'Regenerate' if joining.link else 'Generate' }} employee joining link</button></form>
+{% if joining.link %}<form method="post">{{ csrf() }}<button name="action" value="revoke">Revoke joining link</button></form>{% endif %}
+{% else %}<p>Joining links require the employee joining migration. Manual employee creation and invitations remain available.</p>{% endif %}
+</section>
+<section class="card body"><h2>Pending approval</h2><p>Verify each person's identity with your own staff records before approving. Select one request or several. The hourly rate applies to all selected approvals; edit employment terms and assignments in the existing employee and payroll tools afterwards. Approval grants ordinary employee access only.</p>
+<form method="post">{{ csrf() }}
+{% for registration in joining.registrations if registration.status=='pending' %}<div class="item"><label><input type="checkbox" name="registration_id" value="{{ registration.id }}"> {{ registration.full_name }} — {{ registration.email }} — {{ registration.phone }}</label></div>{% else %}<p>No pending registrations.</p>{% endfor %}
+<label>Employer-approved hourly rate (£)<input name="hourly_rate" type="number" min="0" max="99999999.99" step="0.01"></label><button name="action" value="approve">Approve selected</button><button name="action" value="reject">Reject selected</button><p class="help">Select up to 100 requests per batch. A zero rate must be deliberate; employees cannot choose their rate.</p>
+</form>
+<details><summary>Reviewed registrations</summary>{% for registration in joining.registrations if registration.status!='pending' %}<p>{{ registration.full_name }} — {{ registration.status|title }}</p>{% else %}<p>No reviewed registrations.</p>{% endfor %}</details></section>
+<section class="card body" id="existing-invitations"><h2>Invite existing employees</h2>{% for employee in employees %}<article class="item"><strong>{{ employee.full_name }}</strong><p>{{ employee.email or 'Add an email address in Employees first.' }}</p><p>{{ 'Portal activated' if employee.activated_at else employee.invitation_status|default('Not invited',true)|replace('_',' ') }}</p><form method="post" action="{{ url_for('staff.invite_employee',business_slug=business_slug,employee_id=employee.id) }}">{{ csrf() }}<input type="hidden" name="return_employees" value="1"><button {% if not employee.email %}disabled{% endif %}>{{ 'Send password reset invitation' if employee.activated_at else 'Invite / resend' }}</button></form></article>{% else %}<p>Add employees manually or approve joining requests.</p>{% endfor %}</section>
+<script src="{{ url_for('static',filename='staff_join.js') }}" defer></script>
+{% endblock %}

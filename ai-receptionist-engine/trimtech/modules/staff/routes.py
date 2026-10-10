@@ -26,7 +26,7 @@ from trimtech.modules.staff.payroll import (
     PayrollError, generate_payroll_run, parse_shift_datetime, period_dates,
     validate_shift_edit,
 )
-from trimtech.modules.staff import onboarding, employee_invitations, accounts
+from trimtech.modules.staff import onboarding, employee_invitations, accounts, joining, wages_estimate
 from trimtech.modules.staff.trusted_proxy import client_address, ProxyConfigurationError
 from trimtech.modules.staff import agency, presence, attendance, attendance_exceptions, payroll_ledger, payslips as payslip_delivery
 from trimtech.modules.staff.address_lookup import lookup as lookup_address, AddressLookupError
@@ -153,9 +153,13 @@ def dashboard(business_slug: str):
     summary = dict(active_employees=0, staff_clocked_in=0, shifts_waiting_approval=0,
                    hours_this_week=0, on_holiday_today=0)
     agency_settings = {"organisation_mode": "fixed", "travel_enabled": False}
+    workforce = dict(pending=0,awaiting=0,rejected=0)
+    wage_estimate = None
     try:
         init_staff_database()
         agency_settings = agency.settings(business_id)
+        workforce = joining.counts(business_id)
+        wage_estimate = wages_estimate.weekly(business_id)
         summary = fetch_one("""
             SELECT
               (SELECT COUNT(*) FROM staff_employees
@@ -177,7 +181,7 @@ def dashboard(business_slug: str):
         flash("Staff Manager data is temporarily unavailable. Please refresh to try again.", "error")
     return render_template(
         "staff_dashboard.html", business_slug=business_slug, summary=summary,
-        csrf_token=_get_csrf_token, agency_settings=agency_settings,
+        csrf_token=_get_csrf_token, agency_settings=agency_settings, workforce=workforce, wage_estimate=wage_estimate,
     )
 
 
@@ -413,6 +417,9 @@ def payroll_page(business_slug: str):
         frequencies = {e['frequency'] for e in payroll_employees if e.get('reviewed_by') and e.get('frequency')}
         if len(frequencies) == 1:
             payroll_defaults['frequency'] = next(iter(frequencies))
+        setup_preferences=onboarding.checklist(business_id)
+        if not payroll_defaults['frequency'] and setup_preferences:
+            payroll_defaults['frequency']=setup_preferences['payroll_preferences'].get('frequency','')
         previous = next((run for run in payroll_runs if run.get('employer_name')
                          and run.get('pay_frequency') in {'weekly', 'monthly'}), None)
         if previous:
@@ -874,8 +881,6 @@ def employee_login(business_slug: str):
         else:
             raw_phone = request.form.get("phone", "").strip()
             payroll_number = request.form.get("payroll_number", "")
-            if not secure_portal:
-                payroll_number = payroll_number.strip()
             phone_value = raw_phone[:40]
             phone = "".join(c for c in raw_phone if c.isdigit() or c == "+")
             valid = (0 < len(raw_phone) <= 100 and 0 < len(phone) <= 40
@@ -889,9 +894,14 @@ def employee_login(business_slug: str):
                 if valid:
                     employee = fetch_one("""SELECT id,payroll_number FROM staff_employees
                         WHERE business_id=%s AND phone=%s AND status='active'""", (business_id, phone))
+                    if not employee:
+                        try: normalized_phone=joining.phone_number(phone)
+                        except ValueError: normalized_phone=phone
+                        if normalized_phone!=phone:
+                            employee=fetch_one("SELECT id,payroll_number FROM staff_employees WHERE business_id=%s AND phone=%s AND status='active'",(business_id,normalized_phone))
                 stored = str((employee or {}).get("payroll_number") or "")
                 credential=employee_invitations.credential(business_id,employee['id']) if employee else None
-                matches = employee_invitations.matches(credential,payroll_number) if secure_portal or credential else bool(stored) and hmac.compare_digest(payroll_number.encode("utf-8"), stored.encode("utf-8"))
+                matches = employee_invitations.matches(credential,payroll_number) if secure_portal or credential else bool(stored) and hmac.compare_digest(payroll_number.strip().encode("utf-8"), stored.encode("utf-8"))
                 if credential and not fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND active',(business_id,)):
                     matches = False
                 if employee and valid and matches:
@@ -1736,3 +1746,6 @@ register_setup_routes(sys.modules[__name__])
 
 from trimtech.modules.staff.billing_routes import register_routes as register_billing_routes
 register_billing_routes(sys.modules[__name__])
+
+from trimtech.modules.staff.joining_routes import register_routes as register_joining_routes
+register_joining_routes(sys.modules[__name__])

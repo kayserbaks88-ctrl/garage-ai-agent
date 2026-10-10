@@ -1,0 +1,16 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Join your employer</title><style>body{font:16px system-ui;background:#07111f;color:#f8fafc;max-width:600px;margin:24px auto;padding:16px}label{display:block;margin:16px 0}input{display:block;box-sizing:border-box;width:100%;padding:12px;font:inherit}button{min-height:44px;padding:12px;font:inherit}.error{color:#fecaca}</style></head><body><main>
+<h1>Join your employer</h1><p id="joining-company" role="status">Check the company name before registering.</p>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if message %}<p role="status">{{ message }}</p>{% else %}
+<form method="post" action="{{ url_for('staff.employee_join') }}" id="joining-form" data-preview-url="{{ url_for('staff.joining_preview') }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label>Joining code<input id="token" name="token" value="{{ request.form.get('token','')[:128] }}" required maxlength="43" autocomplete="off" spellcheck="false"></label>
+<p class="help">Your joining link fills this code automatically. Never share your password.</p>
+<label>Full name<input name="full_name" required maxlength="150" autocomplete="name" value="{{ request.form.get('full_name','') }}"></label>
+<label>Email<input name="email" type="email" required maxlength="254" autocomplete="email" value="{{ request.form.get('email','') }}"></label>
+<label>Phone number<input name="phone" type="tel" required maxlength="40" autocomplete="tel" value="{{ request.form.get('phone','') }}"></label>
+<label>Create portal password<input name="password" type="password" required minlength="12" maxlength="128" autocomplete="new-password"></label>
+<p>Your manager must approve your request and sets your pay, permissions and assignments.</p><button>Request to join</button>
+</form><script src="{{ url_for('static',filename='staff_account.js') }}" defer></script><script src="{{ url_for('static',filename='staff_join.js') }}" defer></script>
+{% endif %}
+</main></body></html>

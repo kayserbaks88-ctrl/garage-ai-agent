@@ -13,10 +13,20 @@ from integrations.email_helper import send_staff_email
 logger=logging.getLogger(__name__)
 
 
-def invite(business_id,employee_id,base):
+EMAIL_ERRORS={
+    'email_not_configured':'Invitation email is not configured. Ask the service administrator to check the sending address and email credentials.',
+    'provider_http_401':'The email provider rejected authentication. Ask the service administrator to check email credentials.',
+    'provider_http_403':'The email provider denied sending. Ask the service administrator to check the verified sending domain and permitted recipients.',
+    'provider_http_422':'The email provider rejected the message. Check the employee email address and configured sender.',
+    'provider_http_429':'The email provider is rate limiting invitations. Wait a few minutes before retrying.',
+    'provider_request_failed':'The email provider could not be reached or returned an unreadable response. Please retry later.',
+    'invalid_provider_response':'The email provider did not confirm acceptance. Please retry later.',
+}
+
+def invite(business_id,employee_id,base,*,detailed=False):
     parsed=urlsplit(base)
     if parsed.scheme!='https' or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
-        raise ValueError('Invitation email is temporarily unavailable. Please try again later.')
+        raise ValueError('A secure public Staff URL must be configured before sending invitations. Ask the service administrator to check the public URL configuration.')
     raw=secrets.token_urlsafe(32); identifier=uuid.uuid4().hex
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -32,17 +42,18 @@ def invite(business_id,employee_id,base):
     link=base.rstrip('/')+'/staff/employee-invite#token='+raw
     logger.info('Staff employee invitation attempted: invitation=%s',identifier)
     try:
-        sent,_,_=send_staff_email(email,'Your Staff Manager invitation',
+        sent,reason,_=send_staff_email(email,'Your Staff Manager invitation',
             f'Set your Staff Manager password: {link}\nThis link expires in 48 hours. Verification code: {raw}',
             f'<p>You have been invited to Staff Manager.</p><p><a href="{escape(link,quote=True)}">Set your password</a></p><p>This link expires in 48 hours.</p>',
             'staff-employee-invite-'+identifier)
     except Exception:
-        sent=False
+        sent=False;reason='provider_request_failed'
     with transaction() as connection:
         with connection.cursor() as cursor:
             cursor.execute("UPDATE so_employee_invites SET status=%s WHERE id=%s AND status='pending'",('accepted_by_provider' if sent else 'failed',identifier))
     logger.info('Staff employee invitation %s: invitation=%s','accepted_by_provider' if sent else 'failed',identifier)
-    return sent
+    message=EMAIL_ERRORS.get(reason,'The email provider could not accept this invitation. Ask the service administrator to check email delivery logs.') if not sent else ''
+    return (sent,message) if detailed else sent
 
 
 def accept(raw,password):

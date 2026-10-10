@@ -4,6 +4,7 @@ from trimtech.modules.staff.database import transaction, fetch_one
 from trimtech.modules.staff import onboarding_migration, agency
 
 STEPS=('company','sites','employees','invitations','assignments','payroll','review')
+DISPLAY_STEPS=tuple(step for step in STEPS if step!='invitations')
 
 
 def begin(cursor,business_id,administrator_id):
@@ -60,15 +61,30 @@ def checklist(business_id):
         employees=facts['employees']>0,invitations=facts['employees']>0 and facts['uninvited']==0,
         assignments=facts['assignments']>0 or not mode or mode['organisation_mode']=='fixed',
         payroll=facts['employees']>0 and facts['unreviewed']==0)
+    deferred=row['completed'].get('employees_deferred',False)
+    payroll_deferred=bool(row['completed'].get('payroll_deferred'))
+    if deferred:
+        conditions['employees']=conditions['invitations']=True
+        if facts['employees']==0:
+            conditions['assignments']=conditions['payroll']=True
     done={step:bool(row['completed'].get(step)) and conditions[step] for step in STEPS[:-1]}
-    done['review']=bool(row['completed'].get('review')) and all(done.values())
-    return dict(**row,done=done,count=sum(done.values()),facts=facts)
+    if payroll_deferred: done['payroll']=False
+    later=dict(employees=bool(deferred),invitations=bool(deferred),payroll=payroll_deferred)
+    ready={step:done[step] or later.get(step,False) for step in STEPS[:-1]}
+    done['review']=bool(row['completed'].get('review')) and all(ready.values())
+    display_done={key:done[key] for key in DISPLAY_STEPS}
+    display_done['employees']=done['employees'] and done['invitations']
+    return dict(**row,done=done,count=sum(done.values()),facts=facts,display_done=display_done,display_count=sum(display_done[key] or later.get(key,False) for key in DISPLAY_STEPS),employees_deferred=deferred,ready=ready,set_up_later=later,payroll_deferred=payroll_deferred,payroll_preferences=row['completed'].get('payroll_preferences',{}))
 
 
 def save(business_id,step,values,actor='Staff setup'):
     if step not in STEPS:
         raise ValueError('Choose a valid setup step.')
-    if values.get('reviewed')!='on':
+    skip=step=='employees' and values.get('skip_employees')=='1'
+    skip_payroll=step=='payroll' and values.get('skip_payroll')=='1'
+    basics=step=='payroll' and values.get('payroll_basics')=='1'
+    combined=step=='employees' and values.get('combined_employees')=='1'
+    if values.get('reviewed')!='on' and not (skip or skip_payroll):
         raise ValueError('Confirm that you have reviewed this step before continuing.')
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
@@ -91,20 +107,36 @@ def save(business_id,step,values,actor='Staff setup'):
                     raise ValueError('Select fixed workplace or agency.')
                 cursor.execute('UPDATE sm_businesses SET name=%s WHERE id=%s',(name,business_id))
                 cursor.execute('UPDATE so_setup SET business_type=%s,company_address=%s WHERE business_id=%s',(kind,address,business_id))
+            elif basics:
+                frequency=values.get('pay_frequency')
+                policy=values.get('break_policy')
+                if frequency not in {'weekly','monthly'} or policy not in {'paid','unpaid'}:
+                    raise ValueError('Select weekly or monthly pay and paid or unpaid breaks.')
+                cursor.execute("INSERT INTO staff_business_settings(business_id,break_policy) VALUES (%s,%s) ON CONFLICT(business_id) DO UPDATE SET break_policy=EXCLUDED.break_policy,updated_at=NOW()",(business_id,policy))
+                agency.audit(cursor,business_id,actor,'payroll_basics_saved','settings',None,None,{'frequency':frequency,'break_policy':policy},'Company pay preference saved; break policy applies to new breaks only. Detailed payroll deferred.')
+            elif skip or skip_payroll:
+                pass
             else:
                 progress=checklist(business_id)
                 if step=='review':
-                    ready=all(progress['done'][key] for key in STEPS[:-1])
+                    ready=all(progress['ready'][key] for key in STEPS[:-1])
                 else:
                     f=progress['facts']
-                    ready={'sites':f['sites']>0,'employees':f['employees']>0,
+                    deferred=bool(row['completed'].get('employees_deferred')) and f['employees']==0
+                    ready={'sites':f['sites']>0,'employees':f['employees']>0 and (not combined or f['uninvited']==0),
                         'invitations':f['employees']>0 and f['uninvited']==0,
-                        'assignments':f['assignments']>0 or (fetch_one('SELECT organisation_mode FROM staff_settings WHERE business_id=%s',(business_id,)) or {}).get('organisation_mode','fixed')=='fixed',
-                        'payroll':f['employees']>0 and f['unreviewed']==0}[step]
+                        'assignments':deferred or f['assignments']>0 or (fetch_one('SELECT organisation_mode FROM staff_settings WHERE business_id=%s',(business_id,)) or {}).get('organisation_mode','fixed')=='fixed',
+                        'payroll':deferred or f['employees']>0 and f['unreviewed']==0}[step]
                 if not ready:
                     raise ValueError('Complete the required records shown in this step before continuing.')
             completed={**row['completed'],step:True}
+            if step=='payroll':
+                completed.update(payroll=False if basics or skip_payroll else True,payroll_deferred=basics or skip_payroll)
+                if basics: completed['payroll_preferences']={'frequency':frequency}
             following=STEPS[min(STEPS.index(step)+1,len(STEPS)-1)]
+            if step=='employees' and (combined or skip):
+                completed.update(invitations=True,employees_deferred=skip)
+                following='assignments'
             cursor.execute('UPDATE so_setup SET completed=%s,current_step=%s,updated_at=NOW() WHERE business_id=%s',
                            (Json(completed),following,business_id))
     return following

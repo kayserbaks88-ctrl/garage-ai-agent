@@ -126,7 +126,7 @@ class OnboardingTests(unittest.TestCase):
         resumed = self.client(manager=True).get('/staff/alpha/setup')
         self.assertEqual(resumed.status_code, 200)
         self.assertIn(b'Work sites and GPS', resumed.data)
-        self.assertIn(b'1 of 7 steps completed', resumed.data)
+        self.assertIn(b'1 of 6 steps completed', resumed.data)
         self.assertEqual(onboarding.checklist('alpha')['current_step'], 'sites')
         dashboard = self.manager.get('/staff/alpha')
         self.assertIn(b'14 days remaining', dashboard.data)

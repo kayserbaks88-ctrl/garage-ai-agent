@@ -9,11 +9,11 @@ from trimtech.modules.staff.trusted_proxy import client_address
 CONTENT={
  'company':('Company details','Confirm your trading name, company address, business type and workforce mode.',None,None),
  'sites':('Work sites and GPS','Add the full UK address, then capture or check the site location and choose its GPS radius. Manual address entry remains available.','staff.setup_sites','Manage work sites'),
- 'employees':('Employees and pay rates','Add active employees, their email and phone number, employment role, payroll number and agreed hourly rate. Check zero rates carefully. Tax and pension details are reviewed separately.','staff.employees_page','Manage employees'),
+ 'employees':('Employees & Invitations','Add employees manually, share a company joining link, or invite existing staff. Joining requests need manager approval. You may skip workforce enrolment for now and return later.','staff.employee_onboarding','Manage employees & invitations'),
  'invitations':('Employee invitations','Send each employee an invitation to choose a secure portal password. Links expire after 48 hours; resending replaces earlier unused links. Provider acceptance is not proof of inbox delivery. This step completes when active employees have activated access.',None,None),
  'assignments':('Schedules and weekly rotas','Use existing assignments to record the site, date and UK start/finish times, including overnight jobs. These appear automatically in My rota: no second schedule is needed. Agency mode requires a scheduled assignment; fixed workplaces may review this guidance and schedule later.','staff.agency_dashboard','Manage assignments and rota'),
- 'payroll':('Payroll settings',"Review each active employee's pay frequency, PAYE tax code and basis, NI category, pension method/rates and opening balances in Payroll. Use the employee's actual information; no tax defaults are assumed. Calculations and payslips are supported. HMRC/RTI submissions are not automated.",'staff.payroll_page','Review payroll profiles'),
- 'review':('Final setup review','Check all completed steps. Employees must have activated their portal and payroll profiles must be reviewed. Finishing setup does not approve payroll, extend your trial or start a subscription.',None,None),
+ 'payroll':('Payroll (optional)','Choose a pay-frequency preference and how new breaks are treated, or skip payroll setup for now. Hours and estimated gross wages continue without PAYE, NI or pension configuration. Detailed payroll still requires reviewed employee profiles.','staff.payroll_page','Open detailed payroll'),
+ 'review':('Final setup review','Review completed steps and optional steps marked Set up later. Finishing setup does not activate detailed payroll, approve payroll, extend your trial or start a subscription.',None,None),
 }
 
 
@@ -48,12 +48,13 @@ def register_routes(staff):
                 flash(str(error),'error')
             except staff._DB_ERRORS:
                 abort(503,description='Setup could not be saved. Please try again.')
+        if step=='invitations': step='employees'
         employees=fetch_all("""SELECT e.id,e.full_name,e.email,c.activated_at,i.status AS invitation_status
             FROM staff_employees e LEFT JOIN so_employee_credentials c ON c.employee_id=e.id AND c.business_id=e.business_id
             LEFT JOIN LATERAL (SELECT status FROM so_employee_invites WHERE employee_id=e.id AND business_id=e.business_id ORDER BY created_at DESC,id DESC LIMIT 1) i ON TRUE
             WHERE e.business_id=%s AND e.status='active' ORDER BY e.full_name""",(business_slug,)) if step=='invitations' else []
-        return render_template('staff_setup.html',business_slug=business_slug,progress=progress,steps=onboarding.STEPS,
-            step=step,content=CONTENT,employees=employees,config=agency.settings(business_slug),business=fetch_one('SELECT name FROM sm_businesses WHERE id=%s',(business_slug,)),csrf_token=staff._get_csrf_token)
+        return render_template('staff_setup.html',business_slug=business_slug,progress=progress,steps=onboarding.DISPLAY_STEPS,
+            step=step,content=CONTENT,employees=employees,break_settings=fetch_one('SELECT break_policy FROM staff_business_settings WHERE business_id=%s',(business_slug,)) or {'break_policy':'unpaid'},config=agency.settings(business_slug),business=fetch_one('SELECT name FROM sm_businesses WHERE id=%s',(business_slug,)),csrf_token=staff._get_csrf_token)
 
     @bp.get('/<business_slug>/setup/sites')
     @dashboard_login_required
@@ -74,18 +75,18 @@ def register_routes(staff):
     @bp.post('/<business_slug>/setup/invitations/<int:employee_id>')
     @dashboard_login_required
     def invite_employee(business_slug,employee_id):
-        if not onboarding.checklist(business_slug):
-            abort(404)
         try:
             if not accounts.limited('employee-invite',business_slug+':'+str(employee_id),client_address(),str(staff.current_app.secret_key)):
                 abort(429)
-            sent=employee_invitations.invite(business_slug,employee_id,os.getenv('STAFF_PUBLIC_BASE_URL','').strip() or os.getenv('RENDER_EXTERNAL_URL','').strip())
-            flash('Invitation accepted by email provider; awaiting employee activation.' if sent else 'Invitation email failed. Check the address and retry.','success' if sent else 'error')
+            sent,message=employee_invitations.invite(business_slug,employee_id,os.getenv('STAFF_PUBLIC_BASE_URL','').strip() or os.getenv('RENDER_EXTERNAL_URL','').strip(),detailed=True)
+            flash('Invitation accepted by email provider; awaiting employee activation.' if sent else message,'success' if sent else 'error')
         except ValueError as error:
             flash(str(error),'error')
         except ERRORS:
             abort(503,description='Invitations are temporarily unavailable.')
-        return redirect(url_for('staff.setup',business_slug=business_slug,step='invitations'))
+        if request.form.get('return_employees')=='1' or not onboarding.checklist(business_slug):
+            return redirect(url_for('staff.employee_onboarding',business_slug=business_slug))
+        return redirect(url_for('staff.setup',business_slug=business_slug,step='employees'))
 
     @bp.route('/employee-invite',methods=['GET','POST'])
     def accept_employee_invite():
