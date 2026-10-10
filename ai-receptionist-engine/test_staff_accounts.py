@@ -70,6 +70,32 @@ class AccountTests(unittest.TestCase):
         self.assertEqual(self.send.call_count,1)
         self.assertEqual(database.fetch_one("SELECT count(*) AS n FROM sm_administrators WHERE email='owner@example.test'")['n'],1)
 
+    def test_verified_page_sign_in_form_posts_to_login_not_verification(self):
+        from html.parser import HTMLParser
+
+        class FormParser(HTMLParser):
+            action = None
+            def handle_starttag(self, tag, attrs):
+                if tag == 'form' and self.action is None:
+                    self.action = dict(attrs).get('action', '')
+
+        details = accounts.register('Verification business', 'Owner', 'flow@example.test', PASSWORD)
+        client = self.client()
+        response = self.submit(client, 'verify', token=details[1], password=PASSWORD)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Email verified. You can now sign in.', response.data)
+        form = FormParser()
+        form.feed(response.get_data(as_text=True))
+        # Follow the rendered form as a browser does: absent action uses the current URL.
+        action = form.action or '/staff/account/verify'
+        with client.session_transaction() as session:
+            csrf = session['_staff_csrf_token']
+        login = client.post(action, data={'csrf_token': csrf, 'email': details[0], 'password': PASSWORD})
+        self.assertEqual(login.status_code, 302)
+        self.assertEqual(form.action, '/staff/account/login')
+        self.assertTrue(any(cookie.startswith(COOKIE + '=') for cookie in login.headers.getlist('Set-Cookie')))
+        self.assertFalse(accounts.consume(details[1], 'verify', PASSWORD))
+
     def test_concurrent_duplicate_registration_has_one_business_and_membership(self):
         def attempt(_):
             return accounts.register('Concurrent business','Owner','SAME@example.test',PASSWORD)

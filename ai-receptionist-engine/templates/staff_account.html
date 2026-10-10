@@ -6,7 +6,7 @@
 {% set titles={'register':'Create your business account','login':'Administrator sign in','verify':'Verify your email','reset':'Choose a new password','resend':'Resend verification','recover':'Reset your password','home':'Your businesses','closed':'Staff Manager accounts','invite':'Activate employee access'} %}
 <h1>{{ titles[mode] }}</h1>{% if mode=='register' %}<p>Your 14-day free trial starts after email verification. No card is required and there is no automatic charge. When it ends, your records remain available and a subscription is needed to resume changes.</p>{% endif %}
 {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}{% if message %}<p class="message" role="status">{{ message }}</p>{% endif %}
-{% if mode not in ['home','closed'] %}<form method="post">
+{% if mode not in ['home','closed'] %}<form method="post"{% if mode!='invite' %} action="{{ url_for('staff.account_' ~ mode) }}"{% endif %}>
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 {% if mode=='register' %}<label for="business_name">Business name</label><input id="business_name" name="business_name" required maxlength="160" autocomplete="organization">
 <label for="contact_name">Your full name</label><input id="contact_name" name="contact_name" required maxlength="160" autocomplete="name">{% endif %}
