@@ -10,7 +10,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from flask import Flask, request, send_from_directory
+from flask import Flask, request, send_from_directory, render_template_string
+
+if __package__:
+    from . import demo_security
+else:
+    import demo_security
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -394,91 +399,24 @@ def landing_page():
 @app.route("/demo", methods=["GET", "POST"])
 def demo_page():
     if request.method == "GET":
-        return send_from_directory(BASE_DIR, "demo.html")
+        config = demo_security.configuration()
+        response = app.make_response(render_template_string(
+            (BASE_DIR / 'demo.html').read_text(encoding='utf-8'),
+            demo_enabled=bool(config), turnstile_site_key=config['site'] if config else '',
+        ))
+        response.headers['Cache-Control'] = 'no-store'
+        return response
 
-    name = clean_text(request.form.get("name"), 120)
-    business_name = clean_text(request.form.get("business_name"), 160)
-    phone = clean_text(request.form.get("phone"), 80)
-    email = clean_text(request.form.get("email"), 180)
-    contact_method = clean_text(request.form.get("contact_method"), 40)
-    garage_size = clean_text(request.form.get("garage_size"), 80)
-    message = clean_text(request.form.get("message"), 1000)
+    try:
+        verified_lead = demo_security.protect_submission(request)
+    except demo_security.DemoRejected as error:
+        return f'<p>{escape(error.message)}</p><a href="/demo">Return to demo form</a>', error.status
 
-    missing_fields = [
-        field_name
-        for field_name, value in {
-            "name": name,
-            "business_name": business_name,
-            "phone": phone,
-            "email": email,
-        }.items()
-        if not value
-    ]
+    lead = verified_lead
+    name = lead['name']
+    business_name = lead['business_name']
 
-    if missing_fields:
-        return (
-            """
-            <!DOCTYPE html>
-            <html lang="en-GB">
-            <head>
-              <meta charset="utf-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
-              <title>Missing details | TrimTech AI</title>
-              <style>
-                body {
-                  margin: 0;
-                  min-height: 100vh;
-                  display: grid;
-                  place-items: center;
-                  padding: 24px;
-                  font-family: Arial, sans-serif;
-                  color: #f7fbff;
-                  background: #07111f;
-                }
-                .card {
-                  width: min(100%, 620px);
-                  padding: 32px;
-                  border-radius: 24px;
-                  border: 1px solid rgba(255,255,255,.12);
-                  background: #0f2034;
-                }
-                h1 { margin-top: 0; }
-                p { color: #9eb0c2; line-height: 1.6; }
-                a {
-                  display: inline-block;
-                  margin-top: 12px;
-                  padding: 13px 18px;
-                  border-radius: 12px;
-                  color: #04120f;
-                  background: #22d3a7;
-                  text-decoration: none;
-                  font-weight: 800;
-                }
-              </style>
-            </head>
-            <body>
-              <main class="card">
-                <h1>We just need a few more details.</h1>
-                <p>Please complete all required fields before requesting your demo.</p>
-                <a href="/demo">← Back to demo form</a>
-              </main>
-            </body>
-            </html>
-            """,
-            400,
-        )
-
-    lead = {
-        "name": name,
-        "business_name": business_name,
-        "phone": phone,
-        "email": email,
-        "contact_method": contact_method or "phone",
-        "garage_size": garage_size,
-        "message": message,
-    }
-
-    print("TRIMTECH MARKETING LEAD:", lead, flush=True)
+    app.logger.info('Validated marketing demo enquiry accepted')
 
     notification_sent, notification_error = send_lead_notification(lead)
 

@@ -68,6 +68,12 @@
         </div>
 
         <form action="/demo" method="post">
+          {% if not demo_enabled %}<p role="status">Demo requests are temporarily unavailable. Please try again later.</p>{% endif %}
+          <fieldset {% if not demo_enabled %}disabled{% endif %} style="border:0;padding:0;margin:0;min-width:0">
+          <div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden">
+            <label for="website">Leave this field empty</label>
+            <input id="website" name="website" type="text" tabindex="-1" autocomplete="off" maxlength="200">
+          </div>
           <div class="row">
             <div class="field">
               <label for="name">Your name</label>
@@ -116,9 +122,21 @@
             <textarea id="message" name="message" placeholder="For example: we miss calls when the workshop gets busy, want help with MOT bookings, or want to see how reminders work."></textarea>
           </div>
 
-          <button class="submit" type="submit">Request my free demo →</button>
+          {% if demo_enabled %}
+          <div class="cf-turnstile" data-sitekey="{{ turnstile_site_key }}" data-action="marketing_demo" data-callback="demoVerified" data-expired-callback="demoExpired" data-error-callback="demoExpired"></div>
+          {% endif %}
+          <button id="demo-submit" class="submit" type="submit" disabled>Request my free demo →</button>
           <p class="note">No payment required. No commitment. This is simply a demonstration of how TrimTech AI could work for your garage.</p>
+          </fieldset>
         </form>
+        {% if demo_enabled %}
+        <script>
+          function demoVerified() { document.getElementById('demo-submit').disabled = false; }
+          function demoExpired() { document.getElementById('demo-submit').disabled = true; }
+          document.querySelector('form[action="/demo"]').addEventListener('submit', function () { demoExpired(); });
+        </script>
+        <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+        {% endif %}
 
         <div class="trust">
           <span>Free demo</span>
