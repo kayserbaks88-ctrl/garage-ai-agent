@@ -39,7 +39,7 @@ class AttendanceDatabaseTests(unittest.TestCase):
             self.sample(shift_id, now + timedelta(seconds=seconds), latitude="51.51")
         with patch.object(presence, "utcnow", return_value=now + timedelta(seconds=241)):
             state = presence.overview("alpha")[shift_id]
-        self.assertEqual(state["label"], "Location unavailable/stale")
+        self.assertEqual(state["label"], "Location unverified")
         self.assertIsNotNone(state["last_confirmed_at"])
         self.sample(shift_id, now + timedelta(seconds=250))
         with patch.object(presence, "utcnow", return_value=now + timedelta(seconds=251)):

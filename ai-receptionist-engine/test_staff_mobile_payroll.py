@@ -56,7 +56,7 @@ class MobilePayrollDatabaseTests(unittest.TestCase):
         self.assertIn('table-wrap attendance-desktop', html)
         self.assertIn('Mark reviewed', html)
         self.assertIn('Attendance timeline', html)
-        self.assertIn('Location unavailable/stale', html)
+        self.assertIn('Location unverified', html)
         for key in ('data-attendance-search', 'data-attendance-site', 'data-attendance-status', 'data-attendance-alert'):
             self.assertTrue(any(key in c for c in parsed.controls))
         self.assertNotIn('Private site', html)

@@ -2,7 +2,7 @@
 {% block title %}Shift approvals · TrimTech Staff Manager{% endblock %}
 {% block eyebrow_sub %}Shift approvals{% endblock %}
 {% block content %}
-<p class="eyebrow">{{ business_slug|replace('-',' ') }}</p><h1>Shift approvals</h1><p class="muted">Review completed shifts, correct evidence and approve or reject pay-affecting time.</p>
+<p class="eyebrow">{{ staff_business_name or 'Staff Manager' }}</p><h1>Shift approvals</h1><p class="muted">Review completed shifts, correct evidence and approve or reject pay-affecting time.</p>
 {% if edit_shift %}
 <section class="card" id="shift-edit">
 <header class="heading"><div><p class="eyebrow">Review / Edit</p><h2>{{ edit_shift.full_name }} · {{ edit_shift.site_name }}</h2><p class="help">Corrections require a reason and return shifts to pending review. Draft payroll must be recalculated; finalized payroll creates an adjustment request.</p></div><a class="button" href="{{ url_for('staff.approvals_page',business_slug=business_slug) }}">Close</a></header>

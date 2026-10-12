@@ -14,16 +14,16 @@
     records.forEach(({card,sites,statuses})=>{
       const presence=card.querySelector('[data-presence-compact]');
       const state=presence ? presence.dataset.presenceState : '';
-      const warning=card.dataset.alert==='1' || state==='left_site' || state==='location_stale';
+      const warning=card.dataset.alert==='1' || ['left_site','location_stale','outside_site','location_unverified'].includes(state);
       card.querySelector('[data-attendance-warning]').hidden=!warning;
       const matchAlert=!alert.value || (alert.value==='any' && warning) ||
         (alert.value==='late' && card.dataset.late==='1') || (alert.value==='missed' && card.dataset.missed==='1') ||
-        (['left_site','location_stale'].includes(alert.value) && state===alert.value);
+        (['left_site','location_stale'].includes(alert.value) && (state===alert.value || state===(alert.value==='left_site' ? 'outside_site' : 'location_unverified')));
       const visible=card.dataset.name.toLocaleLowerCase('en-GB').includes(query) &&
         (!site.value || sites.includes(site.value)) &&
         (!status.value || card.dataset.state===status.value || statuses.includes(status.value)) && matchAlert;
       card.hidden=!visible;
-      if(visible){shown++;if(card.dataset.state==='on_shift')active++;if(warning)alerts++;}
+      if(visible){shown++;if(['on_shift','on_break'].includes(card.dataset.state))active++;if(warning)alerts++;}
     });
     root.querySelector('[data-attendance-count]').textContent=`${shown} / ${cards.length} staff · ${active} on shift · ${alerts} alerts`;
     root.querySelector('[data-attendance-empty]').hidden=shown!==0;

@@ -27,7 +27,7 @@ def mobile_cards(shifts, exceptions):
         card['headline'] = next((s for s in card['shifts'] if not s['clock_out_at']),
                                 card['shifts'][0] if card['shifts'] else None)
         head = card['headline']
-        card['state'] = 'on_shift' if head and not head['clock_out_at'] else 'finished' if head else 'no_clocking'
+        card['state'] = ('on_break' if (head.get('presence') or {}).get('break_started_at') else 'on_shift') if head and not head['clock_out_at'] else 'finished' if head else 'no_clocking'
         card['statuses'] = sorted({s['approval_status'] for s in card['shifts']})
         card['alert'] = any(not e['review'] for e in card['exceptions']) or any(s.get('late_minutes') for s in card['shifts'])
         card['late'] = any(s.get('late_minutes') for s in card['shifts']) or any(e['kind']=='Late clock-in' for e in card['exceptions'])

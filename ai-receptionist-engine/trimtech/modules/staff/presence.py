@@ -22,6 +22,26 @@ def settings():
 def utcnow():
     return datetime.now(timezone.utc)
 
+LABELS = {'on_site':'On site','outside_site':'Outside site','location_unverified':'Location unverified'}
+
+def classify_sample(state, captured, distance, accuracy, now, stale_seconds):
+    """Classify current evidence, never infer departure from missing updates."""
+    if captured is None or distance is None or accuracy is None or state.get('radius_metres') is None:
+        return 'location_unverified'
+    try:
+        age=(now-captured).total_seconds()
+        distance,accuracy,radius=float(distance),float(accuracy),float(state['radius_metres'])
+        import math
+        if not all(math.isfinite(v) for v in (distance,accuracy,radius)) or not -10<=age<stale_seconds or distance<0 or not 0<accuracy<=min(100,radius):
+            return 'location_unverified'
+        if distance+accuracy<=radius:
+            return 'on_site'
+        if distance-accuracy>radius:
+            return 'outside_site'
+    except (ValueError,TypeError,OverflowError):
+        pass
+    return 'location_unverified'
+
 
 def _event(cursor, state, now, reason, captured=None, distance=None, accuracy=None, effective=None):
     cursor.execute("""INSERT INTO staff_presence_events
@@ -128,7 +148,8 @@ def record(cursor, business_id, employee_id, shift_id, values):
         (updated["status"], captured, now, updated["outside_since"], updated["outside_count"], updated["departed"], now, shift_id))
     _event(cursor, updated, now, reason, captured, round(distance, 2), accuracy)
     confirmed = captured if reason in {"inside_radius", "outside_confirmed"} else state["last_confirmed_at"]
-    return {"status": updated["status"], "last_received_at": now.isoformat(),
+    display_status=classify_sample(state,captured,distance,accuracy,now,config['stale_seconds'])
+    return {"status": updated["status"], "display_status":display_status,"last_location_at":captured.isoformat(),"last_received_at": now.isoformat(),
             "last_confirmed_at": confirmed.isoformat() if confirmed else None,
             "stale_seconds": config["stale_seconds"]}
 
@@ -138,15 +159,27 @@ def overview(business_id):
     now, config = utcnow(), settings()
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("SELECT * FROM staff_shifts WHERE business_id=%s AND clock_out_at IS NULL ORDER BY id FOR UPDATE", (business_id,))
+            cursor.execute("""SELECT s.*,e.full_name,b.started_at AS break_started_at,
+                ROUND(EXTRACT(EPOCH FROM(NOW()-b.started_at))/60)::integer AS break_minutes
+                FROM staff_shifts s JOIN staff_employees e ON e.id=s.employee_id AND e.business_id=s.business_id
+                LEFT JOIN LATERAL (SELECT started_at FROM staff_breaks WHERE shift_id=s.id
+                    AND business_id=s.business_id AND employee_id=s.employee_id AND ended_at IS NULL
+                    ORDER BY started_at DESC LIMIT 1) b ON TRUE
+                WHERE s.business_id=%s AND s.clock_out_at IS NULL ORDER BY s.id FOR UPDATE OF s""", (business_id,))
             shifts = cursor.fetchall()
             result = {}
             for shift in shifts:
                 state = _ensure(cursor, shift, now)
                 _expire(cursor, state, now, config)
+                cursor.execute("""SELECT captured_at,distance_metres,accuracy_metres FROM staff_presence_events
+                    WHERE business_id=%s AND shift_id=%s ORDER BY id DESC LIMIT 1""",(business_id,shift['id']))
+                latest=cursor.fetchone() or {}
+                display_status=classify_sample(state,latest.get('captured_at'),latest.get('distance_metres'),latest.get('accuracy_metres'),now,config['stale_seconds'])
                 result[shift["id"]] = {"status": state["status"],
-                    "label": {"on_site": "On site", "returned": "On site", "left_site": "Left site",
-                              "location_stale": "Location unavailable/stale"}[state["status"]],
+                    "label": LABELS[display_status],"display_status":display_status,
+                    "full_name":shift['full_name'],"break_started_at":shift['break_started_at'],"break_minutes":shift['break_minutes'],
+                    "last_location_at":latest['captured_at'].isoformat() if latest.get('captured_at') else None,
+                    "last_location_display":uk_display(latest.get('captured_at')),
                     "last_confirmed_at": state["last_confirmed_at"].isoformat() if state["last_confirmed_at"] else None,
                     "last_confirmed_display": uk_display(state["last_confirmed_at"]),
                     "last_received_at": state["last_received_at"].isoformat() if state["last_received_at"] else None,

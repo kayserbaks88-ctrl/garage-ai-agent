@@ -2,7 +2,7 @@
 {% block title %}Employees · TrimTech Staff Manager{% endblock %}
 {% block eyebrow_sub %}Employees{% endblock %}
 {% block content %}
-<p class="eyebrow">{{ business_slug|replace('-',' ') }}</p><h1>Employees</h1><p class="muted">Add staff, tap a name for their profile, hours and leave.</p>
+<p class="eyebrow">{{ staff_business_name or 'Staff Manager' }}</p><h1>Employees</h1><p class="muted">Add staff, tap a name for their profile, hours and leave.</p>
 {% if profile %}
 <section class="card" id="profile">
 <header class="heading"><div><p class="eyebrow">Employee profile</p><h2>{{ profile.full_name }}</h2></div><div class="actions">{{ status(profile.status) }}<a class="button" href="{{ url_for('staff.employees_page',business_slug=business_slug) }}">Close profile</a></div></header>

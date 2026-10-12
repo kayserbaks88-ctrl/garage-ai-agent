@@ -26,7 +26,15 @@ def register_routes(staff):
         progress=None
         if trial and trial['state']!='legacy' and request.view_args and request.view_args.get('business_slug'):
             progress=onboarding.checklist(request.view_args['business_slug'])
-        return {'staff_trial':trial,'staff_setup':progress}
+        business=None
+        if request.view_args and request.view_args.get('business_slug'):
+            business=fetch_one('SELECT name FROM sm_businesses WHERE id=%s',(request.view_args['business_slug'],))
+        return {'staff_trial':trial,'staff_setup':progress,'staff_business_name':business['name'] if business else 'Staff Manager'}
+
+    @bp.get('/<business_slug>/settings')
+    @dashboard_login_required
+    def settings_page(business_slug):
+        return render_template('staff_settings.html',business_slug=business_slug,csrf_token=staff._get_csrf_token)
 
     @bp.route('/<business_slug>/setup',methods=['GET','POST'])
     @dashboard_login_required
@@ -79,7 +87,7 @@ def register_routes(staff):
             if not accounts.limited('employee-invite',business_slug+':'+str(employee_id),client_address(),str(staff.current_app.secret_key)):
                 abort(429)
             sent,message=employee_invitations.invite(business_slug,employee_id,os.getenv('STAFF_PUBLIC_BASE_URL','').strip() or os.getenv('RENDER_EXTERNAL_URL','').strip(),detailed=True)
-            flash('Invitation accepted by email provider; awaiting employee activation.' if sent else message,'success' if sent else 'error')
+            flash('Invitation accepted by email provider; inbox delivery is not yet confirmed. Awaiting employee activation. If it does not arrive, check spam or contact TrimTech.' if sent else message,'success' if sent else 'error')
         except ValueError as error:
             flash(str(error),'error')
         except ERRORS:

@@ -155,11 +155,16 @@ def dashboard(business_slug: str):
     agency_settings = {"organisation_mode": "fixed", "travel_enabled": False}
     workforce = dict(pending=0,awaiting=0,rejected=0)
     wage_estimate = None
+    current_presence = {}
+    warnings = []
     try:
         init_staff_database()
         agency_settings = agency.settings(business_id)
         workforce = joining.counts(business_id)
         wage_estimate = wages_estimate.weekly(business_id)
+        approved_estimate = wages_estimate.weekly(business_id, approved_only=True)
+        current_presence = presence.overview(business_id)
+        warnings = attendance_exceptions.collect(business_id, current_presence)
         summary = fetch_one("""
             SELECT
               (SELECT COUNT(*) FROM staff_employees
@@ -182,6 +187,9 @@ def dashboard(business_slug: str):
     return render_template(
         "staff_dashboard.html", business_slug=business_slug, summary=summary,
         csrf_token=_get_csrf_token, agency_settings=agency_settings, workforce=workforce, wage_estimate=wage_estimate,
+        approved_estimate=locals().get('approved_estimate'), attendance_warnings=warnings,
+        on_break=sum(bool(state.get('break_started_at')) for state in current_presence.values()),
+        location_alerts=[state for state in current_presence.values() if state.get('display_status')!='on_site'],
     )
 
 
@@ -1749,3 +1757,6 @@ register_billing_routes(sys.modules[__name__])
 
 from trimtech.modules.staff.joining_routes import register_routes as register_joining_routes
 register_joining_routes(sys.modules[__name__])
+
+from trimtech.modules.staff.platform_control import register_routes as register_platform_routes
+register_platform_routes(sys.modules[__name__])

@@ -1,6 +1,6 @@
 'use strict';
 (() => {
-  const labels = {on_site:'On site', returned:'On site', left_site:'Left site', location_stale:'Location unavailable/stale'};
+  const labels = {on_site:'On site', returned:'On site', left_site:'Outside site', location_stale:'Location unverified', outside_site:'Outside site', location_unverified:'Location unverified'};
   const confirmedText = value => value ? 'Last confirmed: ' + new Date(value).toLocaleString('en-GB', {timeZone:'Europe/London', timeZoneName:'short'}) : 'No confirmed location';
   const portal = document.querySelector('[data-presence-portal]');
   async function post(url, values) {
@@ -37,8 +37,8 @@
           shift_id:portal.dataset.shiftId,latitude:position.coords.latitude,longitude:position.coords.longitude,
           accuracy:position.coords.accuracy,captured_at:new Date(position.timestamp).toISOString()});
         if (current!==generation) return;
-        state.textContent=labels[data.status] || labels.location_stale;
-        lastReceived=Date.parse(data.last_confirmed_at) || 0;
+        state.textContent=labels[data.display_status || data.status] || labels.location_stale;
+        lastReceived=Date.parse(data.last_location_at || data.last_confirmed_at) || 0;
         staleSeconds=data.stale_seconds;
         message.textContent='Location received. Updates run only while this page is visible.';
       } catch(error) {
@@ -65,6 +65,7 @@
   }
   const dashboard = document.querySelector('[data-presence-dashboard]');
   if(dashboard) {
+    const statusCells=Array.from(dashboard.querySelectorAll('[data-shift-status]'));
     const cells=Array.from(dashboard.querySelectorAll('[data-presence-shift]'));
     let busy=false;
     async function refresh() {
@@ -74,12 +75,19 @@
         const data=await post(dashboard.dataset.presenceUrl,{csrf_token:dashboard.dataset.csrf});
         cells.forEach(cell => {
           const state=data.shifts[cell.dataset.presenceShift];
-          cell.textContent=state ? (labels[state.status] || labels.location_stale) + ' · ' + confirmedText(state.last_confirmed_at) : 'Shift ended — refresh attendance';
-          if(state && cell.hasAttribute('data-presence-compact')) cell.textContent=labels[state.status] || labels.location_stale;
-          cell.dataset.presenceState=state ? state.status : 'ended';
-          cell.dataset.lastReceived=state ? state.last_confirmed_at || '' : '';
+          cell.textContent=state ? (labels[state.display_status || state.status] || labels.location_stale) + ' · ' + confirmedText(state.last_confirmed_at) : 'Shift ended — refresh attendance';
+          if(state && cell.hasAttribute('data-presence-compact')) cell.textContent=labels[state.display_status || state.status] || labels.location_stale;
+          cell.dataset.presenceState=state ? (state.display_status || state.status) : 'ended';
+          cell.dataset.lastReceived=state ? state.last_location_at || state.last_confirmed_at || '' : '';
           cell.dataset.staleSeconds=state ? state.stale_seconds : '0';
           cell.title=confirmedText(state && state.last_confirmed_at);
+        });
+        statusCells.forEach(cell => {
+          const state=data.shifts[cell.dataset.shiftStatus];
+          if(!state) return;
+          cell.textContent=state.break_started_at ? 'On break · '+state.break_minutes+' min · since '+new Date(state.break_started_at).toLocaleTimeString('en-GB',{timeZone:'Europe/London',hour:'2-digit',minute:'2-digit'}) : 'On shift';
+          const card=cell.closest('[data-attendance-person]');
+          if(card) card.dataset.state=state.break_started_at ? 'on_break' : 'on_shift';
         });
         document.dispatchEvent(new Event('staff-presence-updated'));
       } catch(_) {
