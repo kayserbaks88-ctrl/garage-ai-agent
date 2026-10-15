@@ -150,6 +150,7 @@ class BillingTests(unittest.TestCase):
         self.start()
         params=self.gateway.create_checkout.call_args.args[0]
         self.assertEqual(params['mode'],'subscription')
+        self.assertEqual(params['automatic_tax'],{'enabled':False})
         self.assertEqual(params['line_items'],[{'price':'price_staff','quantity':1}])
         self.assertEqual(params['subscription_data'],{'metadata':params['metadata']})
         self.assertNotIn('trial_end',params['subscription_data'])

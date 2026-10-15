@@ -218,7 +218,8 @@ def checkout(business_id, administrator_id):
                         'success_url':attempt['return_url']+'?checkout=returned','cancel_url':attempt['return_url']+'?checkout=cancelled',
                         'client_reference_id':business_id,'metadata':metadata,'subscription_data':{'metadata':metadata},
                         'expires_at':int(attempt['expires_at'].timestamp()),'locale':'en-GB',
-                        'automatic_tax':{'enabled':True},'billing_address_collection':'required',
+                        # Enable once VAT registration and Stripe Tax setup are ready.
+                        'automatic_tax':{'enabled':False},'billing_address_collection':'required',
                         'customer_update':{'address':'auto','name':'auto'}}, 'staff-checkout-'+attempt['id'])
             else:
                 session = gateway.checkout(attempt['session_id'])
