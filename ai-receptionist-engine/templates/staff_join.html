@@ -4,8 +4,8 @@
 {% if message %}<p role="status">{{ message }}</p>{% else %}
 <form method="post" action="{{ url_for('staff.employee_join') }}" id="joining-form" data-preview-url="{{ url_for('staff.joining_preview') }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-<label>Joining code<input id="token" name="token" value="{{ request.form.get('token','')[:128] }}" required maxlength="43" autocomplete="off" spellcheck="false"></label>
-<p class="help">Your joining link fills this code automatically. Never share your password.</p>
+<details data-email-code><summary>Need help with your joining link?</summary><p>Open the latest link from your employer, or paste the joining code below.</p><label>Joining code<input id="token" name="token" value="{{ request.form.get('token','')[:128] }}" required maxlength="43" autocomplete="off" autocapitalize="none" spellcheck="false"></label></details>
+<p class="help">Never share your password.</p>
 <label>Full name<input name="full_name" required maxlength="150" autocomplete="name" value="{{ request.form.get('full_name','') }}"></label>
 <label>Email<input name="email" type="email" required maxlength="254" autocomplete="email" value="{{ request.form.get('email','') }}"></label>
 <label>Phone number<input name="phone" type="tel" required maxlength="40" autocomplete="tel" value="{{ request.form.get('phone','') }}"></label>

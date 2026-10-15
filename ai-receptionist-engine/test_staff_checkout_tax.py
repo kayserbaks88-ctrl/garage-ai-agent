@@ -9,6 +9,15 @@ from trimtech.modules.staff import stripe_gateway as transport
 
 
 class CheckoutTaxTests(unittest.TestCase):
+    def test_disabled_billing_stops_before_database_or_provider_access(self):
+        with patch.dict('os.environ', {**ENV, 'STAFF_STRIPE_ENABLED': '0'}), \
+                patch.object(billing, 'Gateway') as gateway, \
+                patch.object(billing, 'transaction') as transaction:
+            with self.assertRaises(transport.BillingUnavailable):
+                billing.checkout('alpha', 'owner')
+        gateway.assert_not_called()
+        transaction.assert_not_called()
+
     def test_unregistered_staff_checkout_preserves_billing_parameters(self):
         fake = FakeStripe()
         gateway = MagicMock(wraps=fake)

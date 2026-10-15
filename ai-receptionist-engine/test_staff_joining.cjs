@@ -8,7 +8,7 @@ const joining = fs.readFileSync(path.join(__dirname, 'static/staff_join.js'), 'u
 
 async function run() {
   const token = 'A'.repeat(43), calls = [], events = {};
-  const field = {value: '', addEventListener: (name, fn) => events[name] = fn};
+  const field = {value: '', closest: () => null, addEventListener: (name, fn) => events[name] = fn};
   const label = {textContent: ''};
   const form = {elements: {token: field, csrf_token: {value: 'csrf'}}, dataset: {previewUrl: '/staff/join/preview'}};
   const context = vm.createContext({URLSearchParams, document: {
