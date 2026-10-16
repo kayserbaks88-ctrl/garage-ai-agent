@@ -161,7 +161,7 @@ class AccountTests(unittest.TestCase):
         older=accounts.request_token('owner@example.test','reset')
         new='another long unique passphrase'
         self.assertFalse(accounts.consume(details[1],'verify',new))
-        self.assertEqual(self.submit(self.client(),'reset',token=details[1],password=new).status_code,200)
+        self.assertEqual(self.submit(self.client(),'reset',token=details[1],password=new).status_code,303)
         self.assertFalse(accounts.consume(older[1],'reset',new))
         self.assertEqual(owner.get('/staff/'+business).status_code,302)
         self.assertEqual(second.get('/staff/'+business).status_code,302)

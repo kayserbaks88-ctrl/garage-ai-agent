@@ -12,7 +12,7 @@ async function run() {
   const label = {textContent: ''};
   const form = {elements: {token: field, csrf_token: {value: 'csrf'}}, dataset: {previewUrl: '/staff/join/preview'}};
   const context = vm.createContext({URLSearchParams, document: {
-    getElementById: id => ({token: field, 'joining-form': form, 'joining-company': label}[id]), querySelectorAll: () => []
+    getElementById: id => ({token: field, 'joining-form': form, 'joining-company': label}[id]), querySelector: () => null, querySelectorAll: () => []
   }, window: {location: {hash: '#token=' + token, pathname: '/staff/join'}, history: {
     replaceState: (...args) => calls.push(args)
   }}, fetch: async (url, options) => {

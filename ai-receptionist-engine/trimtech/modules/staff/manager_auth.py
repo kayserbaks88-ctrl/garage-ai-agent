@@ -75,6 +75,8 @@ def register_routes(staff):
 
     @bp.after_request
     def account_headers(response):
+        if request.path in ('/staff/account/reset', '/staff/account/reset/success', '/staff/account/recover'):
+            response.headers['Cache-Control']='no-store'
         response.headers['Referrer-Policy']='no-referrer'
         response.headers['X-Content-Type-Options']='nosniff'
         response.headers['X-Frame-Options']='DENY'
@@ -169,14 +171,24 @@ def register_routes(staff):
     def account_reset():
         return consume_token('reset')
 
+    @bp.get('/account/reset/success')
+    def account_reset_success():
+        return page('reset_success',message='Your password has been updated. Sign in with your new password.')
+
     def consume_token(purpose):
         if request.method=='GET':
             return page(purpose)
         try:
             allowed(purpose)
             if not accounts.consume(request.form.get('token'),purpose,request.form.get('password')):
+                if purpose=='reset':
+                    return page('reset_unavailable',message='This reset link is no longer available. If you already updated your password, you can sign in. Otherwise, request a new reset email.',code=400)
                 return page(purpose,error='This link is invalid, expired or already used. Request a new email.',code=400)
-            return page('login',message='Email verified. You can now sign in.' if purpose=='verify' else 'Password changed. Please sign in again.')
+            if purpose=='reset':
+                response=redirect(url_for('staff.account_reset_success'),code=303)
+                response.delete_cookie(COOKIE,secure=True,httponly=True,samesite='Lax',path='/')
+                return response
+            return page('login',message='Email verified. You can now sign in.')
         except ValueError as error:
             return page(purpose,error=str(error),code=400)
         except ERRORS:

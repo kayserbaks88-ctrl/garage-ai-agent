@@ -10,7 +10,7 @@ function run(hash, value = '', hasField = true) {
   const field = {value, type: 'text', name: 'token', closest: () => help};
   vm.runInNewContext(source, {
     URLSearchParams,
-    document: {getElementById: () => hasField ? field : null},
+    document: {getElementById: () => hasField ? field : null, querySelector: () => null},
     window: {location: {hash, pathname: '/staff/account/reset'},
       history: {replaceState: (...args) => history.push(args)}}
   });
@@ -36,3 +36,26 @@ assert.equal(invalidRetry.field.value.length, 44);
 assert.equal(invalidRetry.help.hidden, false);
 assert.doesNotThrow(() => run('', '', false));
 console.log('PASS: email codes hidden, fragment cleared, retries preserved, invalid links and manual fallback retained');
+
+const handlers = {}, lifecycle = {};
+const submitButton = {textContent: 'Save new password', disabled: false};
+vm.runInNewContext(source, {
+  URLSearchParams,
+  document: {getElementById: () => null, querySelector: () => ({
+    querySelector: () => submitButton, addEventListener: (name, fn) => handlers[name] = fn
+  })},
+  window: {addEventListener: (name, fn) => lifecycle[name] = fn}
+});
+let prevented = 0;
+const submit = () => handlers.submit({preventDefault: () => prevented++});
+submit();
+assert.equal(prevented, 0);
+assert.equal(submitButton.disabled, true);
+submit();
+assert.equal(prevented, 1);
+lifecycle.pageshow({persisted: true}); // Safari back/forward-cache restoration.
+assert.equal(submitButton.disabled, false);
+assert.equal(submitButton.textContent, 'Save new password');
+submit();
+assert.equal(prevented, 1); // A restored page remains usable.
+console.log('PASS: duplicate reset submissions blocked; back/forward restoration unlocks controls');
