@@ -1,3 +1,4 @@
+{% if mode == 'register' %}{% include 'staff_register.html' %}{% else %}
 <!doctype html>
 <html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Staff Manager account | TrimTech</title>
 <style>body{margin:0;background:#07111f;color:#f5f8fc;font:16px/1.6 system-ui,sans-serif}main{max-width:520px;margin:auto;padding:24px 18px}section{padding:24px;background:#0d1c2d;border:1px solid #2a3b4e;border-radius:18px}h1{line-height:1.2}a{color:#8aeeb0}label{display:block;margin:16px 0 6px}input,button{box-sizing:border-box;width:100%;font:inherit;padding:12px;border-radius:10px;border:1px solid #607087}input{background:#07111f;color:white}button{margin-top:20px;background:#20c567;color:#062314;font-weight:700;cursor:pointer}nav{display:flex;flex-wrap:wrap;gap:16px;margin-top:24px}.sign-in-button{display:block;box-sizing:border-box;width:100%;padding:12px;border-radius:10px;background:#20c567;color:#062314;text-align:center;text-decoration:none;font-weight:700}button:disabled{opacity:.7;cursor:wait}.error{color:#ffb9c1}.message{color:#8aeeb0}:focus-visible{outline:3px solid #7dd3fc;outline-offset:3px}</style>
@@ -19,3 +20,4 @@
 <form method="post" action="{{ url_for('staff.account_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Sign out</button></form>{% endif %}
 </section><nav aria-label="Account navigation"><a href="{{ url_for('staff.account_login') }}">Sign in</a><a href="{{ url_for('staff.account_register') }}">Create account</a><a href="{{ url_for('staff.account_resend') }}">Resend verification</a><a href="{{ url_for('staff.account_recover') }}">Forgot password?</a></nav>
 <p>Payroll calculations and payslips are supported. HMRC/RTI submissions are not automated.</p></main></body></html>
+{% endif %}

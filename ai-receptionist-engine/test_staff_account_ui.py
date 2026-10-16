@@ -65,6 +65,25 @@ class AccountPresentationTests(unittest.TestCase):
                 self.assertNotIn('value', markup.inputs['password'])
                 self.assertNotIn('>' + token + '<', html)
 
+    def test_registration_landing_preserves_form_contract_and_safe_messages(self):
+        with self.app.test_request_context('/staff/account/register'):
+            html = render_template('staff_account.html', mode='register',
+                error='<script>bad</script>', message='Check your inbox.', csrf_token=lambda: 'test-csrf')
+        markup = FormMarkup(html)
+        self.assertEqual(set(markup.inputs), {'csrf_token', 'business_name', 'contact_name', 'email', 'password'})
+        self.assertIn('method="post" action="/staff/account/register"', html)
+        self.assertEqual(markup.inputs['password']['minlength'], '12')
+        self.assertEqual(markup.inputs['password']['maxlength'], '128')
+        self.assertNotIn('value', markup.inputs['password'])
+        self.assertIn('role="alert">&lt;script&gt;bad&lt;/script&gt;', html)
+        self.assertIn('role="status">Check your inbox.', html)
+        self.assertIn('href="#registration"', html)
+        self.assertIn('id="registration"', html)
+        self.assertIn('property="og:title"', html)
+        self.assertIn('No card required', html)
+        self.assertIn('Your records remain available to view', html)
+        self.assertNotIn('Manage your team.', render_account(self.app, 'login'))
+
     def test_code_attribute_escaping_and_invalid_length_are_preserved(self):
         for token in ('A' * 44, '\"><script>alert(1)</script>'):
             html = render_account(self.app, 'reset', {'token': token})
