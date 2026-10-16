@@ -59,3 +59,29 @@ assert.equal(submitButton.textContent, 'Save new password');
 submit();
 assert.equal(prevented, 1); // A restored page remains usable.
 console.log('PASS: duplicate reset submissions blocked; back/forward restoration unlocks controls');
+
+const loginTemplate = fs.readFileSync(path.join(__dirname, 'templates/staff_employee_login.html'), 'utf8');
+const dialogScript = loginTemplate.match(/<script>\s*([\s\S]*?)<\/script>/)[1];
+const dialogEvents = {}, helpEvents = {};
+let focusTarget;
+const gotIt = {focus: () => focusTarget = 'got-it'};
+const help = {addEventListener: (name, fn) => helpEvents[name] = fn, focus: () => focusTarget = 'help'};
+const dialog = {
+  open: false, showModal() {this.open = true; gotIt.focus();},
+  close() {this.open = false; dialogEvents.close();},
+  addEventListener: (name, fn) => dialogEvents[name] = fn,
+  querySelector: () => gotIt,
+  getBoundingClientRect: () => ({left: 20, right: 340, top: 100, bottom: 400})
+};
+vm.runInNewContext(dialogScript, {document: {getElementById: id => id === 'password-help' ? help : dialog}});
+helpEvents.click();assert.equal(dialog.open, true);assert.equal(focusTarget, 'got-it');
+for (const shiftKey of [false, true]) {
+  let trapped = false;
+  dialogEvents.keydown({key: 'Tab', shiftKey, preventDefault: () => trapped = true});
+  assert.equal(trapped, true);assert.equal(focusTarget, 'got-it');
+}
+dialogEvents.keydown({key: 'Escape', preventDefault: () => assert.fail('Native Escape must remain enabled')});
+dialogEvents.click({target: dialog, clientX: 30, clientY: 110});assert.equal(dialog.open, true);
+dialogEvents.click({target: dialog, clientX: 1, clientY: 1});
+assert.equal(dialog.open, false);assert.equal(focusTarget, 'help');
+console.log('PASS: employee help dialog opens, contains keyboard focus, preserves Escape and dismisses outside with focus return');

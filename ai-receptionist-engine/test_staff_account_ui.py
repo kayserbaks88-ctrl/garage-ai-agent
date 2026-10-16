@@ -82,6 +82,19 @@ class AccountPresentationTests(unittest.TestCase):
         self.assertEqual(FormMarkup(html).inputs['payroll_number']['type'], 'password')
         self.assertIn('/staff/internal-business-123/', html)  # Routing remains tenant-scoped.
 
+    def test_employee_forgot_password_offers_manager_help_without_recovery_navigation(self):
+        with self.app.test_request_context('/preview'):
+            html = render_template('staff_employee_login.html', business_slug='example',
+                staff_business_name='Example workplace', csrf_token=lambda: 'test-csrf',
+                secure_portal=True, error_message='', phone_value='')
+        self.assertNotIn('/employee/recover', html)
+        self.assertIn('aria-haspopup="dialog" aria-controls="password-help-dialog"', html)
+        self.assertIn('aria-labelledby="password-help-title" aria-describedby="password-help-message"', html)
+        self.assertIn('Need to reset your password? Please contact your manager and ask them to send a password reset invitation to your registered email address. Once you receive the email, follow the secure link to create a new password.', html)
+        self.assertIn('<form method="dialog">', html)
+        self.assertIn('autofocus>Got it</button>', html)
+        self.assertEqual(FormMarkup(html).inputs['csrf_token']['value'], 'test-csrf')
+
 
 if __name__ == '__main__':
     unittest.main()
