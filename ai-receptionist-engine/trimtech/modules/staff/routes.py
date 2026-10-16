@@ -51,7 +51,7 @@ def _protect_staff_forms():
     if request.endpoint == 'staff.billing_webhook':
         # Only this endpoint is exempt; its raw body must pass Stripe signature verification.
         return None
-    if ((request.endpoint or "").startswith("staff.account_") or request.endpoint=="staff.accept_employee_invite") and request.content_length and request.content_length > 16384:
+    if ((request.endpoint or "").startswith("staff.account_") or request.endpoint in {"staff.accept_employee_invite", "staff.employee_recover", "staff.employee_reset"}) and request.content_length and request.content_length > 16384:
         abort(413)
     if request.method != "POST":
         return None
@@ -1760,3 +1760,6 @@ register_joining_routes(sys.modules[__name__])
 
 from trimtech.modules.staff.platform_control import register_routes as register_platform_routes
 register_platform_routes(sys.modules[__name__])
+
+from trimtech.modules.staff.employee_recovery_routes import register_routes as register_employee_recovery_routes
+register_employee_recovery_routes(sys.modules[__name__])

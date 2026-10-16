@@ -89,7 +89,8 @@
                 </div>
                 <button type="submit" class="submit">Sign in</button>
             </form>
-            <p class="help">Need access or a password reset? Ask your manager for your portal details or a new email invitation.</p>
+            <p class="help"><a href="{{ url_for('staff.employee_recover',business_slug=business_slug) }}" style="color:#86efac">Forgot password?</a></p>
+            <p class="help">Need access or haven't set up a password yet? Ask your manager for your portal details or a new email invitation.</p>
         </section>
         <footer>Your workplace, in one place.</footer>
     </main>

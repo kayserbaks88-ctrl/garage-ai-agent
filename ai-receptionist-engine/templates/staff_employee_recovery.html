@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Employee password recovery | Staff Manager</title>
+<style>*{box-sizing:border-box}body{margin:0;background:#07111f;color:#f5f8fc;font:16px/1.6 system-ui,sans-serif}main{max-width:520px;margin:auto;padding:24px 18px}section{padding:24px;background:#0d1c2d;border:1px solid #2a3b4e;border-radius:18px}h1{line-height:1.2}a{color:#8aeeb0}label{display:block;margin:16px 0 6px}input,button,.button{width:100%;font:inherit;padding:12px;border-radius:10px;border:1px solid #607087}input{background:#07111f;color:white}button,.button{display:block;margin-top:20px;background:#20c567;color:#062314;font-weight:700;text-align:center;text-decoration:none;cursor:pointer}button:disabled{opacity:.7;cursor:wait}.error{color:#ffb9c1}nav{margin-top:24px}:focus-visible{outline:3px solid #7dd3fc;outline-offset:3px}</style>
+<script defer src="{{ url_for('static',filename='staff_account.js') }}"></script></head><body><main>
+<p>TrimTech Staff Manager · Employee portal</p><section>
+<h1>{{ {'request':'Forgot your password?','sent':'Check your email','reset':'Choose a new password','success':'Password updated successfully','unavailable':'Need to sign in?'}[mode] }}</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if mode=='request' %}<p>Enter the email address and phone number your employer has on file. This is for employee access.</p>
+<form method="post" action="{{ url_for('staff.employee_recover',business_slug=business_slug) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="email">Email address</label><input id="email" name="email" type="email" required maxlength="254" autocomplete="email">
+<label for="phone">Phone number</label><input id="phone" name="phone" type="tel" required maxlength="100" autocomplete="tel">
+<button type="submit">Send reset email</button></form>
+{% elif mode=='reset' %}<p>Choose a new password for your employee portal.</p>
+<form method="post" action="{{ url_for('staff.employee_reset',business_slug=business_slug) }}" data-reset-form>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<details data-email-code><summary>Need help with your email link?</summary><p>Open your email link or paste the email code below.</p>
+<label for="token">Email code</label><input id="token" name="token" value="{{ request.form.get('token','')[:128] }}" required minlength="43" maxlength="43" autocomplete="off" autocapitalize="none" spellcheck="false"></details>
+<label for="password">New password</label><input id="password" name="password" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
+<p>Use 12 to 128 characters. A unique passphrase is a good choice.</p><button type="submit">Save new password</button></form>
+{% elif mode=='sent' %}<p role="status">If these details match an eligible employee account, a password reset email will be sent. Check your inbox and spam folder. If it does not arrive, try again later or ask your manager for help.</p>
+{% elif mode=='success' %}<p role="status">Your employee password has been updated. Sign in with your new password.</p>
+{% else %}<p>This reset link is no longer available. If you already updated your password, you can sign in. Otherwise, request a new reset email.</p>{% endif %}
+{% if mode in ['success','unavailable'] %}<a class="button" href="{{ url_for('staff.employee_login',business_slug=business_slug) }}">Sign in</a>{% endif %}
+{% if mode in ['sent','unavailable'] %}<p><a href="{{ url_for('staff.employee_recover',business_slug=business_slug) }}">Request a new reset email</a></p>{% endif %}
+</section><nav><a href="{{ url_for('staff.employee_login',business_slug=business_slug) }}">Back to employee sign in</a></nav>
+<p>If your employer has not set up password access yet, ask them for an invitation.</p></main></body></html>
