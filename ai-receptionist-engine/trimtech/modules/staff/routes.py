@@ -878,6 +878,7 @@ def _prevent_employee_page_caching(response):
 
 @staff_blueprint.route("/<business_slug>/employee/login", methods=["GET", "POST"])
 def employee_login(business_slug: str):
+    from trimtech.modules.staff import employee_identity
     business_id = _business_id(business_slug)
     error_message, phone_value, status_code = "", "", 200
     secure_portal=False
@@ -889,24 +890,20 @@ def employee_login(business_slug: str):
         else:
             raw_phone = request.form.get("phone", "").strip()
             payroll_number = request.form.get("payroll_number", "")
-            phone_value = raw_phone[:40]
-            phone = "".join(c for c in raw_phone if c.isdigit() or c == "+")
-            valid = (0 < len(raw_phone) <= 100 and 0 < len(phone) <= 40
-                     and any(c.isdigit() for c in phone) and 0 < len(payroll_number) <= 128)
-            allowed = accounts.limited('employee-login',business_id+':'+phone[:40],client_address(),str(current_app.secret_key)) if secure_portal else _employee_login_allowed(business_id, phone[:40])
+            phone_value = raw_phone[:254]
+            try:
+                kind, phone = employee_identity.identifier(raw_phone)
+                valid = 0 < len(raw_phone) <= 254 and 0 < len(payroll_number) <= 128
+            except ValueError:
+                kind, phone, valid = 'phone', '', False
+            allowed = accounts.limited('employee-login',business_id+':'+kind+':'+phone,client_address(),str(current_app.secret_key)) if secure_portal else _employee_login_allowed(business_id, kind+':'+phone)
             if not allowed:
                 error_message = "Too many login attempts. Please try again in 15 minutes."
                 status_code = 429
             else:
                 employee = None
                 if valid:
-                    employee = fetch_one("""SELECT id,payroll_number FROM staff_employees
-                        WHERE business_id=%s AND phone=%s AND status='active'""", (business_id, phone))
-                    if not employee:
-                        try: normalized_phone=joining.phone_number(phone)
-                        except ValueError: normalized_phone=phone
-                        if normalized_phone!=phone:
-                            employee=fetch_one("SELECT id,payroll_number FROM staff_employees WHERE business_id=%s AND phone=%s AND status='active'",(business_id,normalized_phone))
+                    employee = employee_identity.find(business_id, kind, phone)
                 stored = str((employee or {}).get("payroll_number") or "")
                 credential=employee_invitations.credential(business_id,employee['id']) if employee else None
                 matches = employee_invitations.matches(credential,payroll_number) if secure_portal or credential else bool(stored) and hmac.compare_digest(payroll_number.strip().encode("utf-8"), stored.encode("utf-8"))
@@ -919,7 +916,7 @@ def employee_login(business_slug: str):
                         "credential_version": credential['version'] if credential else None,
                     }
                     return _employee_redirect(business_slug)
-                error_message, status_code = "Phone number or password is incorrect." if secure_portal else "Phone number or payroll number is incorrect.", 401
+                error_message, status_code = "Email, phone number or password is incorrect." if secure_portal else "Email, phone number or sign-in details are incorrect.", 401
     except (*_DB_ERRORS, ProxyConfigurationError):
         error_message = "Employee login is temporarily unavailable. Please try again later."
         status_code = 503

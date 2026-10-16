@@ -73,11 +73,11 @@
             <form method="post" action="{{ url_for('staff.employee_login', business_slug=business_slug) }}"{% if error_message %} aria-describedby="login-error"{% endif %}>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="field">
-                    <label for="phone">Phone number</label>
-                    <input type="tel" id="phone" name="phone" value="{{ phone_value }}"
-                           autocomplete="username" inputmode="tel" maxlength="100"
+                    <label for="phone">Email address or phone number</label>
+                    <input type="text" id="phone" name="phone" value="{{ phone_value }}"
+                           autocomplete="username" maxlength="254" autocapitalize="none" spellcheck="false"
                            aria-describedby="phone-hint" required>
-                    <p class="hint" id="phone-hint">Use the number your manager has on file, including the country code if recorded.</p>
+                    <p class="hint" id="phone-hint">Use the email address or phone number your manager has on file.</p>
                 </div>
                 <div class="field">
                     <label for="payroll_number">{{ 'Password' if secure_portal else 'Password or payroll number' }}</label>

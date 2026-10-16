@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 
 from flask import session
 from test_staff_account_ui import preview_app
-from trimtech.modules.staff import accounts, employee_invitations, employee_recovery as recovery
+from trimtech.modules.staff import accounts, employee_invitations, employee_recovery as recovery, employee_identity
 from trimtech.modules.staff import routes as staff, onboarding_routes
 from trimtech.modules.staff.manager_auth import COOKIE
 
@@ -54,6 +54,22 @@ class EmployeeRecoveryServiceTests(unittest.TestCase):
                 recovery.issue('alpha', 'worker@example.test', ('07700000001',), BASE)
                 send.assert_not_called()
                 self.assertEqual(cursor.execute.call_count, 1)
+
+    def test_formatted_phone_is_normalized_in_the_database_predicate(self):
+        with mocked_database() as (cursor, _):
+            recovery.issue('alpha', 'worker@example.test', ('+44 7700 000001', '07700-000001'), BASE)
+        self.assertIn(employee_identity.PHONE_SQL, cursor.execute.call_args.args[0])
+        self.assertEqual(cursor.execute.call_args.args[1][2], ['07700000001'])
+
+    def test_dispatch_diagnostics_do_not_expose_identity_or_provider_details(self):
+        with mocked_database(many=[{'id': 7, 'email': 'worker@example.test', 'version': 'v1'}]), \
+                patch.object(recovery, 'send_staff_email', return_value=(False, TOKEN, None)), \
+                self.assertLogs(recovery.logger, level='WARNING') as logs:
+            recovery.issue('alpha', 'worker@example.test', ('07700000001',), BASE)
+        self.assertIn('stage=attempt', str(logs.output))
+        self.assertIn('reason=provider_rejected', str(logs.output))
+        self.assertNotIn(TOKEN, str(logs.output))
+        self.assertNotIn('worker@example.test', str(logs.output))
 
     def test_unsafe_public_url_does_not_access_database(self):
         for base in ('http://evil.test', 'https://user@evil.test', 'https://staff.test/path', 'https://staff.test?query=1'):
@@ -225,6 +241,7 @@ class EmployeeRecoveryRouteTests(unittest.TestCase):
             return {'id': 'alpha'}
         with patch.object(staff.onboarding, 'status', return_value={'state': 'active'}), \
                 patch.object(staff, 'fetch_one', side_effect=lookup), \
+                patch.object(employee_identity, 'find', return_value={'id': 7, 'payroll_number': 'legacy-number'}), \
                 patch.object(employee_invitations, 'credential', return_value={'password_hash': hashed, 'version': 'new'}):
             response = self.post('login', phone='07700000001', payroll_number=PASSWORD)
         self.assertEqual(response.status_code, 302)

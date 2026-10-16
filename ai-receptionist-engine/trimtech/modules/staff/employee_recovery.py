@@ -10,7 +10,7 @@ from urllib.parse import quote, urlsplit
 
 from psycopg2.extras import RealDictCursor
 from integrations.email_helper import send_staff_email
-from trimtech.modules.staff import accounts, agency
+from trimtech.modules.staff import accounts, agency, employee_identity
 from trimtech.modules.staff.database import transaction
 
 logger = logging.getLogger(__name__)
@@ -26,6 +26,7 @@ def token_digest(raw):
 def enqueue(business, email, phone, base):
     """Bound pending work; lookup and provider latency never reveal account existence."""
     if not _slots.acquire(blocking=False):
+        logger.warning('Employee recovery stopped: reason=queue_full')
         return
     try:
         _workers.submit(_deliver, business, email, phone, base)
@@ -37,9 +38,9 @@ def enqueue(business, email, phone, base):
 def _deliver(business, email, phone, base):
     try:
         issue(business, email, phone, base)
-    except Exception:
+    except Exception as error:
         # No exception text, identity, raw token or provider response in logs.
-        logger.warning('Employee recovery email could not be completed')
+        logger.warning('Employee recovery email could not be completed: category=%s', type(error).__name__)
     finally:
         _slots.release()
 
@@ -48,6 +49,7 @@ def issue(business, email, phone, base):
     parsed = urlsplit(base)
     if (parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password
             or parsed.path not in ('', '/') or parsed.query or parsed.fragment):
+        logger.warning('Employee recovery stopped: reason=public_url_configuration')
         return
     raw = secrets.token_urlsafe(32)
     with transaction() as connection:
@@ -57,9 +59,11 @@ def issue(business, email, phone, base):
                 JOIN sm_businesses b ON b.id=e.business_id AND b.active
                 JOIN so_employee_credentials c ON c.employee_id=e.id AND c.business_id=e.business_id
                 WHERE e.business_id=%s AND e.status='active' AND lower(btrim(e.email))=%s
-                AND e.phone=ANY(%s) LIMIT 2 FOR UPDATE OF e,c""", (business, email, list(phone)))
+                AND """ + employee_identity.PHONE_SQL + "=ANY(%s) LIMIT 2 FOR UPDATE OF e,c",
+                (business, email, sorted({employee_identity.phone(p) for p in phone})))
             employees = cursor.fetchall()
             if len(employees) != 1:
+                logger.warning('Employee recovery stopped: reason=%s', 'no_eligible_match' if not employees else 'ambiguous_match')
                 return
             employee = employees[0]
             # Bind the link to the current password, including changes via manager invitations.
@@ -70,14 +74,18 @@ def issue(business, email, phone, base):
                 (identifier, token_digest(raw), employee['id'], business, email))
     # Earlier links and the current password remain usable until a reset succeeds.
     link = base.rstrip('/') + '/staff/' + quote(business, safe='') + '/employee/reset#token=' + raw
-    sent, _, _ = send_staff_email(accounts.email_address(employee['email']), 'Reset your Staff Manager employee password',
+    logger.warning('Employee recovery dispatch: stage=attempt')
+    sent, reason, _ = send_staff_email(accounts.email_address(employee['email']), 'Reset your Staff Manager employee password',
         f'Reset your employee password: {link}\nThis link expires in one hour. Email code: {raw}\n'
         'If you did not request this, you can ignore this email.',
         f'<p><a href="{escape(link, quote=True)}">Reset your employee password</a></p>'
         '<p>This link expires in one hour. If you did not request it, you can ignore this email.</p>',
         identifier)
     if not sent:
-        logger.warning('Employee recovery email was not accepted')
+        safe_reason = reason if reason in ('email_not_configured','provider_http_401','provider_http_403','provider_http_422','provider_http_429','provider_request_failed','invalid_provider_response') else 'provider_rejected'
+        logger.warning('Employee recovery email was not accepted: reason=%s', safe_reason)
+    else:
+        logger.warning('Employee recovery dispatch: stage=accepted_by_provider')
 
 
 def consume(business, raw, password):

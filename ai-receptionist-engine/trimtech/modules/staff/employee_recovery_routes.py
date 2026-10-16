@@ -1,10 +1,13 @@
 """Tenant-scoped employee recovery; administrator identities are never modified."""
 import os
+import logging
 
 from flask import abort, current_app, redirect, render_template, request, session, url_for
 from trimtech.modules.staff import accounts, employee_recovery, joining
 from trimtech.modules.staff.manager_auth import ERRORS
 from trimtech.modules.staff.trusted_proxy import client_address
+
+logger = logging.getLogger(__name__)
 
 
 def register_routes(staff):
@@ -39,6 +42,8 @@ def register_routes(staff):
                     phones.update(('+44' + phone[1:], '0044' + phone[1:]))
                 employee_recovery.enqueue(business, email, tuple(sorted(phones)),
                     os.getenv('STAFF_PUBLIC_BASE_URL', '').strip() or os.getenv('RENDER_EXTERNAL_URL', '').strip())
+            else:
+                logger.warning('Employee recovery stopped: reason=%s', 'rate_limited' if not allowed else 'invalid_input')
         except ERRORS:
             return page(business_slug, 'request', 'Recovery is temporarily unavailable. Please try again.', 503)
         # Same navigation and acknowledgement for unknown, inactive, ambiguous and limited identities.

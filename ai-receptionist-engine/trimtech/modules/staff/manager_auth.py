@@ -1,5 +1,6 @@
 """Staff-only login and membership checks; shared dashboard sessions never authorize these routes."""
 import os
+import logging
 import secrets
 from functools import wraps
 
@@ -12,11 +13,16 @@ from trimtech.modules.staff.database import StaffDatabaseError, fetch_all
 
 COOKIE = '__Host-staff_admin'
 ERRORS = (StaffDatabaseError, PostgreSQLError, ProxyConfigurationError)
+logger = logging.getLogger(__name__)
 
 
 def identity():
     if not hasattr(g,'staff_administrator'):
-        g.staff_administrator = accounts.current(request.cookies.get(COOKIE))
+        raw = request.cookies.get(COOKIE)
+        g.staff_administrator = accounts.current(raw)
+        if g.staff_administrator is None:
+            reason = 'missing_cookie' if not raw else 'malformed_cookie' if len(raw) != 43 else 'server_session_unavailable'
+            logger.warning('Staff manager authentication unavailable: reason=%s', reason)
     return g.staff_administrator
 
 
