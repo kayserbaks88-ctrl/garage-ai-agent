@@ -114,7 +114,8 @@ class AccountTests(unittest.TestCase):
         for rule in self.app.url_map.iter_rules():
             view=self.app.view_functions[rule.endpoint]
             # Both Staff authentication decorators use this wrapper; employee decorators are distinct.
-            if '<business_slug>' not in rule.rule or '/employee/' in rule.rule or rule.rule.endswith('/employee'):
+            # Platform routes have a dedicated guard, covered by subscription management tests.
+            if rule.rule.startswith('/staff/platform/') or '<business_slug>' not in rule.rule or '/employee/' in rule.rule or rule.rule.endswith('/employee'):
                 continue
             self.assertTrue(view.__code__.co_filename.endswith('manager_auth.py'),rule.rule)
             if getattr(view,'__code__',None) is None:

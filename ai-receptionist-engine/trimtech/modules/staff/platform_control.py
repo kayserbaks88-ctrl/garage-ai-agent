@@ -1,14 +1,36 @@
 """Platform-only aggregate directory over existing Staff records; no tenant impersonation."""
 import logging
 import hashlib
-from flask import abort, render_template, request, session
+import os
+import hmac
+from functools import wraps
+from flask import abort, render_template, request, session, redirect, url_for, flash
 from psycopg2.extras import RealDictCursor
-from trimtech.modules.auth.routes import platform_admin_required
+from trimtech.modules.auth.routes import platform_admin_required as shared_platform_required
 from trimtech.modules.staff.database import transaction
 from trimtech.modules.staff import migrations, accounts_migration, onboarding_migration, billing_migration
 
 logger = logging.getLogger(__name__)
 STATUSES = {'all','active_trial','expired_trial','pending_trial','paid','inactive','legacy'}
+
+def authorized():
+    # Dedicated credentials are mandatory: shared dashboard fallback is not Staff authority.
+    username = os.getenv('PLATFORM_ADMIN_USERNAME', '').strip()
+    return bool(username and os.getenv('PLATFORM_ADMIN_PASSWORD', '')
+        and session.get('platform_admin_authenticated') is True
+        and session.get('auth_role') == 'platform_admin'
+        and hmac.compare_digest(str(session.get('platform_admin_username', '')), username))
+
+
+def platform_admin_required(function):
+    @wraps(function)
+    @shared_platform_required
+    def protected(*args, **kwargs):
+        if not authorized():
+            abort(403, description='Dedicated TrimTech platform administrator access is required.')
+        return function(*args, **kwargs)
+    return protected
+
 
 def directory(query='', status='all'):
     if status not in STATUSES:
@@ -28,7 +50,7 @@ def directory(query='', status='all'):
                      WHEN sub.status='active' AND sub.paid_until>NOW() THEN 'paid'
                      WHEN t.business_id IS NULL THEN 'legacy'
                      WHEN t.starts_at IS NULL THEN 'pending_trial'
-                     WHEN t.ends_at<=NOW() THEN 'expired_trial' ELSE 'active_trial' END AS state
+                     WHEN t.ends_at<=NOW() OR EXISTS(SELECT 1 FROM staff_audit a WHERE a.business_id=b.id AND a.entity_type='subscription_management' AND a.action='end_trial') THEN 'expired_trial' ELSE 'active_trial' END AS state
                 FROM sm_businesses b LEFT JOIN so_trials t ON t.business_id=b.id
                 LEFT JOIN so_setup s ON s.business_id=b.id
                 LEFT JOIN (SELECT business_id,COUNT(*) FILTER(WHERE status='active') AS employees
@@ -63,4 +85,32 @@ def register_routes(staff):
         # Read-only directory: no impersonation, mutation controls or payroll data.
         actor=hashlib.sha256(str(session.get('platform_admin_username','authenticated-platform-admin')).encode()).hexdigest()
         logger.info('Staff platform directory viewed: actor_hash=%s',actor)
-        return render_template('staff_platform.html',**data,q=query,status_filter=status)
+        return render_template('staff_platform.html',**data,q=query,status_filter=status,csrf_token=staff._get_csrf_token)
+
+    @staff.staff_blueprint.get('/platform/businesses/<business_slug>/subscription')
+    @platform_admin_required
+    def platform_subscription(business_slug):
+        from trimtech.modules.staff import subscription_management as management, billing, onboarding
+        try:
+            business = management.business(business_slug)
+            if not business:
+                abort(404)
+            return render_template('staff_subscription_admin.html', business=business,
+                billing=billing.summary(business_slug), trial=onboarding.status(business_slug),
+                history=management.history(business_slug), csrf_token=staff._get_csrf_token)
+        except staff._DB_ERRORS:
+            abort(503)
+
+    @staff.staff_blueprint.post('/platform/businesses/<business_slug>/subscription')
+    @platform_admin_required
+    def platform_subscription_action(business_slug):
+        from trimtech.modules.staff import subscription_management as management
+        try:
+            management.change(business_slug, 'platform:'+session['platform_admin_username'],
+                request.form.get('action'), request.form, platform=True)
+            flash('Administrative action recorded. Billing cancellation is not confirmed by this action.', 'success')
+        except ValueError as error:
+            flash(str(error), 'error')
+        except staff._DB_ERRORS:
+            abort(503)
+        return redirect(url_for('staff.platform_subscription',business_slug=business_slug))

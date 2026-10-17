@@ -81,8 +81,7 @@ def register_routes(staff):
 
     @bp.after_request
     def account_headers(response):
-        if request.path in ('/staff/account/reset', '/staff/account/reset/success', '/staff/account/recover'):
-            response.headers['Cache-Control']='no-store'
+        response.headers['Cache-Control']='no-store'
         response.headers['Referrer-Policy']='no-referrer'
         response.headers['X-Content-Type-Options']='nosniff'
         response.headers['X-Frame-Options']='DENY'
@@ -116,6 +115,8 @@ def register_routes(staff):
             if not raw:
                 return page('login',error='Unable to sign in. Check your details and verify your email.',code=401)
             accounts.revoke(request.cookies.get(COOKIE))
+            for key in ('platform_admin_authenticated','platform_admin_username','auth_role','platform_login_time'):
+                session.pop(key,None)
             session['_staff_csrf_token']=secrets.token_urlsafe(32)
             response=redirect(url_for('staff.account_home'))
             response.set_cookie(COOKIE,raw,max_age=8*60*60,secure=True,httponly=True,samesite='Lax',path='/')
@@ -144,7 +145,8 @@ def register_routes(staff):
                 return redirect(url_for('staff.account_login'))
             businesses=fetch_all("""SELECT b.id,b.name FROM sm_businesses b JOIN sm_memberships m ON m.business_id=b.id
                 WHERE m.administrator_id=%s AND m.active AND b.active ORDER BY b.name""",(administrator['id'],))
-            return page('home',businesses=businesses)
+            from trimtech.modules.staff.platform_control import authorized
+            return page('home',businesses=businesses,staff_platform_authorized=authorized())
         except ERRORS:
             return page('closed',error='Staff Manager access is temporarily unavailable.',code=503)
 

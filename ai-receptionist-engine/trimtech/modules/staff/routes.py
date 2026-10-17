@@ -838,7 +838,7 @@ def _current_employee(business_slug: str) -> dict[str, Any] | None:
         session.pop(_EMPLOYEE_SESSION_KEY, None)
         return None
     credential=employee_invitations.credential(business_id,employee_id)
-    if credential and not fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND active',(business_id,)):
+    if fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND NOT active',(business_id,)) or (credential and not fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND active',(business_id,))):
         session.pop(_EMPLOYEE_SESSION_KEY,None)
         return None
     if (credential and auth.get('credential_version')!=credential['version']) or (not credential and onboarding.status(business_id)['state']!='legacy'):
@@ -907,7 +907,7 @@ def employee_login(business_slug: str):
                 stored = str((employee or {}).get("payroll_number") or "")
                 credential=employee_invitations.credential(business_id,employee['id']) if employee else None
                 matches = employee_invitations.matches(credential,payroll_number) if secure_portal or credential else bool(stored) and hmac.compare_digest(payroll_number.strip().encode("utf-8"), stored.encode("utf-8"))
-                if credential and not fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND active',(business_id,)):
+                if fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND NOT active',(business_id,)) or (credential and not fetch_one('SELECT id FROM sm_businesses WHERE id=%s AND active',(business_id,))):
                     matches = False
                 if employee and valid and matches:
                     session[_EMPLOYEE_SESSION_KEY] = {

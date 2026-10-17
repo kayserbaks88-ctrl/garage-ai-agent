@@ -25,9 +25,12 @@ class PlatformPolishTests(unittest.TestCase):
         fixture.AgencyDatabaseTests.setUp(self)
         from trimtech.modules.auth.routes import auth_blueprint
         self.app.register_blueprint(auth_blueprint)
+        env=patch.dict(os.environ,PLATFORM_ADMIN_USERNAME='local-platform-reviewer',PLATFORM_ADMIN_PASSWORD='test-only')
+        env.start();self.addCleanup(env.stop)
         self.platform=self.client()
         with self.platform.session_transaction() as session:
             session['platform_admin_authenticated']=True
+            session['auth_role']='platform_admin'
             session['platform_admin_username']='local-platform-reviewer'
 
     def test_platform_directory_includes_unrelated_self_service_business(self):

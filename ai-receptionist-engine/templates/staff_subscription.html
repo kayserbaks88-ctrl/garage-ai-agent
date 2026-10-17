@@ -1,12 +1,16 @@
 {% extends 'staff_base.html' %}
-{% block title %}Staff Manager subscription{% endblock %}
+{% block title %}Subscription &amp; Billing{% endblock %}
 {% block content %}
-<section class="card body"><h1>Your Staff Manager subscription</h1>
+<section class="card body"><h1>Subscription &amp; Billing</h1>
+<p>Settings / Subscription &amp; Billing</p>
+<p>Free trial: {{ trial_status.state|title }}. Trial expiry: {{ stamp(trial_status.ends_at) if trial_status.ends_at else "Not started / not applicable" }}.</p>
 <p>Subscription payments are for TrimTech Staff Manager software, supplied by <strong>TrimTech AI LTD</strong>. Employee wages and client invoice payments are not collected here.</p>
+{% if trial_status.state=='expired' and history %}<p>If your trial was ended early, its original expiry above is retained for audit. Access ended immediately when the trial-ending action was recorded.</p>{% endif %}
 {% if trial.state=='active' %}<p>You have {{ trial.days }} days left in your card-free trial. You will not be charged automatically when it ends.</p>{% elif trial.state=='expired' %}<p>Your trial or paid access has ended. Your records and payslips remain available to view. Subscribe or resolve your payment to resume changes.</p>{% elif trial.state=='paid' %}<p>Your paid subscription currently provides access.</p>{% elif trial.state=='legacy' %}<p>Your existing access remains unchanged unless you choose to subscribe.</p>{% else %}<p>Verify your business account before subscribing.</p>{% endif %}
 {% if request.args.get('checkout')=='returned' %}<p role="status">You have returned from Stripe. This return does not confirm payment. Review the status below or refresh it securely.</p>{% elif request.args.get('checkout')=='cancelled' %}<p role="status">You have returned without a payment confirmation. You can resume an open checkout below. Your original trial end date is unchanged.</p>{% endif %}
 {% if error %}<p class="alert" role="status">{{ error }}</p>{% endif %}
 {% for subscription in billing.subscriptions %}<article class="item"><h2>{{ {'active':'Active','past_due':'Payment overdue','unpaid':'Payment failed','canceled':'Cancelled','incomplete':'Payment incomplete','incomplete_expired':'Payment expired','trialing':'Awaiting payment','paused':'Paused','invalid':'Needs billing review'}.get(subscription.status,'Needs review') }}</h2>
+<p>Last provider verification: {{ stamp(subscription.verified_at) }}. Displayed billing records may be out of date while online billing is unavailable.</p>
 {% if subscription.cancel_at_period_end %}<p>Cancellation is scheduled. Access continues until the verified paid period ends.</p>{% endif %}
 {% if subscription.paid_until %}<p>Verified paid period ends: {{ stamp(subscription.paid_until) }}.</p>{% endif %}
 {% if subscription.status in ['past_due','unpaid','incomplete'] %}<p>Your payment needs attention. Open billing management to review your payment method. Changes require a valid trial or confirmed paid access.</p>{% endif %}
@@ -18,4 +22,11 @@
 <form method="post" action="{{ url_for('staff.billing_checkout',business_slug=business_slug) }}">{{ csrf() }}<p><label><input type="checkbox" name="subscription_consent" value="yes" required> I understand this is a recurring Staff Manager software subscription and want to continue to Stripe Checkout.</label></p><button class="primary">{{ 'Resume secure Checkout' if billing.pending else 'Continue to secure Checkout' }}</button></form>
 <p>Already subscribed? Use billing management above. We will check for an existing subscription before creating a new checkout.</p></section>{% endif %}
 <p><a class="button" href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">Back to Staff Manager</a></p>
+<section class="card body"><h2>End a trial or request cancellation</h2>
+<p>Ending a card-free trial takes effect immediately and keeps your records available to view. It does not cancel a paid subscription. Paid cancellation through billing management takes effect at the end of the billing period after Stripe confirms it. A cancellation request alone does not stop billing.</p>
+<p>Deactivating a business blocks Staff access and retains records. Contact TrimTech for this separate administrative action; deactivation does not cancel billing.</p>
+{% if trial_status.state=='active' or billing.ongoing %}<form method="post" action="{{ url_for('staff.subscription_request',business_slug=business_slug) }}">{{ csrf() }}
+<label>Action<select name="action">{% if trial_status.state=='active' %}<option value="end_trial">End free trial immediately</option>{% endif %}{% if billing.ongoing %}<option value="request_cancellation">Request paid subscription cancellation</option>{% endif %}</select></label>
+<label>Reason<textarea name="reason" required maxlength="1000"></textarea></label><label>Type business ID {{ business_slug }} to confirm<input name="confirmation" required></label><button>Submit request / end trial</button></form>{% else %}<p>No active free trial or ongoing subscription record is available to cancel.</p>{% endif %}
+<h2>Request history</h2>{% for item in history %}<p>#{{ item.id }} | {{ item.action|replace('_',' ') }} | {{ stamp(item.created_at) }} | {{ item.new_values.get('status','')|replace('_',' ') }}</p>{% else %}<p>No requests recorded.</p>{% endfor %}</section>
 {% endblock %}

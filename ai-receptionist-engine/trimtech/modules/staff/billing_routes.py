@@ -4,7 +4,7 @@ import logging
 import stripe
 from flask import abort, flash, g, jsonify, redirect, render_template, request, url_for
 
-from trimtech.modules.staff import accounts, billing
+from trimtech.modules.staff import accounts, billing, onboarding, subscription_management as management
 from trimtech.modules.staff.manager_auth import billing_owner_required, ERRORS
 from trimtech.modules.staff.stripe_gateway import BillingUnavailable, Gateway, configuration, verified_event
 from trimtech.modules.staff.trusted_proxy import client_address
@@ -33,7 +33,21 @@ def register_routes(staff):
         except stripe.StripeError:
             error = 'Stripe is temporarily unavailable. Your subscription has not been changed.'
         return render_template('staff_subscription.html',business_slug=business_slug,trial=g.staff_trial,
-            billing=state,plan=plan,error=error,csrf_token=staff._get_csrf_token)
+            billing=state,plan=plan,error=error,trial_status=onboarding.status(business_slug),
+            history=management.history(business_slug),csrf_token=staff._get_csrf_token)
+
+    @bp.post('/<business_slug>/subscription/request')
+    @billing_owner_required
+    def subscription_request(business_slug):
+        try:
+            management.change(business_slug,g.staff_administrator['id'],request.form.get('action'),request.form)
+            flash('Free trial ended immediately. Business records are retained.' if request.form.get('action')=='end_trial'
+                  else 'Cancellation request recorded. Your paid subscription has NOT been cancelled; provider confirmation is still required.', 'success')
+        except ValueError as error:
+            flash(str(error),'error')
+        except ERRORS:
+            abort(503,description='Could not record this request. Please retry.')
+        return redirect(url_for('staff.subscription',business_slug=business_slug))
 
     def action(business_slug, kind):
         try:

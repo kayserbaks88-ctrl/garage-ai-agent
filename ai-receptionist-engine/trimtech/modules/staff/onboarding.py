@@ -25,9 +25,11 @@ def activate(cursor,administrator_id):
 
 def status(business_id):
     row=fetch_one("""SELECT starts_at,ends_at,
-        CASE WHEN starts_at IS NULL THEN 'pending' WHEN NOW()>=ends_at THEN 'expired' ELSE 'active' END AS state,
+        CASE WHEN EXISTS(SELECT 1 FROM staff_audit WHERE business_id=so_trials.business_id AND entity_type='subscription_management' AND action='end_trial') THEN 'expired' WHEN starts_at IS NULL THEN 'pending' WHEN NOW()>=ends_at THEN 'expired' ELSE 'active' END AS state,
         CASE WHEN ends_at>NOW() THEN CEIL(EXTRACT(EPOCH FROM ends_at-NOW())/86400)::integer ELSE 0 END AS days
         FROM so_trials WHERE business_id=%s""",(business_id,))
+    if row and row['state']=='expired':
+        row['days']=0
     return row or dict(state='legacy',days=None,starts_at=None,ends_at=None)
 
 

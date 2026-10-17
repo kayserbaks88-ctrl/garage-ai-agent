@@ -30,10 +30,10 @@ def entitlement(business_id):
 
 
 def summary(business_id):
-    rows = fetch_all('SELECT status,cancel_at_period_end,period_end,paid_until,invoice_status FROM sb_subscriptions WHERE business_id=%s ORDER BY verified_at DESC,id', (business_id,))
+    rows = fetch_all('SELECT status,cancel_at_period_end,period_end,paid_until,invoice_status,verified_at FROM sb_subscriptions WHERE business_id=%s ORDER BY verified_at DESC,id', (business_id,))
     customer = fetch_one('SELECT customer_id IS NOT NULL AS present FROM sb_accounts WHERE business_id=%s', (business_id,))
     pending = fetch_one("SELECT status FROM sb_checkouts WHERE business_id=%s AND status IN ('creating','open')", (business_id,))
-    return dict(subscriptions=rows, customer=bool(customer and customer['present']), pending=pending,
+    return dict(subscriptions=rows, ongoing=any(row['status'] not in TERMINAL for row in rows), customer=bool(customer and customer['present']), pending=pending,
                 **entitlement(business_id))
 
 
@@ -162,6 +162,15 @@ def _lock(cursor, business_id, config):
     return account
 
 
+def _checkout_business_lock(cursor, business_id):
+    # Serialize Checkout creation against administrative deactivation. Pending
+    # checkout intent is committed before releasing this shared business lock.
+    cursor.execute('SELECT active FROM sm_businesses WHERE id=%s FOR SHARE',(business_id,))
+    business = cursor.fetchone()
+    if not business or not business['active']:
+        raise BillingUnavailable('This business is inactive. Checkout is unavailable.')
+
+
 def checkout(business_id, administrator_id):
     config = configuration()
     gateway = Gateway(config)
@@ -170,6 +179,7 @@ def checkout(business_id, administrator_id):
     _prepare_account(business_id,administrator_id,config)
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            _checkout_business_lock(cursor,business_id)
             account = _lock(cursor,business_id,config)
             if not account['customer_id']:
                 if (datetime.now(timezone.utc)-account['customer_requested_at']).total_seconds() > 23*3600:
@@ -196,6 +206,7 @@ def checkout(business_id, administrator_id):
     # Intent is committed before the Checkout API call. The same attempt is reused on retries.
     with transaction() as connection:
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            _checkout_business_lock(cursor,business_id)
             account = _lock(cursor,business_id,config)
             cursor.execute('SELECT * FROM sb_checkouts WHERE id=%s', (attempt['id'],))
             attempt = cursor.fetchone()
