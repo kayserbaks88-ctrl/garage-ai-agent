@@ -30,9 +30,10 @@ class Tags(HTMLParser):
 
 class StaffMarketingTests(unittest.TestCase):
     def setUp(self):
-        self.html = (BASE / 'landing.html').read_text(encoding='utf-8')
-        self.tags = Tags(self.html).tags
         self.client = marketing.app.test_client()
+        with self.client.get('/') as response:
+            self.html = response.get_data(as_text=True)
+        self.tags = Tags(self.html).tags
 
     def test_trial_links_use_exact_registration_url(self):
         trial = re.findall(r'<a\b[^>]*href="([^"]+)"[^>]*>Start your 14-day free trial</a>', self.html)
@@ -94,14 +95,54 @@ class StaffMarketingTests(unittest.TestCase):
 
     def test_public_pages_do_not_contact_delivery_providers(self):
         with patch.object(marketing, 'urlopen', side_effect=AssertionError('Unexpected network call')):
-            for route in ('/', '/demo', '/health'):
+            for route in ('/', '/staff-manager', '/demo', '/health'):
                 with self.subTest(route=route):
                     with self.client.get(route) as response:
                         self.assertEqual(response.status_code, 200)
 
-    def test_marketing_route_inventory_unchanged(self):
+    def test_marketing_route_inventory_contains_only_expected_pages(self):
         self.assertEqual({rule.rule for rule in marketing.app.url_map.iter_rules()},
-                         {'/', '/demo', '/health', '/static/<path:filename>'})
+                         {'/', '/staff-manager', '/demo', '/health', '/static/<path:filename>'})
+
+    def test_staff_manager_opens_directly_with_its_own_metadata(self):
+        with self.client.get('/staff-manager') as response:
+            self.assertEqual(response.status_code, 200)
+            self.assertNotIn('Location', response.headers)
+            html = response.get_data(as_text=True)
+        self.assertIn('<title>Staff Manager | GPS Clock-in, Rotas &amp; Payroll | TrimTech AI</title>', html)
+        self.assertIn('id="staff-manager"', html)
+        self.assertIn('<h1 id="staff-title">', html)
+        self.assertNotIn('id="garage-ai"', html)
+        self.assertNotIn('id="paychaser"', html)
+        self.assertNotIn('{%', html)
+        self.assertNotIn('{{', html)
+
+    def test_staff_manager_reuses_the_exact_homepage_product_section(self):
+        with self.client.get('/staff-manager') as response:
+            html = response.get_data(as_text=True)
+        pattern = r'<section id="staff-manager"[\s\S]*?</section>'
+        # Only heading semantics differ: primary page heading vs homepage section.
+        dedicated = re.search(pattern, html).group().replace('<h1 ', '<h2 ').replace('</h1>', '</h2>')
+        self.assertEqual(dedicated, re.search(pattern, self.html).group())
+
+    def test_all_dedicated_page_trial_buttons_use_the_registration_url(self):
+        with self.client.get('/staff-manager') as response:
+            html = response.get_data(as_text=True)
+        trial = re.findall(r'<a\b[^>]*href="([^"]+)"[^>]*>Start your 14-day free trial</a>', html)
+        self.assertEqual(len(trial), 3)
+        self.assertEqual(set(trial), {TRIAL})
+
+    def test_both_pages_link_to_staff_manager_and_homepage_navigation(self):
+        for route in ('/', '/staff-manager'):
+            with self.subTest(route=route), self.client.get(route) as response:
+                tags = Tags(response.get_data(as_text=True)).tags
+                links = {attrs.get('href') for tag, attrs in tags if tag == 'a'}
+                self.assertIn('/staff-manager', links)
+                self.assertIn('/#garage-ai', links)
+                self.assertIn('/#paychaser', links)
+                for link in links:
+                    if link and link.startswith('/#'):
+                        self.assertIn(f'id="{link[2:]}"', self.html)
 
 
 if __name__ == '__main__':

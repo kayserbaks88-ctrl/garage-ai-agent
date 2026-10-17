@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from flask import Flask, request, send_from_directory, render_template_string
+from flask import Flask, request, send_from_directory, render_template_string, render_template
 
 if __package__:
     from . import demo_security
@@ -25,7 +25,7 @@ RESEND_API_URL = "https://api.resend.com/emails"
 TWILIO_MESSAGES_URL = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}/Messages.json"
 
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder=str(BASE_DIR))
 # Consistent responsive photo MIME type on Windows and Linux.
 mimetypes.add_type("image/webp", ".webp")
 
@@ -396,7 +396,12 @@ def send_whatsapp_demo_confirmation(lead: dict[str, str]) -> tuple[bool, str]:
 
 @app.get("/")
 def landing_page():
-    return send_from_directory(BASE_DIR, "landing.html")
+    return render_template("landing.html")
+
+
+@app.get("/staff-manager")
+def staff_manager_page():
+    return render_template("staff_manager.html")
 
 
 @app.route("/demo", methods=["GET", "POST"])

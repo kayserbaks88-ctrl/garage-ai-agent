@@ -1,0 +1,23 @@
+{% extends "landing.html" %}
+{% block page_title %}Staff Manager | GPS Clock-in, Rotas &amp; Payroll | TrimTech AI{% endblock %}
+{% block page_description %}Manage GPS clock-in, rotas, shift approvals, leave, employee portals, wage calculations and payslips with TrimTech Staff Manager. Start your 14-day free trial.{% endblock %}
+{% block main %}
+<main id="top">
+  {% set staff_heading = "h1" %}
+  {% include "staff_manager_content.html" %}
+  <section aria-labelledby="staff-trial-title">
+    <div class="container">
+      <div class="cta-panel">
+        <span class="eyebrow">TrimTech Staff Manager</span>
+        <h2 id="staff-trial-title">Give your team's working day a clearer plan.</h2>
+        <p>Try Staff Manager for 14 days. No card required and no automatic charge when your trial ends.</p>
+        <div class="cta-actions">
+          <a class="btn btn-primary" href="https://garage-voice.onrender.com/staff/account/register">Start your 14-day free trial</a>
+          <a class="btn btn-secondary" href="/">Explore all TrimTech products</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}
+{% block mobile_cta %}<a class="mobile-cta" href="https://garage-voice.onrender.com/staff/account/register">Start your 14-day free trial</a>{% endblock %}
