@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import json
+import mimetypes
 import os
 import re
 from html import escape
@@ -25,6 +26,8 @@ TWILIO_MESSAGES_URL = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}/
 
 
 app = Flask(__name__)
+# Consistent responsive photo MIME type on Windows and Linux.
+mimetypes.add_type("image/webp", ".webp")
 
 
 def clean_text(value: str | None, max_length: int = 500) -> str:

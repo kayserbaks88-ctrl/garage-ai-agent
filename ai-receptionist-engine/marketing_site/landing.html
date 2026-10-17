@@ -12,9 +12,9 @@
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="TrimTech AI gives garages an AI receptionist that answers calls, checks vehicle details, books appointments and sends reminders—24/7. Also discover TrimTech PayChaser for AI invoice chasing and secure payments.">
+  <meta name="description" content="Discover TrimTech Garage Voice for calls and bookings, PayChaser for invoice follow-ups and secure payments, and Staff Manager for GPS clock-in, rotas, approvals, payroll and payslips.">
   <meta name="theme-color" content="#07111f">
-  <title>TrimTech AI | AI Receptionist for Garages</title>
+  <title>TrimTech AI | Garage Voice, PayChaser &amp; Staff Manager</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -109,7 +109,7 @@
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 27px;
+      gap: 18px;
       color: #bed0df;
       font-size: 14px;
       font-weight: 600;
@@ -430,8 +430,51 @@
 
     .product-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 20px;
+    }
+
+    #staff-manager { scroll-margin-top: 88px; }
+    .staff-intro { max-width: 820px; }
+    .staff-intro h2 {
+      margin: 18px 0;
+      font-family: "Manrope", sans-serif;
+      font-size: clamp(34px, 5vw, 52px);
+      line-height: 1.08;
+      letter-spacing: -.045em;
+    }
+    .staff-intro > p { color: #9fb2c4; font-size: 17px; line-height: 1.72; }
+    .staff-features { margin: 32px 0; }
+    .staff-feature-number { display: block; margin-bottom: 16px; color: var(--brand-light); font-weight: 800; }
+    .staff-note { margin: 14px 0 0; color: var(--muted); font-size: 13px; }
+    .staff-overview { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
+    .staff-photo { margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--panel); }
+    .staff-photo picture, .staff-photo img { display: block; width: 100%; }
+    .staff-photo img { height: auto; aspect-ratio: 8 / 5; object-fit: cover; }
+    .staff-photo figcaption { padding: 22px; }
+    .staff-photo h3 { margin-bottom: 8px; font-size: 21px; line-height: 1.25; }
+    .staff-photo p { margin: 0; color: var(--muted); font-size: 14px; }
+    .staff-photo-label { display: block; margin-bottom: 9px; color: var(--brand-light); font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+    .staff-stories { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; margin: 32px 0 14px; }
+    #staff-manager .staff-features { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    .staff-photo-credits { color: var(--muted); font-size: 12px; margin: 14px 0 28px; }
+    .staff-photo-credits summary { cursor: pointer; padding: 8px 0; }
+    .staff-photo-credits a { text-decoration: underline; text-underline-offset: 3px; }
+    .staff-photo-credits ul { padding-left: 20px; }
+    .staff-photo-note { color: var(--muted); font-size: 12px; }
+    @media (max-width: 960px) {
+      .staff-overview { grid-template-columns: 1fr; gap: 28px; }
+      #staff-manager .staff-features { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 680px) {
+      .staff-stories, #staff-manager .staff-features { grid-template-columns: 1fr; }
+      .staff-photo figcaption { padding: 20px; }
+      .staff-stories { gap: 20px; }
+    }
+    a:focus-visible, summary:focus-visible { outline: 3px solid var(--brand-light); outline-offset: 5px; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .btn { transition: none; }
     }
 
     .product-card,
@@ -938,7 +981,7 @@
       .video-proof { grid-template-columns: 1fr; }
       .product-showcase.reverse .product-copy,
       .product-showcase.reverse .visual-panel { order: initial; }
-      .hero-visual { max-width: 620px; margin: 12px auto 0; }
+      .hero-visual { width: 100%; max-width: 620px; margin: 12px auto 0; }
       .product-grid { grid-template-columns: 1fr; }
       .features-grid { grid-template-columns: repeat(2, 1fr); }
       .proof-strip { grid-template-columns: repeat(2, 1fr); }
@@ -961,6 +1004,7 @@
       .cta-actions .btn { width: 100%; }
       .hero-visual { min-height: 525px; margin-top: 30px; }
       .hero-console { width: 100%; }
+      .console-head { flex-wrap: wrap; }
       .floating-card { left: -3px; bottom: 0; width: 205px; }
       .flow-item { grid-template-columns: 36px 1fr; }
       .flow-item .status-pill { grid-column: 2; justify-self: start; }
@@ -1006,6 +1050,7 @@
         <a href="#products">Products</a>
         <a href="#paychaser">PayChaser</a>
         <a href="#garage-ai">Garage AI</a>
+        <a href="#staff-manager">Staff Manager</a>
         <a href="#demos">Demos</a>
         <a href="#faq">FAQ</a>
       </div>
@@ -1031,9 +1076,12 @@
               TrimTech AI answers customer calls, checks vehicle details, books jobs into your calendar, manages customer information and sends appointment reminders—so your team can stay focused on the workshop.
             </p>
 
+            <p>Meet the wider TrimTech family: Garage Voice handles calls and bookings, PayChaser helps you follow up invoices, and Staff Manager keeps your team's hours, rotas and payroll organised.</p>
+
             <div class="hero-actions">
               <a class="btn btn-primary" href="/demo">See TrimTech AI in action →</a>
               <a class="btn btn-secondary" href="#demos">Explore live demos</a>
+              <a class="btn btn-secondary" href="#staff-manager">Discover Staff Manager</a>
             </div>
 
             <div class="hero-note" aria-label="Key benefits">
@@ -1102,14 +1150,14 @@
       <div class="container">
         <div class="section-head center">
           <span class="eyebrow">One TrimTech AI platform</span>
-          <h2>Two products built around real business problems.</h2>
-          <p>Choose the workflow your business needs today, with the same clear dashboards and connected automation behind both products.</p>
+          <h2>Three products. More time for your business.</h2>
+          <p>Manage calls with Garage Voice, follow up invoices with PayChaser, and bring your team's working day together with Staff Manager. Choose the product your business needs.</p>
         </div>
 
         <div class="product-grid">
           <article class="product-card">
             <div class="product-icon">🎙</div>
-            <h3>TrimTech Garage AI</h3>
+            <h3>TrimTech Garage Voice</h3>
             <p>An AI receptionist for independent garages that answers calls and turns enquiries into organised bookings.</p>
             <ul class="product-list">
               <li>24/7 natural call handling</li>
@@ -1118,7 +1166,7 @@
               <li>Customer records and reminders</li>
             </ul>
             <div class="product-actions">
-              <a class="btn btn-secondary" href="#garage-ai">Explore Garage AI</a>
+              <a class="btn btn-secondary" href="#garage-ai">Explore Garage Voice</a>
             </div>
           </article>
 
@@ -1136,7 +1184,82 @@
               <a class="btn btn-primary" href="#paychaser">Explore PayChaser →</a>
             </div>
           </article>
+          <article class="product-card staff-manager">
+            <div class="product-icon" aria-hidden="true">S</div>
+            <h3>TrimTech Staff Manager</h3>
+            <p>Bring your team's attendance, shift planning and pay information together in one place.</p>
+            <ul class="product-list">
+              <li>GPS clock-in and attendance</li>
+              <li>Rotas and shift approvals</li>
+              <li>Payroll calculations and payslips</li>
+              <li>Email notifications</li>
+            </ul>
+            <div class="product-actions">
+              <a class="btn btn-primary" href="https://garage-voice.onrender.com/staff/account/register">Start your 14-day free trial</a>
+              <a class="btn btn-secondary" href="#staff-manager">Explore Staff Manager</a>
+            </div>
+          </article>
         </div>
+      </div>
+    </section>
+
+    <section id="staff-manager" class="product-section" aria-labelledby="staff-title">
+      <div class="container">
+        <div class="staff-overview">
+        <div class="staff-intro">
+          <span class="eyebrow"><span class="dot"></span> TrimTech Staff Manager</span>
+          <h2 id="staff-title">From the first clock-in to the final payslip.</h2>
+          <p>Bring GPS clock-in, rotas, shift approvals and leave management into one place. Give employees their own portal and managers a clearer route from recorded hours to wage calculations and payslips.</p>
+          <div class="product-actions">
+            <a class="btn btn-primary" href="https://garage-voice.onrender.com/staff/account/register">Start your 14-day free trial</a>
+          </div>
+          <p class="staff-note">No card required. No automatic charge when your free trial ends.</p>
+        </div>
+        <figure class="staff-photo">
+          <picture>
+            <source type="image/webp" srcset="/static/staff-manager/mobile-clock-in-320.webp 320w, /static/staff-manager/mobile-clock-in-640.webp 640w, /static/staff-manager/mobile-clock-in-960.webp 960w, /static/staff-manager/mobile-clock-in-1440.webp 1440w" sizes="(max-width: 960px) calc(100vw - 32px), (max-width: 1240px) calc((100vw - 72px) / 2), 570px">
+            <img src="/static/staff-manager/mobile-clock-in-960.jpg" width="960" height="600" loading="lazy" decoding="async" alt="A worker in navy and green workwear holding a mobile phone outside a work site.">
+          </picture>
+          <figcaption><span class="staff-photo-label">ATTENDANCE / ON THE GO</span><h3>A working day that starts on your phone.</h3><p>Staff Manager records clock-in and clock-out with GPS evidence for managers to review.</p></figcaption>
+        </figure>
+        </div>
+        <div class="staff-stories" aria-label="Staff Manager workplace photography">
+          <figure class="staff-photo">
+            <picture>
+              <source type="image/webp" srcset="/static/staff-manager/shift-planning-320.webp 320w, /static/staff-manager/shift-planning-640.webp 640w, /static/staff-manager/shift-planning-960.webp 960w, /static/staff-manager/shift-planning-1440.webp 1440w" sizes="(max-width: 680px) calc(100vw - 24px), (max-width: 1240px) calc((100vw - 56px) / 2), 578px">
+              <img src="/static/staff-manager/shift-planning-960.jpg" width="960" height="600" loading="lazy" decoding="async" alt="A manager and three colleagues reviewing written plans around a meeting table.">
+            </picture>
+            <figcaption><span class="staff-photo-label">PLANNING / A CLEARER WEEK</span><h3>Plan shifts with your people in mind.</h3><p>Organise rotas, review leave requests and approve recorded shifts before they reach payroll.</p></figcaption>
+          </figure>
+          <figure class="staff-photo">
+            <picture>
+              <source type="image/webp" srcset="/static/staff-manager/workplace-team-320.webp 320w, /static/staff-manager/workplace-team-640.webp 640w, /static/staff-manager/workplace-team-960.webp 960w, /static/staff-manager/workplace-team-1440.webp 1440w" sizes="(max-width: 680px) calc(100vw - 24px), (max-width: 1240px) calc((100vw - 56px) / 2), 578px">
+              <img src="/static/staff-manager/workplace-team-960.jpg" width="960" height="600" loading="lazy" decoding="async" alt="Three workplace colleagues gathered around a laptop at a shared desk.">
+            </picture>
+            <figcaption><span class="staff-photo-label">EMPLOYEE ACCESS / ONE PLACE</span><h3>Keep your team in the picture.</h3><p>Employees can see their shifts, manage leave requests and view their own payslips through their portal.</p></figcaption>
+          </figure>
+        </div>
+        <p class="staff-photo-note">Illustrative workplace stock photography. No customer endorsement is implied.</p>
+        <details class="staff-photo-credits">
+          <summary>Photography credits &amp; licence</summary>
+          <ul>
+            <li>Mobile worker: <a href="https://www.pexels.com/photo/smiling-construction-worker-using-smartphone-outdoors-33477104/">Mahsum Oğrak / Pexels</a>.</li>
+            <li>Team planning: <a href="https://www.pexels.com/fr-fr/photo/gens-personnes-individus-travailler-7643756/">MART PRODUCTION / Pexels</a>.</li>
+            <li>Workplace team: <a href="https://www.pexels.com/photo/men-in-the-office-having-a-meeting-while-looking-at-camera-5684644/">Thirdman / Pexels</a>.</li>
+          </ul>
+          <p>Used under the <a href="https://www.pexels.com/license/">Pexels Licence</a>. Images are cropped and resized for this website.</p>
+        </details>
+        <div class="features-grid staff-features" aria-label="Staff Manager features">
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">01 / ATTENDANCE</span><h3>GPS clock-in</h3><p>Record clock-ins and clock-outs with location evidence so managers can review attendance at the right site.</p></article>
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">02 / PLANNING</span><h3>Rotas</h3><p>Plan upcoming shifts and let employees see when and where they are due to work.</p></article>
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">03 / REVIEW</span><h3>Shift approvals</h3><p>Review recorded hours and breaks before approving shifts for payroll.</p></article>
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">04 / TIME OFF</span><h3>Leave management</h3><p>Review leave requests and keep approved time off visible while planning your team's shifts.</p></article>
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">05 / SELF SERVICE</span><h3>Employee portals</h3><p>Give employees access to their own rota, recorded hours, leave requests and pay information.</p></article>
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">06 / PAYROLL</span><h3>Wage calculations</h3><p>Bring approved hours, breaks and pay rates together for payroll calculations and manager review.</p></article>
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">07 / PAY INFORMATION</span><h3>Payslip tools</h3><p>Prepare and issue payslips for employees to view through their own Staff Manager account.</p></article>
+          <article class="feature-card"><span class="staff-feature-number" aria-hidden="true">08 / COMMUNICATION</span><h3>Email notifications</h3><p>Keep employees informed with account invitations and payslip notification emails.</p></article>
+        </div>
+        <p class="staff-note">Payroll calculations and payslips are supported. HMRC/RTI submissions are not automated.</p>
       </div>
     </section>
 
@@ -1301,10 +1424,11 @@
         <div class="cta-panel">
           <span class="eyebrow"><span class="dot"></span> See it working</span>
           <h2>Which repetitive task should TrimTech AI take off your hands?</h2>
-          <p>Choose PayChaser for invoice collection or Garage AI for calls and bookings. We’ll show you the real workflow and discuss how it could fit your business.</p>
+          <p>Choose PayChaser for invoice collection, Garage Voice for calls and bookings, or Staff Manager for attendance, rotas and payroll.</p>
           <div class="cta-actions">
             <a class="btn btn-primary" href="/demo?product=paychaser">See PayChaser →</a>
             <a class="btn btn-secondary" href="/demo?product=garage-ai">See Garage AI</a>
+            <a class="btn btn-secondary" href="https://garage-voice.onrender.com/staff/account/register">Start your 14-day free trial</a>
           </div>
         </div>
       </div>
@@ -1318,6 +1442,14 @@
         </div>
 
         <div class="faq">
+          <details>
+            <summary>What is TrimTech Staff Manager?</summary>
+            <p>Staff Manager brings GPS clock-in, rotas, shift approvals, payroll calculations, payslips and email notifications together. Employees sign in to their own account, while managers review their business's records.</p>
+          </details>
+          <details>
+            <summary>How do I try Staff Manager?</summary>
+            <p><a href="https://garage-voice.onrender.com/staff/account/register">Start your 14-day free trial</a>. No card is required and the free trial does not automatically charge you. Payroll calculations and payslips are supported; HMRC/RTI submissions are not automated.</p>
+          </details>
           <details>
             <summary>What is TrimTech PayChaser?</summary>
             <p>PayChaser is an AI-assisted credit-control app. It brings customers and invoices into one dashboard, prepares payment-request emails, adds a secure payment option and tracks the remaining balance.</p>
@@ -1351,12 +1483,13 @@
     <div class="container footer-inner">
       <div>
         <div class="brand"><span class="brand-mark">T</span><span>TrimTech AI</span></div>
-        <div style="margin-top:8px;">Practical AI tools for calls, bookings and payments.</div>
+        <div style="margin-top:8px;">Practical tools for calls, payments and people.</div>
       </div>
       <div class="footer-links">
         <a href="#products">Products</a>
         <a href="#paychaser">PayChaser</a>
         <a href="#garage-ai">Garage AI</a>
+        <a href="#staff-manager">Staff Manager</a>
         <a href="#demos">Demos</a>
         <a href="#faq">FAQ</a>
         <a href="/demo">Book a demo</a>
