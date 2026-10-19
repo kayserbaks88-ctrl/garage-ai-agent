@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07111f">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Staff Manager">
+  <link rel="manifest" href="{{ url_for('staff.employee_app_manifest') }}" crossorigin="use-credentials">
+  <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static',filename='staff-pwa/apple-touch-icon.png') }}">
+  <title>Staff Manager | TrimTech AI</title>
+  <style>
+    :root { color-scheme: dark; font-family: system-ui, sans-serif; background: #07111f; color: #f0f6ff; }
+    body { margin: 0; } main { box-sizing: border-box; max-width: 36rem; margin: auto; padding: 1.5rem; }
+    h1 { margin-bottom: .5rem; } a { color: #8de9bf; } p, li { line-height: 1.6; }
+    .button, button { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box;
+      min-height: 48px; padding: .75rem 1rem; border-radius: .5rem; background: #1c7952; color: white;
+      border: 1px solid #7ee2b2; text-decoration: none; font: inherit; cursor: pointer; max-width: 100%; }
+    label { display: block; margin-bottom: .5rem; } input { box-sizing: border-box; width: 100%; min-height: 48px;
+      margin-bottom: 1rem; padding: .75rem; border-radius: .4rem; border: 1px solid #b4c3d4; font: inherit; }
+    :focus-visible { outline: 3px solid #ffdb77; outline-offset: 3px; } [role=alert] { color: #ffe6a7; }
+  </style>
+</head>
+<body><main>
+  <img src="{{ url_for('static',filename='staff-pwa/icon-192.png') }}" width="72" height="72" alt="TrimTech Staff Manager">
+  <h1>Staff Manager</h1>
+  <p>Your existing employee and manager tools remain available online.</p>
+  {% if install %}
+  <h2>Install / app help</h2>
+  <p>Already installed? Open the existing Staff Manager icon. Reinstallation is not required for this compatibility build.</p>
+  <p><a class="button" href="{{ url_for('staff.employee_app') }}">Open Staff Manager</a></p>
+  <p>To install, first open Staff Manager above. On iPhone, use Safari's Share menu, then Add to Home Screen. On Android, use Chrome's Install app or Add to Home screen menu. Browser wording varies.</p>
+  {% else %}
+  {% if choose_role %}
+  <h2>Choose your workspace</h2>
+  <p>Employee and manager sessions retain their separate permissions.</p>
+  <p><a class="button" href="{{ url_for('staff.employee_app',role='employee') }}">Employee dashboard</a></p>
+  <p><a class="button" href="{{ url_for('staff.employee_app',role='manager') }}">Manager dashboard</a></p>
+  {% else %}
+  <p><a class="button" href="{{ url_for('staff.employee_app',role='manager') }}">Manager sign in</a></p>
+  <h2>Employee sign in</h2>
+  <p>Enter the workplace code supplied by your manager. Sign in on your workplace's existing employee page.</p>
+  {% if error %}<p role="alert">{{ error }}</p>{% endif %}
+  <form method="get" action="{{ url_for('staff.employee_app') }}">
+    <input type="hidden" name="role" value="employee">
+    <label for="workplace">Workplace code</label>
+    <input id="workplace" name="workplace" required maxlength="80" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*" autocomplete="off" autocapitalize="none" spellcheck="false">
+    <button type="submit">Continue to employee sign in</button>
+  </form>
+  {% endif %}
+  <p><a href="{{ url_for('staff.employee_app_install') }}">Install / app help</a></p>
+  {% endif %}
+  <p>An internet connection is required. Private information is not saved for offline use. There is no offline clocking, payroll submission or queued action.</p>
+</main>
+<script>
+  // Keep the registered script URL and scope stable across full and rollback builds.
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    navigator.serviceWorker.register('/staff/employee-sw.js', {scope: '/staff/', updateViaCache: 'none'}).catch(() => {});
+  }
+  document.addEventListener('submit', event => {
+    if (!navigator.onLine) { event.preventDefault(); event.stopImmediatePropagation(); }
+  }, true);
+</script>
+</body></html>
