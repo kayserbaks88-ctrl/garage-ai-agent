@@ -1,0 +1,28 @@
+<!doctype html><html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07111f"><title>Staff Manager | TrimTech AI</title>{% include 'staff_pwa_head.html' %}</head>
+<body class="pwa-page"><main>
+<img src="{{ url_for('static',filename='staff-pwa/icon-192.png') }}" width="80" height="80" alt="TrimTech Staff Manager">
+<p>TrimTech AI · Employee and manager app</p><h1>Staff Manager</h1>
+<p data-pwa-status class="pwa-status" role="status" tabindex="-1" hidden></p>
+{% if not install %}
+<p>Your existing Staff Manager tools, securely available on your phone.</p>
+{% if choose_role %}
+<section><h2>Choose your workspace</h2><p>You have employee and manager sessions. Each workspace keeps its existing permissions.</p>
+<p><a class="pwa-button" href="{{ url_for('staff.employee_app',role='employee') }}">Employee dashboard</a></p>
+<p><a class="pwa-button" href="{{ url_for('staff.employee_app',role='manager') }}">Manager dashboard</a></p></section>
+{% else %}
+{% if role != 'employee' %}<p><a class="pwa-button" href="{{ url_for('staff.employee_app',role='manager') }}">Manager sign in</a></p>{% endif %}
+<section><h2>Employee sign in</h2><p>Use the workplace code supplied by your manager, then sign in with your existing employee details.</p>
+{% if error %}<p role="alert">{{ error }}</p>{% endif %}
+<form method="get" action="{{ url_for('staff.employee_app') }}"><input type="hidden" name="role" value="employee"><label for="workplace">Workplace code</label><input id="workplace" name="workplace" required maxlength="80" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]*" autocomplete="off" autocapitalize="none" spellcheck="false"><button type="submit">Continue to employee sign in</button></form></section>
+{% endif %}
+<p><a href="{{ url_for('staff.employee_app_install') }}">Install on iPhone or Android</a></p>
+{% else %}
+<p>Add Staff Manager to your home screen. An internet connection is required for private information and every action.</p>
+<button type="button" data-install-app hidden>Install app</button><p data-install-status role="status"></p>
+<section><h2>iPhone</h2><ol><li>Tap Open Staff Manager below in Safari to open your sign-in page or dashboard.</li><li>Tap Share, then Add to Home Screen (you may need to scroll).</li><li>If offered, enable Open as Web App, name it Staff Manager, then tap Add.</li><li>Open Staff Manager from your home screen and sign in. You may need to sign in again after installing.</li></ol></section>
+<section><h2>Android</h2><ol><li>Tap Open Staff Manager below in Chrome to open your sign-in page or dashboard.</li><li>Use Install app when available, or open the browser menu and choose Install app or Add to Home screen.</li><li>Open Staff Manager from your home screen and sign in.</li></ol></section>
+<p>Menu labels vary by browser. If installation is unavailable, use Staff Manager in your browser. Remove and re-add an older Home Screen icon if it still opens app help.</p><p><a class="pwa-button" href="{{ url_for('staff.employee_app') }}">Open Staff Manager</a></p>
+{% endif %}
+<p>Allow location access when clocking at work. GPS site checks and manager approvals still apply. There is no offline clock-in or background location tracking added by this app.</p>
+<p>Use your own device and sign out when finished, especially on shared devices. Employee information and payslips are not saved for offline use.</p>
+</main></body></html>

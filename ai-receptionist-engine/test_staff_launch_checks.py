@@ -44,11 +44,18 @@ class EmployeeIdentifierTests(unittest.TestCase):
         with client.session_transaction() as state:
             state['_staff_csrf_token'] = 'csrf'
         credential = {'password_hash': accounts.password_hash('a long employee password'), 'version': 'v1'}
+        def business_lookup(sql, parameters):
+            self.assertEqual(parameters, ('oakfield',))
+            if 'NOT active' in sql:
+                return None
+            if 'AND active' in sql:
+                return {'id': 'oakfield'}
+            self.fail('Unexpected employee login query: ' + sql)
         for identifier in ('worker@example.test', '+44 7700 000001'):
             with patch.object(onboarding, 'status', return_value={'state': 'active'}), \
                     patch.object(employee_identity, 'find', return_value={'id': 7}), \
                     patch.object(employee_invitations, 'credential', return_value=credential), \
-                    patch.object(staff, 'fetch_one', return_value={'id': 'oakfield'}), \
+                    patch.object(staff, 'fetch_one', side_effect=business_lookup), \
                     patch.object(accounts, 'limited', return_value=True):
                 response = client.post('/staff/oakfield/employee/login', data={
                     'csrf_token': 'csrf', 'phone': identifier, 'payroll_number': 'a long employee password'})

@@ -1761,5 +1761,5 @@ register_platform_routes(sys.modules[__name__])
 from trimtech.modules.staff.employee_recovery_routes import register_routes as register_employee_recovery_routes
 register_employee_recovery_routes(sys.modules[__name__])
 
-from trimtech.modules.staff.pwa_compat import register_routes as register_pwa_compat_routes
-register_pwa_compat_routes(sys.modules[__name__])
+from trimtech.modules.staff.employee_pwa import register_routes as register_employee_pwa_routes
+register_employee_pwa_routes(sys.modules[__name__])

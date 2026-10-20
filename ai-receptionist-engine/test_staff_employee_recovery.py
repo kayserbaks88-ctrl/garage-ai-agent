@@ -235,10 +235,12 @@ class EmployeeRecoveryRouteTests(unittest.TestCase):
     def test_new_password_sign_in_uses_employee_credentials_in_the_same_tenant(self):
         hashed = accounts.password_hash(PASSWORD)
         def lookup(sql, parameters):
-            if 'SELECT id,payroll_number' in sql:
-                self.assertEqual(parameters[0], 'alpha')
-                return {'id': 7, 'payroll_number': 'legacy-number'}
-            return {'id': 'alpha'}
+            self.assertEqual(parameters, ('alpha',))
+            if 'NOT active' in sql:
+                return None
+            if 'AND active' in sql:
+                return {'id': 'alpha'}
+            self.fail('Unexpected login query: ' + sql)
         with patch.object(staff.onboarding, 'status', return_value={'state': 'active'}), \
                 patch.object(staff, 'fetch_one', side_effect=lookup), \
                 patch.object(employee_identity, 'find', return_value={'id': 7, 'payroll_number': 'legacy-number'}), \
@@ -250,6 +252,18 @@ class EmployeeRecoveryRouteTests(unittest.TestCase):
             self.assertEqual(state[staff._EMPLOYEE_SESSION_KEY]['credential_version'], 'new')
             self.assertNotIn('platform_admin_authenticated', state)
         self.assertIsNone(self.client.get_cookie(COOKIE))
+
+    def test_valid_recovered_password_cannot_sign_into_deactivated_business(self):
+        with patch.object(staff.onboarding, 'status', return_value={'state': 'active'}), \
+                patch.object(staff, 'fetch_one', return_value={'id': 'alpha'}) as lookup, \
+                patch.object(employee_identity, 'find', return_value={'id': 7}), \
+                patch.object(employee_invitations, 'credential', return_value={
+                    'password_hash': accounts.password_hash(PASSWORD), 'version': 'new'}):
+            response = self.post('login', phone='07700000001', payroll_number=PASSWORD)
+        self.assertEqual(response.status_code, 401)
+        self.assertIn('NOT active', lookup.call_args.args[0])
+        with self.client.session_transaction() as state:
+            self.assertNotIn(staff._EMPLOYEE_SESSION_KEY, state)
 
     def test_reset_does_not_clear_another_tenants_employee_session(self):
         with self.client.session_transaction() as state:

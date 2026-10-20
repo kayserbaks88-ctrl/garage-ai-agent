@@ -78,8 +78,8 @@
 @media(min-width:650px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.hub-links{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.history thead{display:none}.history tr,.history td{display:block}.history td{border:0;padding:5px 0}.history tr{padding:12px 0;border-bottom:1px solid var(--line)}.history td[data-label]::before{content:attr(data-label) ': ';color:var(--muted)}}
 </style>
-<script defer src="{{ url_for('static',filename='staff_presence.js') }}"></script></head>
-<body>
+<script defer src="{{ url_for('static',filename='staff_presence.js') }}"></script>{% include 'staff_pwa_head.html' %}</head>
+<body class="staff-pwa-enabled">
 <a class="skip" href="#main">Skip to content</a>
 {% set token = csrf_token() %}
 {% set sections = [('jobs','My jobs','Current, upcoming and past assignments'),('rota','My rota','Your existing assignments by week'),('clocking','Clock in / out','Clocking, breaks and site GPS checks'),('hours','My hours','Weekly summary and shift history'),('leave','Leave','Request leave and track approvals'),('pay','Pay / payslips','Your available payroll information'),('profile','My profile','Your details and travel settings')] %}
@@ -104,16 +104,20 @@
 <header class="topbar">
 <a class="brand button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}"><span class="brand-mark" aria-hidden="true">S</span><span><strong>Staff Manager</strong><small>Employee control centre</small></span></a>
 <nav class="actions" aria-label="Account">
+<a class="button" href="{{ url_for('staff.employee_app_install') }}">Install / app help</a>
+<a class="button" href="{{ url_for('staff.employee_app') }}">Switch workspace</a>
 {% if page != 'home' %}<a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Back to home</a>{% endif %}
 <a class="button" href="{{ refresh_url if refresh_url is defined else url_for(request.endpoint,business_slug=business_slug) }}">Refresh</a>
 <form method="post" action="{{ url_for('staff.employee_logout',business_slug=business_slug) }}"><input type="hidden" name="csrf_token" value="{{ token }}"><button type="submit">Sign out</button></form>
 </nav></header>
 {% if page != 'home' %}<nav class="section-nav" aria-label="Employee tools">{% for key,label,description in sections %}<a class="button" {{ 'aria-current=page' if page==key else '' }} href="{{ url_for('staff.employee_' ~ key,business_slug=business_slug) }}">{{ label }}</a>{% endfor %}</nav>{% endif %}
 <main id="main">
+<p data-pwa-status class="pwa-status" role="status" tabindex="-1" hidden></p>
 {% for category,message in get_flashed_messages(with_categories=true) %}<div class="notice {{ 'error' if category=='error' else '' }}" role="status">{{ message }}</div>{% endfor %}
 {% block content %}{% endblock %}
 </main>
 <footer><p>{{ employee.full_name }} &middot; {{ business_slug }} &middot; UK local times</p></footer>
 </div>
 <script defer src="{{ url_for('static',filename='staff_employee.js') }}"></script>
+<nav class="employee-mobile-nav" aria-label="Quick employee tools">{% for key,label in [('clocking','Clock'),('rota','Rota'),('hours','Hours'),('pay','Pay'),('leave','Leave')] %}<a href="{{ url_for('staff.employee_' ~ key,business_slug=business_slug) }}" {% if page==key %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
 </body></html>

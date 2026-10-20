@@ -28,7 +28,8 @@ class CheckoutTaxTests(unittest.TestCase):
                    'expires_at': datetime.now(timezone.utc) + timedelta(hours=1)}
         connection = MagicMock()
         cursor = connection.cursor.return_value.__enter__.return_value
-        cursor.fetchone.side_effect = [attempt, attempt]
+        # Each transaction locks the business before reading its checkout attempt.
+        cursor.fetchone.side_effect = [{'active': True}, attempt, {'active': True}, attempt]
         with patch.dict('os.environ', ENV), \
                 patch.object(billing, 'Gateway', return_value=gateway), \
                 patch.object(billing, 'transaction') as transaction, \

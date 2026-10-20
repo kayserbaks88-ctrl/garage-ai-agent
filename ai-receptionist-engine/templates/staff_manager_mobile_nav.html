@@ -1,0 +1,15 @@
+<details class="manager-pwa-nav manager-mobile-menu">
+<summary>Manager menu</summary>
+<nav aria-label="Manager navigation">
+{% for label,endpoint in [('Dashboard','dashboard'),('Staff','employees_page'),('Attendance','attendance_page'),('Approvals','approvals_page'),('Leave','leave_page'),('Payroll','payroll_page'),('Settings','settings_page')] %}
+<a href="{{ url_for('staff.' ~ endpoint,business_slug=business_slug) }}">{{ label }}</a>
+{% endfor %}
+<a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,_anchor='assignment') }}">Assignments</a>
+<a href="{{ url_for('staff.agency_dashboard',business_slug=business_slug,_anchor='roster') }}">Rota</a>
+<a href="{{ url_for('staff.employee_app') }}">Switch Workspace</a>
+<a href="{{ url_for('staff.account_home') }}">My account</a>
+<a href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Employee portal</a>
+<a href="{{ url_for('staff.employee_app_install') }}">Install / app help</a>
+<form method="post" action="{{ url_for('staff.account_logout') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Sign Out</button></form>
+</nav>
+</details>

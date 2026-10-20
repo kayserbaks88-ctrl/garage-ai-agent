@@ -12,8 +12,8 @@
 </style>
 <link rel="stylesheet" href="{{ url_for('static',filename='staff_manager.css') }}">
 <script defer src="{{ url_for('static',filename='staff_manager.js') }}"></script>
-<script defer src="{{ url_for('static',filename='staff_presence.js') }}"></script></head>
-<body>
+<script defer src="{{ url_for('static',filename='staff_presence.js') }}"></script>{% include 'staff_pwa_head.html' %}</head>
+<body class="staff-manager-pwa">
 {% from "staff_site_fields.html" import site_fields %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
 {% macro stamp(value) %}{% if value %}<time datetime="{{ value.isoformat() }}" data-time>{{ value.strftime('%d %b %Y %H:%M') }}</time>{% else %}—{% endif %}{% endmacro %}
@@ -25,6 +25,8 @@
 </tbody></table></div>{% else %}<p class="empty">No leave records to show.</p>{% endif %}
 {% endmacro %}
 <main class="shell">
+<p data-pwa-status class="pwa-status" role="status" tabindex="-1" hidden></p>
+{% include 'staff_manager_mobile_nav.html' %}
 <header class="topbar"><a class="brand" href="{{ url_for('staff.dashboard',business_slug=business_slug) }}"><span class="mark">S</span><span><strong>TrimTech Staff Manager</strong><br><small class="muted">{% block eyebrow_sub %}People, attendance and leave{% endblock %}</small></span></a>
 <nav class="actions" aria-label="Page">{% block topbar_actions %}<a class="button" href="{{ url_for('staff.account_home') }}">My account</a><a class="button" href="{{ url_for('staff.settings_page',business_slug=business_slug) }}">Settings</a><form method="post" action="{{ url_for('staff.account_logout') }}">{{ csrf() }}<button>Sign out</button></form><a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Employee portal</a>{% if not hub %}<a class="button" href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">← Back to Staff Manager</a>{% endif %}{% endblock %}</nav>
 </header>

@@ -16,8 +16,10 @@
   </style>
 <link rel="stylesheet" href="{{ url_for('static',filename='staff_manager.css') }}">
 <script defer src="{{ url_for('static',filename='staff_manager.js') }}"></script>
-</head>
+{% include 'staff_pwa_head.html' %}</head>
 <body><main>
+<p data-pwa-status class="pwa-status" role="status" tabindex="-1" hidden></p>
+{% include 'staff_manager_mobile_nav.html' %}
 {% from "staff_site_fields.html" import site_fields %}
 {% set token=csrf_token() %}
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ token }}">{% endmacro %}

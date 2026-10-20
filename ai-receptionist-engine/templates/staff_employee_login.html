@@ -57,9 +57,12 @@
         footer { margin-top: 24px; color: #a8b7cb; font-size: 12px; text-align: center; }
         @media (max-width: 360px) { .shell { padding: 24px 14px; } .card { padding: 22px 18px; } }
     </style>
-</head>
+{% include 'staff_pwa_head.html' %}</head>
 <body>
     <main class="shell">
+        <p data-pwa-status class="pwa-status" role="status" tabindex="-1" hidden></p>
+        <p><a class="pwa-help" href="{{ url_for('staff.employee_app_install') }}">Install / app help</a></p>
+        <p><a class="pwa-help" href="{{ url_for('staff.employee_app') }}">Switch workspace</a></p>
         <div class="brand">
             <div class="brand-mark" aria-hidden="true">S</div>
             <div><strong>Staff Manager</strong><span>TrimTech AI · Employee portal</span></div>
