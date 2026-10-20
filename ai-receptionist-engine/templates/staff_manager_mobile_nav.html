@@ -1,3 +1,6 @@
+{% if request.endpoint != 'staff.dashboard' %}
+<a class="manager-dashboard-return" href="{{ url_for('staff.dashboard',business_slug=business_slug) }}">&larr; Back to Dashboard</a>
+{% endif %}
 <details class="manager-pwa-nav manager-mobile-menu">
 <summary>Manager menu</summary>
 <nav aria-label="Manager navigation">

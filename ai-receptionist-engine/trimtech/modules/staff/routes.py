@@ -63,6 +63,12 @@ def _protect_staff_forms():
     return None
 
 
+@staff_blueprint.teardown_request
+def _close_staff_read_connection(error=None):
+    from trimtech.modules.staff.database import close_request_connection
+    close_request_connection(error)
+
+
 def _business_id(business_slug: str) -> str:
     return str(business_slug or "").strip().lower()
 

@@ -60,25 +60,59 @@ def transaction() -> Iterator[PostgreSQLConnection]:
         connection.close()
 
 
+def close_request_connection(error=None) -> None:
+    """Release the Staff GET connection even when authentication/rendering fails."""
+    from flask import g
+    connection = g.pop('_staff_read_connection', None)
+    if connection is not None:
+        connection.close()
+
+
+@contextmanager
+def _read_cursor():
+    # Reuse only a transport within one Staff GET/HEAD request, never rows,
+    # sessions or a transaction snapshot. Every statement sees fresh committed
+    # data. POSTs and explicit write transactions retain their existing behavior.
+    from flask import g, has_request_context, request
+    if not has_request_context() or request.blueprint != 'staff' or request.method not in ('GET', 'HEAD'):
+        with transaction() as connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                yield cursor
+        return
+    connection = g.get('_staff_read_connection')
+    if connection is None:
+        connection = get_connection()
+        try:
+            connection.autocommit = True
+        except Exception:
+            connection.close()
+            raise
+        g._staff_read_connection = connection
+    try:
+        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+            yield cursor
+    except Exception:
+        close_request_connection()
+        raise
+
+
 def fetch_one(
     query: str,
     parameters: Sequence[Any] | Mapping[str, Any] | None = None,
 ) -> dict[str, Any] | None:
-    with transaction() as connection:
-        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, parameters)
-            row = cursor.fetchone()
-            return dict(row) if row else None
+    with _read_cursor() as cursor:
+        cursor.execute(query, parameters)
+        row = cursor.fetchone()
+        return dict(row) if row else None
 
 
 def fetch_all(
     query: str,
     parameters: Sequence[Any] | Mapping[str, Any] | None = None,
 ) -> list[dict[str, Any]]:
-    with transaction() as connection:
-        with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute(query, parameters)
-            return [dict(row) for row in cursor.fetchall()]
+    with _read_cursor() as cursor:
+        cursor.execute(query, parameters)
+        return [dict(row) for row in cursor.fetchall()]
 
 
 def execute(

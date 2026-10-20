@@ -18,7 +18,7 @@ def approved_weekly(business_id, as_of=None):
     if shifts:
         for br in fetch_all("""SELECT b.shift_id,b.started_at,b.ended_at,b.paid FROM staff_breaks b
             JOIN staff_shifts s ON s.id=b.shift_id AND s.business_id=b.business_id AND s.employee_id=b.employee_id
-            WHERE b.business_id=%s AND b.shift_id=ANY(%s) ORDER BY b.shift_id,b.started_at,b.id""",(business_id,list(by_shift))):
+            WHERE b.business_id=%s AND s.id=ANY(%s::bigint[]) ORDER BY b.shift_id,b.started_at,b.id""",(business_id,list(by_shift))):
             by_shift[br['shift_id']].append(br)
     calculated=[calculate_shift_pay(s,by_shift[s['id']]) for s in shifts]
     money=Decimal('0.01')

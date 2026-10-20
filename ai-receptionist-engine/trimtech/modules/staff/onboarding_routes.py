@@ -24,7 +24,11 @@ def register_routes(staff):
     def setup_context():
         trial=getattr(g,'staff_trial',None)
         progress=None
-        if trial and trial['state']!='legacy' and request.view_args and request.view_args.get('business_slug'):
+        # Only these templates display checklist facts. Other pages still verify
+        # membership/trial access normally, without three unused setup queries.
+        checklist_pages = {'staff.dashboard', 'staff.agency_dashboard', 'staff.employee_onboarding',
+                           'staff.payroll_page', 'staff.settings_page'}
+        if request.endpoint in checklist_pages and trial and trial['state']!='legacy' and request.view_args and request.view_args.get('business_slug'):
             progress=onboarding.checklist(request.view_args['business_slug'])
         business=None
         if request.view_args and request.view_args.get('business_slug'):
