@@ -26,6 +26,7 @@ from trimtech.core.business import BusinessConfig
 from trimtech.core.registry import get_active_business
 from trimtech.integrations.google_calendar.service import (
     create_booking,
+    check_day_availability,
     get_available_slots,
     is_free,
     service_definition,
@@ -189,90 +190,11 @@ def check_requested_slot(
             "error": "past_datetime",
         }
 
-    duration = int(
-        service.duration_minutes
-    )
-
     try:
-        available = is_free(
-            resolved_business,
-            slot,
-            slot
-            + timedelta(
-                minutes=duration
-            ),
-        )
-
-    except Exception as error:
-        print(
-            "CALENDAR CHECK ERROR:",
-            {
-                "business_id": (
-                    resolved_business
-                    .business_id
-                ),
-                "error": repr(
-                    error
-                ),
-            },
-        )
-
-        return {
-            "available": False,
-            "slots": [],
-            "error": "calendar_unavailable",
-        }
-
-    if available:
-        return {
-            "available": True,
-            "slots": [slot],
-            "error": "",
-        }
-
-    try:
-        alternatives = get_available_slots(
-            resolved_business,
-            requested_date=(
-                slot.date()
-            ),
-            service_key=(
-                service.key
-            ),
-            preferred_period=str(
-                session.get(
-                    "preferred_period"
-                )
-                or ""
-            ).strip(),
-            limit=4,
-        )
-
-    except Exception as error:
-        print(
-            "SLOT LOOKUP ERROR:",
-            {
-                "business_id": (
-                    resolved_business
-                    .business_id
-                ),
-                "error": repr(
-                    error
-                ),
-            },
-        )
-
-        return {
-            "available": False,
-            "slots": [],
-            "error": "calendar_unavailable",
-        }
-
-    return {
-        "available": False,
-        "slots": alternatives,
-        "error": "slot_taken",
-    }
+        return check_day_availability(resolved_business, slot, service.key,
+                                     str(session.get('preferred_period') or '').strip())
+    except Exception:
+        return {'available': False, 'slots': [], 'error': 'calendar_unavailable'}
 
 
 def build_slot_offer(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -256,38 +257,54 @@ def _required_calendar_id(business: BusinessConfig) -> str:
     return value
 
 
-def is_free(
-    business: BusinessConfig,
-    start_dt: datetime,
-    end_dt: datetime,
-    ignore_event_id: str | None = None,
-) -> bool:
-    start_dt = ensure_timezone(business, start_dt)
-    end_dt = ensure_timezone(business, end_dt)
+def _list_events(business, start_dt=None, end_dt=None, *, api=None, **filters):
+    """One client per operation; read every page before offering a slot."""
+    api = api if api is not None else calendar_service(business)
+    query = dict(calendarId=_required_calendar_id(business), singleEvents=True,
+                 showDeleted=False, maxResults=2500, **filters)
+    if start_dt is not None:
+        query.update(timeMin=start_dt.isoformat(), timeMax=end_dt.isoformat(), orderBy='startTime')
+    events, seen = [], set()
+    while True:
+        result = api.events().list(**query).execute()
+        events.extend(result.get('items') or [])
+        token = result.get('nextPageToken')
+        if not token:
+            return events
+        if token in seen:
+            raise RuntimeError('calendar_pagination_loop')
+        seen.add(token)
+        query['pageToken'] = token
 
-    result = (
-        calendar_service(business)
-        .events()
-        .list(
-            calendarId=_required_calendar_id(business),
-            timeMin=start_dt.isoformat(),
-            timeMax=end_dt.isoformat(),
-            singleEvents=True,
-            orderBy="startTime",
-        )
-        .execute()
-    )
 
-    for event in result.get("items", []):
-        if event.get("status") == "cancelled":
+def _slot_free(business, events, start_dt, end_dt, ignore_event_id=None):
+    for event in events:
+        if event.get('status') == 'cancelled' or event.get('transparency') == 'transparent':
             continue
-
-        if ignore_event_id and event.get("id") == ignore_event_id:
+        if ignore_event_id and event.get('id') == ignore_event_id:
             continue
-
-        return False
-
+        try:
+            bounds = []
+            for field in ('start', 'end'):
+                value = event[field]
+                if value.get('dateTime'):
+                    parsed = datetime.fromisoformat(value['dateTime'].replace('Z', '+00:00'))
+                else:
+                    parsed = datetime.combine(date.fromisoformat(value['date']), time.min)
+                bounds.append(ensure_timezone(business, parsed))
+            if bounds[1] <= bounds[0]:
+                return False
+        except (KeyError, TypeError, ValueError):
+            return False  # Unknown busy interval must never become invented availability.
+        if bounds[0] < end_dt and bounds[1] > start_dt:
+            return False
     return True
+
+
+def is_free(business, start_dt, end_dt, ignore_event_id=None, *, api=None):
+    start_dt, end_dt = ensure_timezone(business, start_dt), ensure_timezone(business, end_dt)
+    events = _list_events(business, start_dt, end_dt, api=api)
+    return _slot_free(business, events, start_dt, end_dt, ignore_event_id)
 
 
 def get_available_slots(
@@ -296,6 +313,8 @@ def get_available_slots(
     service_key: str,
     preferred_period: str = "",
     limit: int = 4,
+    *,
+    events: list[dict] | None = None,
 ) -> list[datetime]:
     service = service_definition(business, service_key)
     duration = int(service.duration_minutes)
@@ -315,6 +334,10 @@ def get_available_slots(
     preferred_period = _clean_text(preferred_period).lower()
 
     slots: list[datetime] = []
+    # Request-local snapshot only; writes always perform a fresh conflict check.
+    if events is None and current_slot + timedelta(minutes=duration) <= closing_time and closing_time > now:
+        events = _list_events(business, current_slot, closing_time)
+    events = events or []
 
     while current_slot + timedelta(minutes=duration) <= closing_time:
         slot_end = current_slot + timedelta(minutes=duration)
@@ -329,11 +352,7 @@ def get_available_slots(
             elif preferred_period == "evening":
                 period_matches = current_slot.hour >= 17
 
-            if period_matches and is_free(
-                business,
-                current_slot,
-                slot_end,
-            ):
+            if period_matches and _slot_free(business, events, current_slot, slot_end):
                 slots.append(current_slot)
 
                 if len(slots) >= max(1, int(limit)):
@@ -346,6 +365,26 @@ def get_available_slots(
     return slots
 
 
+
+def within_opening_hours(business, start_dt, end_dt):
+    start_dt, end_dt = ensure_timezone(business, start_dt), ensure_timezone(business, end_dt)
+    opening = datetime.combine(start_dt.date(), time(opening_hour(business)), tzinfo=timezone(business))
+    closing = datetime.combine(start_dt.date(), time(closing_hour(business)), tzinfo=timezone(business))
+    return opening <= start_dt < end_dt <= closing
+
+
+def check_day_availability(business, start_dt, service_key, preferred_period=''):
+    """One request-local day snapshot serves the requested slot and alternatives."""
+    start_dt = ensure_timezone(business, start_dt)
+    service = service_definition(business, service_key)
+    end_dt = start_dt + timedelta(minutes=service.duration_minutes)
+    day = datetime.combine(start_dt.date(), time.min, tzinfo=timezone(business))
+    events = _list_events(business, day, max(day + timedelta(days=1), end_dt))
+    if within_opening_hours(business, start_dt, end_dt) and _slot_free(business, events, start_dt, end_dt):
+        return {'available': True, 'slots': [start_dt], 'error': ''}
+    slots = get_available_slots(business, start_dt.date(), service.key, preferred_period, events=events)
+    return {'available': False, 'slots': slots, 'error': 'slot_taken'}
+
 def create_booking(
     business: BusinessConfig,
     *,
@@ -356,6 +395,8 @@ def create_booking(
     vehicle: dict[str, Any],
     notes: str = "",
     source: str = "TrimTech AI",
+    operation_id: str | None = None,
+    defer_confirmation: bool = False,
 ) -> dict[str, Any]:
     service = service_definition(business, service_key)
     start_dt = ensure_timezone(business, start_dt)
@@ -363,8 +404,37 @@ def create_booking(
         minutes=int(service.duration_minutes)
     )
 
-    if not is_free(business, start_dt, end_dt):
-        raise ValueError("slot_taken")
+    if not within_opening_hours(business, start_dt, end_dt):
+        raise ValueError('outside_opening_hours')
+    api = calendar_service(business)
+    fingerprint = hashlib.sha256(json.dumps([phone, service.key, start_dt.isoformat(),
+        customer_name, re.sub(r'[^A-Z0-9]', '', str((vehicle or {}).get('registration') or (vehicle or {}).get('reg') or '').upper()), notes, source], sort_keys=True, separators=(',', ':')).encode()).hexdigest()
+    event_id = 'gv' + hashlib.sha256((business.business_id + ':' + operation_id).encode()).hexdigest() if operation_id else None
+
+    def replay():
+        if not event_id:
+            return None
+        try:
+            existing = api.events().get(calendarId=_required_calendar_id(business), eventId=event_id).execute()
+        except Exception as error:
+            if getattr(getattr(error, 'resp', None), 'status', None) == 404:
+                return None
+            raise
+        private = (existing.get('extendedProperties') or {}).get('private') or {}
+        if existing.get('status') == 'cancelled':
+            raise ValueError('operation_already_cancelled')
+        if private.get('business_id') != business.business_id or private.get('voice_operation_fingerprint') != fingerprint:
+            raise ValueError('operation_details_changed')
+        return {'id': existing['id'], 'link': existing.get('htmlLink'),
+                'start': existing['start']['dateTime'], 'end': existing['end']['dateTime'],
+                'service': service.key, 'service_name': service.name, 'business_id': business.business_id,
+                'replayed': True}
+
+    existing = replay()
+    if existing:
+        return existing
+    if not is_free(business, start_dt, end_dt, api=api):
+        raise ValueError('slot_taken')
 
     vehicle = vehicle or {}
 
@@ -496,15 +566,22 @@ def create_booking(
         },
     }
 
-    created = (
-        calendar_service(business)
-        .events()
-        .insert(
-            calendarId=_required_calendar_id(business),
-            body=event,
-        )
-        .execute()
-    )
+    if event_id:
+        event['id'] = event_id
+        event['extendedProperties']['private']['voice_operation_fingerprint'] = fingerprint
+    if defer_confirmation:
+        event['extendedProperties']['private']['voice_notification_state'] = 'pending'
+    try:
+        created = api.events().insert(calendarId=_required_calendar_id(business), body=event).execute()
+    except Exception:
+        # A write timeout may have persisted. Reconcile the same deterministic ID;
+        # never issue a second insert from this request.
+        existing = replay()
+        if existing:
+            return existing
+        raise
+    if not created.get('id'):
+        raise RuntimeError('calendar_write_unconfirmed')
 
     return {
         "id": created.get("id"),
@@ -531,24 +608,15 @@ def list_bookings(
     business: BusinessConfig,
     phone: str,
 ) -> list[dict[str, Any]]:
-    phone = _clean_text(phone)
+    from trimtech.modules.reminders.sender import normalise_phone
+    phone = normalise_phone(phone)
 
-    result = (
-        calendar_service(business)
-        .events()
-        .list(
-            calendarId=_required_calendar_id(business),
-            timeMin=datetime.now(timezone(business)).isoformat(),
-            singleEvents=True,
-            orderBy="startTime",
-            maxResults=50,
-        )
-        .execute()
-    )
+    events = _list_events(business, timeMin=datetime.now(timezone(business)).isoformat(),
+                          orderBy='startTime')
 
     bookings: list[dict[str, Any]] = []
 
-    for event in result.get("items", []):
+    for event in events:
         private = (
             (event.get("extendedProperties") or {})
             .get("private")
@@ -568,12 +636,13 @@ def list_bookings(
         ):
             continue
 
-        if _clean_text(private.get("phone")) != phone:
+        if normalise_phone(private.get("phone")) != phone:
             continue
 
         bookings.append(
             {
                 "id": event.get("id"),
+                "etag": event.get("etag"),
                 "summary": event.get("summary"),
                 "start": (event.get("start") or {}).get("dateTime"),
                 "end": (event.get("end") or {}).get("dateTime"),
@@ -588,21 +657,19 @@ def list_bookings(
 def cancel_booking(
     business: BusinessConfig,
     event_id: str,
+    *,
+    expected_etag: str | None = None,
 ) -> bool:
     event_id = _clean_text(event_id)
 
     if not event_id:
         raise ValueError("Missing event_id")
 
-    (
-        calendar_service(business)
-        .events()
-        .delete(
-            calendarId=_required_calendar_id(business),
-            eventId=event_id,
-        )
-        .execute()
-    )
+    request = calendar_service(business).events().delete(
+        calendarId=_required_calendar_id(business), eventId=event_id)
+    if expected_etag:
+        request.headers['If-Match'] = expected_etag
+    request.execute()
 
     return True
 
@@ -612,6 +679,7 @@ def reschedule_booking(
     *,
     event_id: str,
     new_start: datetime,
+    expected_start: str | None = None,
 ) -> dict[str, Any]:
     event_id = _clean_text(event_id)
 
@@ -630,6 +698,9 @@ def reschedule_booking(
         )
         .execute()
     )
+
+    if expected_start is not None and (event.get('start') or {}).get('dateTime') != expected_start:
+        raise ValueError('booking_changed')
 
     private = (
         (event.get("extendedProperties") or {})
@@ -657,11 +728,14 @@ def reschedule_booking(
         minutes=int(service.duration_minutes)
     )
 
+    if not within_opening_hours(business, new_start, new_end):
+        raise ValueError('outside_opening_hours')
     if not is_free(
         business,
         new_start,
         new_end,
         ignore_event_id=event_id,
+        api=service_api,
     ):
         raise ValueError("slot_taken")
 
@@ -680,16 +754,13 @@ def reschedule_booking(
 
     event.setdefault("extendedProperties", {})["private"] = private
 
-    updated = (
-        service_api
-        .events()
-        .update(
-            calendarId=calendar_id_value,
-            eventId=event_id,
-            body=event,
-        )
-        .execute()
-    )
+    request = service_api.events().update(calendarId=calendar_id_value, eventId=event_id, body=event)
+    if event.get('etag'):
+        request.headers['If-Match'] = event['etag']
+    updated = request.execute()
+
+    if not updated.get("id"):
+        raise RuntimeError("calendar_write_unconfirmed")
 
     return {
         "id": updated.get("id"),

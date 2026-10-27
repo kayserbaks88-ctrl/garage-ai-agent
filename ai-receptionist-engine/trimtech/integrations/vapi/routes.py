@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone as datetime_timezone
 from typing import Any
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request, g
+from trimtech.integrations.vapi import safety
 
 from trimtech.core.business import BusinessConfig
 from trimtech.core.registry import get_active_business, load_business_instance
@@ -25,7 +26,18 @@ from trimtech.modules.reminders.sender import send_booking_confirmation
 vapi_bp = Blueprint("trimtech_vapi", __name__, url_prefix="/vapi")
 
 
+@vapi_bp.before_request
+def authenticate_webhook():
+    if request.endpoint == 'trimtech_vapi.run_notifications':
+        return None  # Separate scheduler credential, always required.
+    reason = safety.authenticate()
+    if reason:
+        return jsonify(success=False, error=reason), 503 if reason == 'not_configured' else 401
+
+
 def _payload() -> dict[str, Any]:
+    if hasattr(g, "vapi_tool_payload"):
+        return g.vapi_tool_payload
     data = request.get_json(silent=True)
     return data if isinstance(data, dict) else {}
 
@@ -201,9 +213,6 @@ def _business_error(error: Exception):
 
 
 def _caller_phone(data: dict[str, Any]) -> str:
-    if _text(data.get("caller_number")):
-        return _text(data.get("caller_number"))
-
     message = data.get("message") if isinstance(data.get("message"), dict) else {}
     call = message.get("call") if isinstance(message.get("call"), dict) else {}
 
@@ -212,11 +221,8 @@ def _caller_phone(data: dict[str, Any]) -> str:
 
     customer = call.get("customer") if isinstance(call.get("customer"), dict) else {}
 
-    return _text(
-        data.get("phone")
-        or customer.get("number")
-        or call.get("customerNumber")
-    )
+    from trimtech.modules.reminders.sender import normalise_phone
+    return normalise_phone(customer.get("number") or call.get("customerNumber") or data.get("caller_number") or data.get("phone"))
 
 
 def _parse_datetime(
@@ -235,7 +241,14 @@ def _parse_datetime(
         raise ValueError("invalid_datetime") from error
 
     tz = timezone(business)
-    parsed = parsed.replace(tzinfo=tz) if parsed.tzinfo is None else parsed.astimezone(tz)
+    if parsed.tzinfo is None:
+        candidates = [parsed.replace(tzinfo=tz, fold=fold) for fold in (0, 1)]
+        valid = [value for value in candidates if value.astimezone(datetime_timezone.utc).astimezone(tz).replace(tzinfo=None) == parsed]
+        if len({value.utcoffset() for value in valid}) != 1:
+            raise ValueError('invalid_datetime')
+        parsed = valid[0]
+    else:
+        parsed = parsed.astimezone(tz)
 
     if require_future and parsed <= datetime.now(tz):
         raise ValueError("past_datetime")
@@ -308,7 +321,7 @@ def _availability_result(
     if result.get("error") == "calendar_unavailable":
         return {
             "success": False,
-            "message": f"{business.name}'s calendar is temporarily unavailable.",
+            "message": f"{business.business_name}'s calendar is temporarily unavailable.",
         }
 
     slots = result.get("slots") or []
@@ -319,6 +332,7 @@ def _availability_result(
             "success": True,
             "available": True,
             "requested_datetime": slot.isoformat(),
+            "availability_token": safety.issue("availability", safety.scope(business, _caller_phone(data), data), [service_key, slot.isoformat()]),
             "alternatives": [],
             "message": (
                 "The requested appointment is available on "
@@ -329,6 +343,7 @@ def _availability_result(
     alternatives = [
         {
             "datetime": slot.astimezone(timezone(business)).isoformat(),
+            "availability_token": safety.issue("availability", safety.scope(business, _caller_phone(data), data), [service_key, slot.astimezone(timezone(business)).isoformat()]),
             "spoken": _spoken_datetime(business, slot),
         }
         for slot in slots
@@ -356,6 +371,10 @@ def _availability_result(
     }
 
 
+def _booking_state(booking):
+    return [booking.get('id'), booking.get('start'), booking.get('service'), booking.get('reg')]
+
+
 def _public_booking(
     business: BusinessConfig,
     booking: dict[str, Any],
@@ -368,6 +387,7 @@ def _public_booking(
         spoken = ""
 
     return {
+        "booking_token": safety.issue("booking", safety.scope(business, _caller_phone(_payload()), _payload()), _booking_state(booking)),
         "booking_id": booking.get("id"),
         "service_key": booking.get("service"),
         "customer_name": booking.get("customer_name"),
@@ -388,46 +408,64 @@ def vapi_tools():
     except Exception as error:
         return _business_error(error)
 
-    message = payload.get("message") or {}
-    tool_calls = message.get("toolCallList") or []
-    results: list[dict[str, Any]] = []
-
-    for tool_call in tool_calls:
-        tool_call_id = _text(tool_call.get("id"))
-        tool_name = _text(tool_call.get("name"))
-        arguments = tool_call.get("arguments") or {}
-
+    message = payload.get('message') if isinstance(payload.get('message'), dict) else {}
+    tool_calls = message.get('toolCallList') or []
+    if not isinstance(tool_calls, list) or len(tool_calls) > 20:
+        return jsonify(success=False, message='Invalid tool batch.'), 400
+    handlers = {'lookup_vehicle': lookup_vehicle, 'check_availability': check_availability,
+                'create_booking': book_appointment, 'list_bookings': list_customer_bookings,
+                'cancel_appointment': cancel_appointment, 'reschedule_appointment': reschedule_appointment}
+    results = []
+    for item in tool_calls:
+        item = item if isinstance(item, dict) else {}
+        function = item.get('function') or item
+        function = function if isinstance(function, dict) else {}
+        name, identifier = _text(function.get('name')), _text(item.get('id'))
         try:
-            if tool_name == "check_availability":
-                result = _availability_result(arguments, business)
-                results.append(
-                    {
-                        "toolCallId": tool_call_id,
-                        "result": result.get("message", ""),
-                    }
-                )
-            else:
-                results.append(
-                    {
-                        "toolCallId": tool_call_id,
-                        "error": f"Unknown tool: {tool_name}",
-                    }
-                )
-        except Exception as error:
-            print(
-                "VAPI TOOL ERROR:",
-                business.business_id,
-                tool_name,
-                repr(error),
-            )
-            results.append(
-                {
-                    "toolCallId": tool_call_id,
-                    "error": "The requested action could not be completed right now.",
-                }
-            )
+            import json
+            arguments = function.get('arguments') or {}
+            if isinstance(arguments, str):
+                arguments = json.loads(arguments)
+            if not isinstance(arguments, dict) or name not in handlers or not identifier:
+                raise ValueError('Invalid or unsupported tool call.')
+            # Scope is supplied by the authenticated envelope, never model arguments.
+            data = dict(arguments)
+            for key in ('message', 'call', 'called_number', 'calledNumber', 'phoneNumber', 'caller_number'):
+                data.pop(key, None)
+                if key in payload:
+                    data[key] = payload[key]
+            data['phone'] = _caller_phone(payload)
+            data['_tool_call_id'] = identifier
+            g.vapi_tool_payload = data
+            response = handlers[name]()
+            response = response[0] if isinstance(response, tuple) else response
+            body = response.get_json()
+            # Preserve structured fields inside the Vapi string result.
+            results.append({'toolCallId': identifier, 'result': json.dumps(body)})
+        except Exception:
+            results.append({'toolCallId': identifier, 'error': 'The requested action could not be completed. Check the details before retrying.'})
+        finally:
+            g.pop('vapi_tool_payload', None)
 
     return jsonify({"results": results}), 200
+
+
+def _guard_mutation(data, business, phone, *, slot=None, booking=None):
+    if not safety.enabled('GARAGE_VOICE_STRICT_MODE'):
+        return
+    if not safety.operation_id(data):
+        raise ValueError('A trusted call and operation identifier are required.')
+    if data.get('confirmed') is not True:
+        raise ValueError('Ask the caller to confirm the exact details before making this change.')
+    scope = safety.scope(business, phone, data)
+    if slot is not None:
+        value = safety.verify(data.get('availability_token'), 'availability', scope)
+        if value != [data.get('service_key'), slot.isoformat()]:
+            raise ValueError('The service or time changed. Check availability and confirm again.')
+    if booking is not None:
+        value = safety.verify(data.get('booking_token'), 'booking', scope)
+        if value != _booking_state(booking):
+            raise ValueError('The booking changed. Find it again before confirming.')
 
 
 @vapi_bp.route("/lookup-vehicle", methods=["POST"])
@@ -483,6 +521,7 @@ def lookup_vehicle():
     return jsonify(
         {
             "success": True,
+            "vehicle_token": safety.issue("vehicle", safety.scope(business, _caller_phone(data), data), {"registration": re.sub(r"[^A-Z0-9]", "", registration.upper()), "vehicle": vehicle}),
             "vehicle": {
                 "registration": vehicle.get("registration"),
                 "registration_compact": vehicle.get("registration_compact"),
@@ -519,7 +558,7 @@ def check_availability():
         return jsonify(
             {
                 "success": False,
-                "message": f"{business.name}'s calendar is temporarily unavailable.",
+                "message": f"{business.business_name}'s calendar is temporarily unavailable.",
             }
         ), 200
 
@@ -587,9 +626,27 @@ def book_appointment():
             }
         ), 200
 
+    if safety.enabled('GARAGE_VOICE_DEFER_CONFIRMATIONS') and (
+            not safety.enabled('GARAGE_VOICE_NOTIFICATION_WORKER_READY') or
+            not (os.getenv('INTERNAL_API_TOKEN') or os.getenv('REMINDER_CRON_SECRET'))):
+        return jsonify(success=False, message='Deferred confirmations are not configured. Please contact the garage.'), 503
+
+    try:
+        _guard_mutation(data, business, phone, slot=requested_datetime)
+    except ValueError as error:
+        return jsonify(success=False, message=str(error)), 200
+
     from trimtech.integrations.dvla import safely_lookup_vehicle
 
-    vehicle_lookup = safely_lookup_vehicle(registration)
+    cached = None
+    if data.get('vehicle_token'):
+        try:
+            cached = safety.verify(data['vehicle_token'], 'vehicle', safety.scope(business, phone, data))
+            if cached['registration'] != re.sub(r'[^A-Z0-9]', '', registration):
+                cached = None
+        except (ValueError, KeyError):
+            cached = None
+    vehicle_lookup = {'success': True, 'vehicle': cached['vehicle']} if cached else safely_lookup_vehicle(registration)
 
     if vehicle_lookup.get("success"):
         vehicle_data = vehicle_lookup.get("vehicle") or {}
@@ -610,6 +667,8 @@ def book_appointment():
             vehicle=vehicle_data,
             notes=notes,
             source="Vapi Voice AI",
+            operation_id=safety.operation_id(data),
+            defer_confirmation=bool(phone) and safety.enabled("GARAGE_VOICE_DEFER_CONFIRMATIONS"),
         )
     except ValueError as error:
         if str(error) == "slot_taken":
@@ -632,15 +691,18 @@ def book_appointment():
         return jsonify(
             {
                 "success": False,
-                "message": f"{business.name}'s booking system is temporarily unavailable.",
+                "message": "The booking could not be confirmed. Find existing appointments before retrying.",
             }
         ), 200
+
+    if not booking.get("id"):
+        return jsonify(success=False, message="The booking result is uncertain. Find the appointment before retrying."), 200
 
     label = _service_label(business, service_key)
 
     # Send the approved WhatsApp confirmation only after the booking succeeds.
     # If WhatsApp fails, keep the calendar booking successful and log the error.
-    if phone:
+    if phone and not booking.get("replayed") and not safety.enabled("GARAGE_VOICE_DEFER_CONFIRMATIONS"):
         local_start = requested_datetime.astimezone(timezone(business))
         date_text = (
             f"{local_start.strftime('%A')} "
@@ -738,7 +800,7 @@ def list_customer_bookings():
             {
                 "success": False,
                 "bookings": [],
-                "message": f"{business.name}'s calendar is temporarily unavailable.",
+                "message": f"{business.business_name}'s calendar is temporarily unavailable.",
             }
         ), 200
 
@@ -821,7 +883,7 @@ def _business_prompt_variables(
 
         if price is not None:
             try:
-                parts.append(f"£{float(price):.2f}")
+                parts.append(f"Ãƒâ€šÃ‚Â£{float(price):.2f}")
             except (TypeError, ValueError):
                 parts.append(_text(price))
 
@@ -1006,7 +1068,7 @@ def cancel_appointment():
         return jsonify(
             {
                 "success": False,
-                "message": f"{business.name}'s calendar is temporarily unavailable.",
+                "message": f"{business.business_name}'s calendar is temporarily unavailable.",
             }
         ), 200
 
@@ -1031,7 +1093,13 @@ def cancel_appointment():
         ), 200
 
     try:
-        cancel_booking(business, booking_id)
+        _guard_mutation(data, business, phone, booking=booking)
+    except ValueError as error:
+        return jsonify(success=False, message=str(error)), 200
+
+    try:
+        if cancel_booking(business, booking_id, expected_etag=booking.get("etag")) is not True:
+            raise RuntimeError("cancellation_unconfirmed")
     except Exception as error:
         print("VAPI CANCEL ERROR:", business.business_id, repr(error))
         return jsonify(
@@ -1124,7 +1192,7 @@ def reschedule_appointment():
         return jsonify(
             {
                 "success": False,
-                "message": f"{business.name}'s calendar is temporarily unavailable.",
+                "message": f"{business.business_name}'s calendar is temporarily unavailable.",
             }
         ), 200
 
@@ -1149,10 +1217,17 @@ def reschedule_appointment():
         ), 200
 
     try:
+        data["service_key"] = existing_booking.get("service")
+        _guard_mutation(data, business, phone, slot=new_start, booking=existing_booking)
+    except ValueError as error:
+        return jsonify(success=False, message=str(error)), 200
+
+    try:
         updated = reschedule_booking(
             business,
             event_id=booking_id,
             new_start=new_start,
+            expected_start=existing_booking.get("start"),
         )
     except ValueError as error:
         if str(error) == "slot_taken":
@@ -1178,9 +1253,12 @@ def reschedule_appointment():
         return jsonify(
             {
                 "success": False,
-                "message": f"{business.name}'s calendar is temporarily unavailable.",
+                "message": f"{business.business_name}'s calendar is temporarily unavailable.",
             }
         ), 200
+
+    if not updated.get('id'):
+        return jsonify(success=False, message='The move could not be confirmed. Find the appointment before retrying.'), 200
 
     service = existing_booking.get("service") or "garage"
     registration = existing_booking.get("reg") or "the vehicle"
@@ -1202,3 +1280,23 @@ def reschedule_appointment():
             ),
         }
     ), 200
+
+@vapi_bp.post('/notifications/run')
+def run_notifications():
+    import hmac
+    expected = os.getenv('INTERNAL_API_TOKEN', '') or os.getenv('REMINDER_CRON_SECRET', '')
+    if not expected:
+        return jsonify(success=False, error='scheduler_not_configured'), 503
+    supplied = request.headers.get('Authorization', '')
+    supplied = supplied[7:] if supplied.startswith('Bearer ') else ''
+    if not hmac.compare_digest(supplied.encode(), expected.encode()):
+        return jsonify(success=False, error='unauthorised'), 401
+    data = _payload()
+    if not _text(data.get('business_id')):
+        return jsonify(success=False, error='business_required'), 400
+    from trimtech.integrations.vapi.notifications import process_pending
+    try:
+        business = load_business_instance(_text(data['business_id']))
+        return jsonify(success=True, **process_pending(business)), 200
+    except Exception:
+        return jsonify(success=False, error='notification_processing_unavailable'), 503
