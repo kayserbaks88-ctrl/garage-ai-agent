@@ -71,6 +71,8 @@
         {{ dashboard_business_name }} | TrimTech Dashboard
     </title>
 
+    <script src="{{ url_for('static', filename='dashboard-theme.js') }}"></script>
+
     <link
         rel="stylesheet"
         href="{{ url_for('static', filename='dashboard.css') }}"
@@ -352,6 +354,25 @@
 
                 <div class="header-actions">
                     <button
+                        id="themeToggleButton"
+                        class="header-action-button theme-toggle"
+                        type="button"
+                        aria-label="Switch between light and dark mode"
+                        aria-pressed="false"
+                    >
+                        <span
+                            class="theme-toggle-icon"
+                            aria-hidden="true"
+                        >
+                            ◐
+                        </span>
+
+                        <span class="header-action-label">
+                            Theme
+                        </span>
+                    </button>
+
+                    <button
                         id="refreshDashboardButton"
                         class="header-action-button"
                         type="button"
@@ -403,7 +424,8 @@
                         </div>
 
                         <h3>
-                            Welcome back to {{ dashboard_business_name }}.
+                            <span id="welcomeGreeting">Welcome back</span>
+                            to {{ dashboard_business_name }}.
                         </h3>
 
                         <p>
@@ -417,6 +439,49 @@
                                 one professional dashboard.
                             {% endif %}
                         </p>
+
+                        <div
+                            class="welcome-actions"
+                            aria-label="Quick actions"
+                        >
+                            <button
+                                type="button"
+                                class="welcome-action primary"
+                                data-quick-action="bookings"
+                            >
+                                <span aria-hidden="true">📅</span>
+                                Bookings
+                            </button>
+
+                            {% if show_reminders %}
+                                <button
+                                    type="button"
+                                    class="welcome-action"
+                                    data-quick-action="reminders"
+                                >
+                                    <span aria-hidden="true">🔔</span>
+                                    Run reminders
+                                </button>
+                            {% endif %}
+
+                            <button
+                                type="button"
+                                class="welcome-action"
+                                data-quick-action="customers"
+                            >
+                                <span aria-hidden="true">👥</span>
+                                Customers
+                            </button>
+
+                            <button
+                                type="button"
+                                class="welcome-action"
+                                data-quick-action="refresh"
+                            >
+                                <span aria-hidden="true">↻</span>
+                                Refresh
+                            </button>
+                        </div>
                     </div>
 
                     <div class="welcome-summary">
@@ -521,7 +586,7 @@
 
                     {% if show_reminders %}
                         <button
-                            class="metric-card orange interactive-card"
+                            class="metric-card purple interactive-card"
                             type="button"
                             data-dashboard-action="reminder-centre"
                             aria-label="Open reminder centre"
@@ -562,8 +627,83 @@
                         </button>
                     {% endif %}
 
+                    {% if show_reminders %}
+                        <button
+                            id="attentionCard"
+                            class="metric-card amber interactive-card"
+                            type="button"
+                            data-dashboard-action="reminder-centre"
+                            aria-label="Open reminder centre to review failed reminders"
+                        >
+                            <div class="metric-top">
+                                <span class="metric-label">
+                                    Needs attention
+                                </span>
+
+                                <span class="metric-icon">
+                                    ⚠️
+                                </span>
+                            </div>
+
+                            <div
+                                id="attentionMetric"
+                                class="metric-value"
+                            >
+                                0
+                            </div>
+
+                            <div class="metric-footer">
+                                <span
+                                    id="attentionMetricStatus"
+                                    class="metric-change positive"
+                                >
+                                    All clear
+                                </span>
+
+                                <span>
+                                    failed reminders
+                                </span>
+                            </div>
+                        </button>
+                    {% endif %}
+
+                    <div
+                        id="cancelledCard"
+                        class="metric-card red"
+                    >
+                        <div class="metric-top">
+                            <span class="metric-label">
+                                Cancellations
+                            </span>
+
+                            <span class="metric-icon">
+                                ✕
+                            </span>
+                        </div>
+
+                        <div
+                            id="cancelledMetric"
+                            class="metric-value"
+                        >
+                            0
+                        </div>
+
+                        <div class="metric-footer">
+                            <span
+                                id="cancelledMetricRate"
+                                class="metric-change negative"
+                            >
+                                —
+                            </span>
+
+                            <span>
+                                of recorded bookings
+                            </span>
+                        </div>
+                    </div>
+
                     <button
-                        class="metric-card purple interactive-card"
+                        class="metric-card emerald interactive-card"
                         type="button"
                         data-dashboard-action="revenue-report"
                         aria-label="Open revenue report"
@@ -1590,6 +1730,47 @@
             </div>
         </main>
     </div>
+
+    <nav
+        class="mobile-tabbar"
+        aria-label="Quick navigation"
+    >
+        <a href="#overview" class="mobile-tab">
+            <span aria-hidden="true">🏠</span>
+            <small>Overview</small>
+        </a>
+
+        <a href="#bookings" class="mobile-tab">
+            <span aria-hidden="true">📅</span>
+            <small>Bookings</small>
+        </a>
+
+        {% if show_reminders %}
+            <button
+                type="button"
+                class="mobile-tab"
+                data-dashboard-action="reminder-centre"
+            >
+                <span aria-hidden="true">🔔</span>
+                <small>Reminders</small>
+            </button>
+        {% endif %}
+
+        <a href="#customers" class="mobile-tab">
+            <span aria-hidden="true">👥</span>
+            <small>Customers</small>
+        </a>
+
+        <button
+            id="mobileTabMenuButton"
+            type="button"
+            class="mobile-tab"
+            aria-label="Open dashboard menu"
+        >
+            <span aria-hidden="true">☰</span>
+            <small>Menu</small>
+        </button>
+    </nav>
 
     <!-- =========================================================
          OVERLAY

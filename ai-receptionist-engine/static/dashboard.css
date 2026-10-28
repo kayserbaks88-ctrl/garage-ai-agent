@@ -3199,3 +3199,471 @@ body.drawer-open {
         padding: 9px 6px !important;
     }
 }
+
+
+/* =========================================================
+   33. TRIMTECH NAVY + EMERALD REDESIGN
+   Visual-only layer: brand tokens, dark mode, colour-coded
+   cards, welcome quick actions and the mobile tab bar.
+   ========================================================= */
+
+:root {
+    color-scheme: light;
+
+    --background: #f2f6fb;
+    --surface-soft: #f6f9fc;
+
+    --sidebar-background: #0a1628;
+    --sidebar-background-end: #0b1220;
+
+    --primary: #059669;
+    --primary-dark: #047857;
+    --primary-light: #34d399;
+    --primary-soft: #ecfdf5;
+
+    --info: #2563eb;
+    --info-soft: #eff6ff;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+
+    --background: #0b1220;
+    --surface: #111c2e;
+    --surface-soft: #0f1a2b;
+    --surface-hover: #182640;
+
+    --sidebar-background: #070e1b;
+    --sidebar-background-end: #0a1424;
+
+    --primary: #10b981;
+    --primary-dark: #059669;
+    --primary-light: #6ee7b7;
+    --primary-soft: rgba(16, 185, 129, 0.15);
+
+    --info: #60a5fa;
+    --info-soft: rgba(96, 165, 250, 0.15);
+    --success: #4ade80;
+    --success-soft: rgba(74, 222, 128, 0.14);
+    --warning: #fbbf24;
+    --warning-soft: rgba(251, 191, 36, 0.15);
+    --danger: #f87171;
+    --danger-soft: rgba(248, 113, 113, 0.15);
+    --purple: #a78bfa;
+    --purple-soft: rgba(167, 139, 250, 0.17);
+
+    --text: #e6edf7;
+    --text-secondary: #9db0c8;
+    --text-muted: #6c819d;
+
+    --border: #22324c;
+    --border-dark: #32466a;
+
+    --shadow-small: 0 1px 2px rgba(0, 0, 0, 0.35);
+    --shadow-medium: 0 10px 30px rgba(0, 0, 0, 0.4);
+    --shadow-large: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+body {
+    font-feature-settings: "cv11", "ss01";
+    line-height: 1.5;
+}
+
+button:focus-visible,
+a:focus-visible {
+    outline-color: rgba(16, 185, 129, 0.45);
+}
+
+/* Sidebar */
+
+.sidebar {
+    background:
+        radial-gradient(
+            circle at top right,
+            rgba(16, 185, 129, 0.2),
+            transparent 34%
+        ),
+        linear-gradient(
+            180deg,
+            var(--sidebar-background-end) 0%,
+            var(--sidebar-background) 100%
+        );
+}
+
+.navigation-link {
+    border-radius: 12px;
+}
+
+.navigation-link.active {
+    background: rgba(16, 185, 129, 0.16);
+    box-shadow: inset 3px 0 0 var(--primary-light);
+}
+
+/* Header */
+
+.top-header {
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    border-bottom-color: var(--border);
+}
+
+.header-action-button.primary {
+    border-color: var(--primary);
+    background: var(--primary);
+}
+
+.header-action-button.primary:hover {
+    border-color: var(--primary-dark);
+    background: var(--primary-dark);
+}
+
+.theme-toggle-icon {
+    font-size: 17px;
+    line-height: 1;
+}
+
+.header-action-button {
+    padding: 0 14px;
+    gap: 8px;
+    display: inline-flex;
+}
+
+/* Welcome */
+
+.dashboard-content {
+    padding-top: 28px;
+}
+
+.welcome-panel {
+    background:
+        radial-gradient(
+            circle at 88% 10%,
+            rgba(16, 185, 129, 0.42),
+            transparent 30%
+        ),
+        radial-gradient(
+            circle at 60% 130%,
+            rgba(37, 99, 235, 0.28),
+            transparent 40%
+        ),
+        linear-gradient(135deg, #0a1628 0%, #0f2a3d 100%);
+}
+
+.welcome-eyebrow {
+    color: #a7f3d0;
+}
+
+.welcome-summary-label {
+    color: #a7f3d0;
+}
+
+.welcome-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.welcome-action {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 16px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        background var(--transition),
+        transform var(--transition);
+}
+
+.welcome-action:hover {
+    background: rgba(255, 255, 255, 0.16);
+    transform: translateY(-1px);
+}
+
+.welcome-action.primary {
+    border-color: var(--primary);
+    background: var(--primary);
+}
+
+.welcome-action.primary:hover {
+    background: var(--primary-dark);
+}
+
+/* Colour-coded metric cards */
+
+.metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.metric-card {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border-top: 3px solid var(--card-accent);
+    background:
+        linear-gradient(
+            150deg,
+            var(--card-accent-soft) 0%,
+            var(--surface) 62%
+        );
+    color: inherit;
+    font: inherit;
+}
+
+.metric-card[hidden] {
+    display: none;
+}
+
+.metric-card.interactive-card {
+    cursor: pointer;
+}
+
+.metric-card:not(.interactive-card):hover {
+    transform: none;
+    border-color: var(--border);
+    box-shadow: var(--shadow-small);
+}
+
+.metric-card.blue {
+    --card-accent: var(--info);
+    --card-accent-soft: var(--info-soft);
+}
+
+.metric-card.green {
+    --card-accent: var(--success);
+    --card-accent-soft: var(--success-soft);
+}
+
+.metric-card.purple {
+    --card-accent: var(--purple);
+    --card-accent-soft: var(--purple-soft);
+}
+
+.metric-card.amber,
+.metric-card.orange {
+    --card-accent: var(--warning);
+    --card-accent-soft: var(--warning-soft);
+}
+
+.metric-card.red {
+    --card-accent: var(--danger);
+    --card-accent-soft: var(--danger-soft);
+}
+
+.metric-card.emerald {
+    --card-accent: var(--primary);
+    --card-accent-soft: var(--primary-soft);
+}
+
+.metric-card::after {
+    display: none;
+}
+
+.metric-icon {
+    background: var(--card-accent);
+    color: #ffffff;
+    box-shadow: 0 6px 14px
+        color-mix(in srgb, var(--card-accent) 35%, transparent);
+}
+
+html[data-theme="dark"] .metric-icon {
+    color: #0b1220;
+}
+
+.metric-label {
+    letter-spacing: 0.01em;
+    text-transform: uppercase;
+    font-size: 11px;
+}
+
+.metric-value {
+    font-size: 34px;
+}
+
+/* Dark mode fixes for components with fixed light colours */
+
+html[data-theme="dark"] .crm-toolbar,
+html[data-theme="dark"] .detail-drawer-header {
+    background: var(--surface);
+}
+
+html[data-theme="dark"] .detail-drawer-body {
+    background: var(--surface-soft);
+}
+
+html[data-theme="dark"] .booking-filters select:focus {
+    background: var(--surface);
+}
+
+html[data-theme="dark"] .vehicle-registration,
+html[data-theme="dark"] .vehicle-directory-registration {
+    color: var(--text);
+}
+
+html[data-theme="dark"] .vehicle-directory-registration {
+    border-color: var(--border-dark);
+}
+
+html[data-theme="dark"] .dashboard-modal-card {
+    border-color: var(--border);
+}
+
+.panel {
+    background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--primary) 6%, var(--surface)) 0,
+        var(--surface) 72px
+    );
+}
+
+.panel-header {
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--primary) 7%, transparent),
+        transparent 70%
+    );
+}
+
+html[data-theme="dark"] .customer-directory-card,
+html[data-theme="dark"] #customerSection,
+html[data-theme="dark"] #vehicleSection,
+html[data-theme="dark"] .customer-centre,
+html[data-theme="dark"] .vehicle-centre,
+html[data-theme="dark"] .customer-directory-panel,
+html[data-theme="dark"] .vehicle-directory-panel,
+html[data-theme="dark"] .vehicle-directory-card,
+html[data-theme="dark"] .quick-action,
+html[data-theme="dark"] .health-row,
+html[data-theme="dark"] .crm-toolbar,
+html[data-theme="dark"] .booking-toolbar,
+html[data-theme="dark"] .revenue-centre-card,
+html[data-theme="dark"] .vehicle-centre-card {
+    background: var(--surface-soft);
+    border-color: var(--border);
+}
+
+html[data-theme="dark"] .quick-action:hover,
+html[data-theme="dark"] .booking-table tbody tr:hover {
+    background: var(--surface-hover);
+}
+
+html[data-theme="dark"] .table-link {
+    background: transparent;
+    color: inherit;
+}
+
+html[data-theme="dark"] .chart-grid-line,
+html[data-theme="dark"] .service-progress,
+html[data-theme="dark"] .skeleton {
+    background: var(--border);
+}
+
+/* Mobile tab bar */
+
+.mobile-tabbar {
+    display: none;
+}
+
+@media (max-width: 980px) {
+    .mobile-tabbar {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 40;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: 1fr;
+        padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--border);
+        background: color-mix(in srgb, var(--surface) 94%, transparent);
+        backdrop-filter: blur(16px);
+    }
+
+    .mobile-tab {
+        min-height: 52px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .mobile-tab small {
+        font-size: 10px;
+        font-weight: 700;
+    }
+
+    .mobile-tab:active {
+        background: var(--primary-soft);
+        color: var(--primary);
+    }
+
+    .dashboard-content {
+        padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    }
+
+    body.drawer-open .mobile-tabbar,
+    body.modal-open .mobile-tabbar,
+    body.sidebar-open .mobile-tabbar {
+        display: none;
+    }
+}
+
+@media (max-width: 700px) {
+    .metric-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .metric-card {
+        min-height: 124px;
+        padding: 15px;
+    }
+
+    .metric-value {
+        margin-top: 12px;
+        font-size: 26px;
+    }
+
+    .metric-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+    }
+
+    .metric-label {
+        font-size: 10px;
+    }
+
+    .metric-footer {
+        flex-wrap: wrap;
+        gap: 2px 6px;
+    }
+
+    .welcome-actions {
+        gap: 8px;
+    }
+
+    .welcome-action {
+        flex: 1 1 calc(50% - 8px);
+        justify-content: center;
+    }
+}
+
+@media (max-width: 360px) {
+    .metric-grid {
+        grid-template-columns: 1fr;
+    }
+}

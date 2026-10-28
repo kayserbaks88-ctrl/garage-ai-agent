@@ -129,6 +129,13 @@ function loadElements() {
         "upcomingBookingsMetric",
         "remindersDueMetric",
         "reminderMetricStatus",
+        "attentionMetric",
+        "attentionMetricStatus",
+        "cancelledCard",
+        "cancelledMetric",
+        "cancelledMetricRate",
+        "welcomeGreeting",
+        "mobileTabMenuButton",
         "revenueMetric",
         "revenuePeriod",
         "navigationBookingCount",
@@ -355,6 +362,11 @@ function bindEvents() {
         });
 
     el.menuButton?.addEventListener(
+        "click",
+        toggleMobileSidebar
+    );
+
+    el.mobileTabMenuButton?.addEventListener(
         "click",
         toggleMobileSidebar
     );
@@ -901,7 +913,81 @@ function renderDashboard() {
     renderSystemHealth();
 }
 
+function renderWelcomeGreeting() {
+    const hour = new Date().getHours();
+
+    setText(
+        el.welcomeGreeting,
+        hour < 12
+            ? "Good morning"
+            : hour < 18
+                ? "Good afternoon"
+                : "Good evening"
+    );
+}
+
+// Uses only values already returned by /api/dashboard-data.
+function renderAttentionAndCancellations() {
+    const data = dashboardState.data;
+
+    const failed = Number(
+        data.reminders?.failed
+    );
+
+    if (el.attentionMetric && Number.isFinite(failed)) {
+        setText(
+            el.attentionMetric,
+            formatNumber(failed)
+        );
+
+        setText(
+            el.attentionMetricStatus,
+            failed > 0 ? "Review needed" : "All clear"
+        );
+
+        el.attentionMetricStatus.className =
+            `metric-change ${
+                failed > 0 ? "warning" : "positive"
+            }`;
+    }
+
+    const cancelled = Number(
+        data.analytics?.cancelled_bookings
+    );
+
+    const total = Number(
+        data.analytics?.total_bookings
+    );
+
+    if (el.cancelledCard) {
+        const available =
+            Number.isFinite(cancelled) &&
+            Number.isFinite(total);
+
+        el.cancelledCard.hidden = !available;
+
+        if (available) {
+            setText(
+                el.cancelledMetric,
+                formatNumber(cancelled)
+            );
+
+            setText(
+                el.cancelledMetricRate,
+                total > 0
+                    ? `${Math.round(
+                        (cancelled / total) * 100
+                    )}%`
+                    : "0%"
+            );
+        }
+    }
+}
+
 function renderSummary() {
+    renderAttentionAndCancellations();
+    renderWelcomeGreeting();
+
     const summary =
         dashboardState.data.summary;
 
