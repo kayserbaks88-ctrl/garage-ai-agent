@@ -683,6 +683,21 @@ def platform_login():
                 ] = expected_username
 
                 session[
+                    "platform_admin_auth_source"
+                ] = (
+                    "dedicated"
+                    if os.getenv(
+                        "PLATFORM_ADMIN_USERNAME",
+                        "",
+                    ).strip()
+                    and os.getenv(
+                        "PLATFORM_ADMIN_PASSWORD",
+                        "",
+                    )
+                    else "legacy_dashboard"
+                )
+
+                session[
                     "platform_login_time"
                 ] = int(
                     time.time()

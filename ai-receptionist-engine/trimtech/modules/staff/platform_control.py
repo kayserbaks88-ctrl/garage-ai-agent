@@ -9,6 +9,11 @@ from psycopg2.extras import RealDictCursor
 from trimtech.modules.auth.routes import platform_admin_required as shared_platform_required
 from trimtech.modules.staff.database import transaction
 from trimtech.modules.staff import migrations, accounts_migration, onboarding_migration, billing_migration
+from trimtech.modules.onboarding.service import (
+    OnboardingStorageError,
+    list_onboarding_businesses,
+)
+from trimtech.modules.staff.paychaser_integration import fetch_summary
 
 logger = logging.getLogger(__name__)
 STATUSES = {'all','active_trial','expired_trial','pending_trial','paid','inactive','legacy'}
@@ -32,6 +37,22 @@ def platform_admin_required(function):
     return protected
 
 
+def control_centre_required(function):
+    @wraps(function)
+    @shared_platform_required
+    def protected(*args, **kwargs):
+        if (
+            not authorized()
+            or session.get('platform_admin_auth_source') != 'dedicated'
+        ):
+            abort(
+                403,
+                description='Dedicated platform administrator credentials are required for the Control Centre.',
+            )
+        return function(*args, **kwargs)
+    return protected
+
+
 def directory(query='', status='all'):
     if status not in STATUSES:
         raise ValueError('Choose a valid business status.')
@@ -46,6 +67,7 @@ def directory(query='', status='all'):
                 COALESCE(e.employees,0) AS employee_count,COALESCE(sh.open_shifts,0) AS open_shifts,
                 COALESCE(sh.pending,0) AS pending_approvals,sh.last_activity,
                 sub.status AS subscription_status,sub.paid_until,sub.invoice_status,
+                sub.cancel_at_period_end,
                 CASE WHEN NOT b.active THEN 'inactive'
                      WHEN sub.status='active' AND sub.paid_until>NOW() THEN 'paid'
                      WHEN t.business_id IS NULL THEN 'legacy'
@@ -58,7 +80,8 @@ def directory(query='', status='all'):
                 LEFT JOIN (SELECT business_id,COUNT(*) FILTER(WHERE clock_out_at IS NULL) AS open_shifts,
                     COUNT(*) FILTER(WHERE approval_status='pending' AND clock_out_at IS NOT NULL) AS pending,
                     MAX(updated_at) AS last_activity FROM staff_shifts GROUP BY business_id) sh ON sh.business_id=b.id
-                LEFT JOIN LATERAL (SELECT status,paid_until,invoice_status FROM sb_subscriptions
+                LEFT JOIN LATERAL (SELECT status,paid_until,invoice_status,cancel_at_period_end,verified_at
+                    FROM sb_subscriptions
                     WHERE business_id=b.id ORDER BY (status='active' AND paid_until>NOW()) DESC,
                     verified_at DESC,id LIMIT 1) sub ON TRUE
                 ORDER BY lower(b.name),b.id""")
@@ -71,6 +94,39 @@ def directory(query='', status='all'):
                 paid=sum(row['state']=='paid' for row in rows))
 
 def register_routes(staff):
+    @staff.staff_blueprint.get('/platform/control-centre')
+    @control_centre_required
+    def platform_control_centre():
+        garage_available = True
+        staff_available = True
+        try:
+            garage_businesses = list_onboarding_businesses()
+        except OnboardingStorageError:
+            logger.exception('Control Centre could not read Garage registrations')
+            garage_businesses = None
+            garage_available = False
+        try:
+            staff_data = directory()
+        except staff._DB_ERRORS:
+            logger.exception('Control Centre could not read Staff Manager summaries')
+            staff_data = None
+            staff_available = False
+
+        summary = build_control_centre_summary(
+            garage_businesses,
+            staff_data,
+            garage_available=garage_available,
+            staff_available=staff_available,
+            paychaser_data=fetch_summary(),
+        )
+        logger.info(
+            'TrimTech Control Centre viewed: actor_hash=%s',
+            hashlib.sha256(
+                str(session.get('platform_admin_username', '')).encode()
+            ).hexdigest(),
+        )
+        return render_template('trimtech_control_centre.html', **summary)
+
     @staff.staff_blueprint.get('/platform/businesses')
     @platform_admin_required
     def platform_businesses():
@@ -114,3 +170,118 @@ def register_routes(staff):
         except staff._DB_ERRORS:
             abort(503)
         return redirect(url_for('staff.platform_subscription',business_slug=business_slug))
+
+
+def build_control_centre_summary(
+    garage_businesses,
+    staff_data,
+    *,
+    garage_available=True,
+    staff_available=True,
+    paychaser_data=None,
+):
+    garage_rows = garage_businesses if garage_available else None
+    staff_rows = (
+        staff_data['businesses']
+        if staff_available and staff_data is not None
+        else None
+    )
+    garage_count = len(garage_rows) if garage_rows is not None else None
+    staff_count = len(staff_rows) if staff_rows is not None else None
+
+    active_trials = (
+        sum(row.get('state') == 'active_trial' for row in staff_rows)
+        if staff_rows is not None
+        else None
+    )
+    active_subscriptions = (
+        sum(row.get('state') == 'paid' for row in staff_rows)
+        if staff_rows is not None
+        else None
+    )
+    cancellation_statuses = {'active', 'trialing', 'past_due'}
+    pending_cancellations = (
+        sum(
+            bool(row.get('cancel_at_period_end'))
+            and row.get('subscription_status') in cancellation_statuses
+            for row in staff_rows
+        )
+        if staff_rows is not None
+        else None
+    )
+    payment_issue_statuses = {'past_due', 'unpaid', 'invalid'}
+    payment_issue_invoices = {'open', 'uncollectible', 'failed'}
+    payment_issues = (
+        sum(
+            row.get('subscription_status') in payment_issue_statuses
+            or row.get('invoice_status') in payment_issue_invoices
+            for row in staff_rows
+        )
+        if staff_rows is not None
+        else None
+    )
+    employee_count = (
+        sum(int(row.get('employee_count') or 0) for row in staff_rows)
+        if staff_rows is not None
+        else None
+    )
+    completed_registrations = (
+        sum(bool(getattr(row, 'onboarding_complete', False)) for row in garage_rows)
+        if garage_rows is not None
+        else None
+    )
+    paychaser_data = paychaser_data or {
+        'available': False,
+        'status': 'not_configured',
+        'message': 'PayChaser service integration is not configured.',
+    }
+    paychaser_summary = paychaser_data.get('data', {})
+
+    return {
+        'products': {
+            'garage': {
+                'available': garage_available,
+                'businesses': garage_count,
+                'completed_registrations': completed_registrations,
+                'trials': None,
+                'subscriptions': None,
+                'cancellations': None,
+                'payment_issues': None,
+                'billing_status': 'Setup pending',
+            },
+            'staff': {
+                'available': staff_available,
+                'businesses': staff_count,
+                'employees': employee_count,
+                'trials': active_trials,
+                'subscriptions': active_subscriptions,
+                'cancellations': pending_cancellations,
+                'payment_issues': payment_issues,
+                'billing_status': 'Staff billing records',
+            },
+            'paychaser': {
+                'available': paychaser_data.get('available', False),
+                'status': paychaser_data.get('status', 'unavailable'),
+                'message': paychaser_data.get('message', ''),
+                'businesses': paychaser_summary.get('registered_businesses'),
+                'businesses_without_subscription': paychaser_summary.get(
+                    'businesses_without_subscription'
+                ),
+                'trials': paychaser_summary.get('active_trials'),
+                'subscriptions': paychaser_summary.get(
+                    'subscription_status_counts'
+                ),
+                'cancellations': paychaser_summary.get(
+                    'scheduled_cancellations'
+                ),
+                'as_of': paychaser_summary.get('as_of'),
+                'business_records_updated_at': paychaser_summary.get(
+                    'business_records_updated_at'
+                ),
+                'subscription_records_updated_at': paychaser_summary.get(
+                    'subscription_records_updated_at'
+                ),
+            },
+        },
+        'revenue': None,
+    }

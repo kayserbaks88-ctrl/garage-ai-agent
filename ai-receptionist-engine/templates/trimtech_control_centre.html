@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="dark">
+    <title>TrimTech Control Centre</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='control-centre.css') }}">
+</head>
+<body>
+    <main class="page">
+        <header class="topbar">
+            <a class="brand" href="{{ url_for('staff.platform_control_centre') }}" aria-label="TrimTech Control Centre home">
+                <span class="brand-mark" aria-hidden="true">T</span>
+                <span><strong>TrimTech</strong><small>CONTROL CENTRE</small></span>
+            </a>
+            <nav class="product-links" aria-label="Product administration">
+                <a href="{{ url_for('platform.platform_businesses') }}">Garage AI administration</a>
+                <a href="{{ url_for('staff.platform_businesses') }}">Staff Manager administration</a>
+                <span class="pending-link" aria-disabled="true">PayChaser summary</span>
+            </nav>
+        </header>
+
+        <section class="welcome" aria-labelledby="page-title">
+            <div>
+                <p class="eyebrow"><span class="status-dot"></span> PRIVATE PLATFORM ADMINISTRATION</p>
+                <h1 id="page-title">Your platform, <span>at a glance.</span></h1>
+                <p class="intro">A read-only overview of the business and billing information currently available across TrimTech.</p>
+            </div>
+            <div class="access-badge"><span aria-hidden="true">✓</span> Owner access verified</div>
+        </section>
+
+        <section class="metrics" aria-label="Staff Manager billing overview">
+            <article class="metric metric-blue">
+                <span class="metric-label">Staff businesses</span>
+                <strong>{{ products.staff.businesses if products.staff.businesses is not none else 'Unavailable' }}</strong>
+                <span class="metric-note">Recorded workspaces</span>
+            </article>
+            <article class="metric metric-purple">
+                <span class="metric-label">Active trials</span>
+                <strong>{{ products.staff.trials if products.staff.trials is not none else 'Unavailable' }}</strong>
+                <span class="metric-note">Staff Manager</span>
+            </article>
+            <article class="metric metric-green">
+                <span class="metric-label">Paid subscriptions</span>
+                <strong>{{ products.staff.subscriptions if products.staff.subscriptions is not none else 'Unavailable' }}</strong>
+                <span class="metric-note">Staff Manager</span>
+            </article>
+            <article class="metric metric-amber">
+                <span class="metric-label">Pending cancellations</span>
+                <strong>{{ products.staff.cancellations if products.staff.cancellations is not none else 'Unavailable' }}</strong>
+                <span class="metric-note">Last recorded billing state</span>
+            </article>
+            <article class="metric metric-coral">
+                <span class="metric-label">Payment issues</span>
+                <strong>{{ products.staff.payment_issues if products.staff.payment_issues is not none else 'Unavailable' }}</strong>
+                <span class="metric-note">Last recorded billing state</span>
+            </article>
+            <article class="metric metric-teal">
+                <span class="metric-label">Monthly revenue</span>
+                <strong>Unavailable</strong>
+                <span class="metric-note">Verified recurring prices are not available</span>
+            </article>
+        </section>
+
+        <section class="section-heading">
+            <div>
+                <p class="eyebrow">PRODUCTS</p>
+                <h2>Connected services</h2>
+            </div>
+            <p class="muted">Unavailable data is shown explicitly; it is never treated as zero.</p>
+        </section>
+
+        <section class="products" aria-label="Product summaries">
+            <article class="product-card product-garage">
+                <div class="product-head">
+                    <span class="product-icon" aria-hidden="true">G</span>
+                    <div><p class="eyebrow">AI RECEPTIONIST</p><h3>Garage AI</h3></div>
+                    <span class="pill pill-pending">Setup pending</span>
+                </div>
+                {% if products.garage.available %}
+                <div class="product-stats">
+                    <div><strong>{{ products.garage.businesses }}</strong><span>Registered businesses</span></div>
+                    <div><strong>{{ products.garage.completed_registrations }}</strong><span>Completed registrations</span></div>
+                </div>
+                <p class="notice">Registrations are not paid subscribers. Trials, subscriptions, cancellations, payment issues and revenue are not tracked here.</p>
+                {% else %}
+                <p class="notice notice-error" role="status">Garage registration data is temporarily unavailable.</p>
+                {% endif %}
+                <a class="card-link" href="{{ url_for('platform.platform_businesses') }}">Open Garage AI administration <span aria-hidden="true">→</span></a>
+            </article>
+
+            <article class="product-card product-staff">
+                <div class="product-head">
+                    <span class="product-icon" aria-hidden="true">S</span>
+                    <div><p class="eyebrow">WORKFORCE MANAGEMENT</p><h3>Staff Manager</h3></div>
+                    <span class="pill pill-connected">{{ 'Connected' if products.staff.available else 'Data unavailable' }}</span>
+                </div>
+                {% if products.staff.available %}
+                <div class="product-stats">
+                    <div><strong>{{ products.staff.businesses }}</strong><span>Businesses</span></div>
+                    <div><strong>{{ products.staff.employees }}</strong><span>Active employee accounts</span></div>
+                    <div><strong>{{ products.staff.trials }}</strong><span>Active trials</span></div>
+                    <div><strong>{{ products.staff.subscriptions }}</strong><span>Paid subscriptions</span></div>
+                    <div><strong>{{ products.staff.cancellations }}</strong><span>Scheduled cancellations</span></div>
+                    <div><strong>{{ products.staff.payment_issues }}</strong><span>Recorded payment issues</span></div>
+                </div>
+                <p class="notice">Subscription and payment figures reflect the latest stored billing state. Amounts and monthly recurring revenue are unavailable.</p>
+                {% else %}
+                <p class="notice notice-error" role="status">Staff Manager reporting is temporarily unavailable.</p>
+                {% endif %}
+                <a class="card-link" href="{{ url_for('staff.platform_businesses') }}">Open Staff Manager administration <span aria-hidden="true">→</span></a>
+            </article>
+
+            <article class="product-card product-paychaser">
+                <div class="product-head">
+                    <span class="product-icon" aria-hidden="true">P</span>
+                    <div><p class="eyebrow">PAYROLL &amp; PAYMENTS</p><h3>PayChaser</h3></div>
+                    <span class="pill {{ 'pill-connected' if products.paychaser.available else 'pill-pending' }}">
+                        {{ 'Connected' if products.paychaser.available else
+                           'Integration pending' if products.paychaser.status == 'not_configured' else
+                           'Temporarily unavailable' }}
+                    </span>
+                </div>
+                {% if products.paychaser.available %}
+                <div class="product-stats">
+                    <div><strong>{{ products.paychaser.businesses }}</strong><span>Registered businesses</span></div>
+                    <div><strong>{{ products.paychaser.trials }}</strong><span>Active free trials</span></div>
+                    <div><strong>{{ products.paychaser.cancellations }}</strong><span>Scheduled cancellations</span></div>
+                    <div>
+                        <strong>{{ products.paychaser.businesses_without_subscription }}</strong>
+                        <span>Businesses without a subscription record</span>
+                    </div>
+                </div>
+                <div class="status-breakdown" aria-label="PayChaser subscription status counts">
+                    <span>Paying subscribers <strong>{{ products.paychaser.subscriptions.active }}</strong></span>
+                    <span>Trialing subscriptions <strong>{{ products.paychaser.subscriptions.trialing }}</strong></span>
+                    <span>Past due <strong>{{ products.paychaser.subscriptions.past_due }}</strong></span>
+                    <span>Canceled <strong>{{ products.paychaser.subscriptions.canceled }}</strong></span>
+                    <span>Other <strong>{{ products.paychaser.subscriptions.other }}</strong></span>
+                </div>
+                <p class="notice">
+                    Live aggregate from PayChaser's stored Stripe webhook state; not a direct Stripe query.
+                    Snapshot as of {{ products.paychaser.as_of.strftime('%d %b %Y, %H:%M UTC') }}.
+                    Business records last updated
+                    {{ products.paychaser.business_records_updated_at.strftime('%d %b %Y, %H:%M UTC')
+                       if products.paychaser.business_records_updated_at else 'not available' }};
+                    subscription records last updated
+                    {{ products.paychaser.subscription_records_updated_at.strftime('%d %b %Y, %H:%M UTC')
+                       if products.paychaser.subscription_records_updated_at else 'no subscription records' }}.
+                </p>
+                {% else %}
+                <div class="pending-state">
+                    <span class="pending-symbol" aria-hidden="true">↗</span>
+                    <div>
+                        <strong>{{ products.paychaser.message }}</strong>
+                        <p>Subscriber summaries are unavailable until the secure service connection is restored.</p>
+                    </div>
+                </div>
+                {% endif %}
+                <p class="notice">PayChaser customer, invoice and payment details are not read or displayed in this dashboard.</p>
+            </article>
+        </section>
+
+        <footer class="footer">
+            <span>TrimTech Control Centre</span>
+            <span>Read-only summaries · No billing changes are made here</span>
+        </footer>
+    </main>
+</body>
+</html>
