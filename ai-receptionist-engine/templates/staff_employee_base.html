@@ -78,7 +78,7 @@
 @media(min-width:650px){.metrics{grid-template-columns:repeat(3,minmax(0,1fr))}.hub-links{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.history thead{display:none}.history tr,.history td{display:block}.history td{border:0;padding:5px 0}.history tr{padding:12px 0;border-bottom:1px solid var(--line)}.history td[data-label]::before{content:attr(data-label) ': ';color:var(--muted)}}
 </style>
-<script defer src="{{ url_for('static',filename='staff_presence.js') }}"></script>{% include 'staff_pwa_head.html' %}</head>
+<script defer src="{{ url_for('static',filename='staff_presence.js') }}"></script>{% include 'staff_pwa_head.html' %}<link rel="stylesheet" href="{{ url_for('static',filename='staff_employee_dashboard.css') }}"></head>
 <body class="staff-pwa-enabled">
 <a class="skip" href="#main">Skip to content</a>
 {% set token = csrf_token() %}
@@ -103,13 +103,15 @@
 <div class="shell">
 <header class="topbar">
 <a class="brand button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}"><span class="brand-mark" aria-hidden="true">S</span><span><strong>Staff Manager</strong><small>Employee control centre</small></span></a>
-<nav class="actions" aria-label="Account">
-<a class="button" href="{{ url_for('staff.employee_app_install') }}">Install / app help</a>
-<a class="button" href="{{ url_for('staff.employee_app') }}">Switch workspace</a>
-{% if page != 'home' %}<a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Back to home</a>{% endif %}
-<a class="button" href="{{ refresh_url if refresh_url is defined else url_for(request.endpoint,business_slug=business_slug) }}">Refresh</a>
+<details class="employee-account">
+<summary><svg aria-hidden="true" focusable="false" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"></circle><path d="M5 20c.7-3.5 3.1-5.3 7-5.3s6.3 1.8 7 5.3"></path></svg><span>Account</span></summary>
+<nav class="employee-account-menu" aria-label="Account">
+<a href="{{ url_for('staff.employee_app_install') }}">Install / app help</a>
+<a href="{{ url_for('staff.employee_app') }}">Switch workspace</a>
+{% if page != 'home' %}<a href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Back to home</a>{% endif %}
+<a href="{{ refresh_url if refresh_url is defined else url_for(request.endpoint,business_slug=business_slug) }}">Refresh</a>
 <form method="post" action="{{ url_for('staff.employee_logout',business_slug=business_slug) }}"><input type="hidden" name="csrf_token" value="{{ token }}"><button type="submit">Sign out</button></form>
-</nav></header>
+</nav></details></header>
 {% if page != 'home' %}<nav class="section-nav" aria-label="Employee tools">{% for key,label,description in sections %}<a class="button" {{ 'aria-current=page' if page==key else '' }} href="{{ url_for('staff.employee_' ~ key,business_slug=business_slug) }}">{{ label }}</a>{% endfor %}</nav>{% endif %}
 <main id="main">
 <p data-pwa-status class="pwa-status" role="status" tabindex="-1" hidden></p>
@@ -119,5 +121,16 @@
 <footer><p>{{ employee.full_name }} &middot; {{ business_slug }} &middot; UK local times</p></footer>
 </div>
 <script defer src="{{ url_for('static',filename='staff_employee.js') }}"></script>
-<nav class="employee-mobile-nav" aria-label="Quick employee tools">{% for key,label in [('clocking','Clock'),('rota','Rota'),('hours','Hours'),('pay','Pay'),('leave','Leave')] %}<a href="{{ url_for('staff.employee_' ~ key,business_slug=business_slug) }}" {% if page==key %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}</nav>
+<nav class="employee-mobile-nav" aria-label="Quick employee tools">
+{% for key,label,icon in [('clocking','Clock','clock'),('rota','Rota','calendar'),('hours','Hours','chart'),('pay','Pay','wallet'),('leave','Leave','sun')] %}
+<a href="{{ url_for('staff.employee_' ~ key,business_slug=business_slug) }}" {% if page==key %}aria-current="page"{% endif %}>
+<svg class="employee-nav-icon" aria-hidden="true" focusable="false" viewBox="0 0 24 24">
+{% if icon == 'clock' %}<circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3 2"></path>
+{% elif icon == 'calendar' %}<rect x="4" y="5.5" width="16" height="14" rx="2"></rect><path d="M8 3.5v4M16 3.5v4M4 10h16"></path>
+{% elif icon == 'chart' %}<path d="M4 19.5h16M6.5 16v-4M12 16V7M17.5 16v-7"></path>
+{% elif icon == 'wallet' %}<rect x="3.5" y="6" width="17" height="13" rx="2"></rect><path d="M3.5 9h17M16 14h1"></path>
+{% else %}<path d="M19.5 15.5A8 8 0 0 1 8.5 4.7a8.5 8.5 0 1 0 11 10.8Z"></path><path d="m16.5 4 .7 1.8L19 6.5l-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"></path>{% endif %}
+</svg><span>{{ label }}</span></a>
+{% endfor %}
+</nav>
 </body></html>

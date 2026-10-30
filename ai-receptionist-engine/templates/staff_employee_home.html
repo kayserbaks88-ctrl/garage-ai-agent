@@ -1,16 +1,51 @@
 {% extends "staff_employee_base.html" %}
 {% block title %}Employee control centre{% endblock %}
 {% block content %}
-<h1>Employee control centre</h1>
-<p class="intro">Hello, {{ employee.full_name }}. Your work at a glance.</p>
-<div class="metrics">
-<div class="metric"><span>Current clock status</span><strong>{{ 'On break' if current_break else ('Clocked in' if is_clocked_in else 'Clocked out') }}</strong>{% if current_shift %}<p>{{ current_shift.site_name }}</p>{% endif %}<a class="button" href="{{ url_for('staff.employee_clocking',business_slug=business_slug) }}">Open clocking</a></div>
-<div class="metric"><span>Hours this week</span><strong>{{ '%.2f'|format(hours_this_week) }}</strong><p class="help">Elapsed hours, before breaks and approval.</p><a href="{{ url_for('staff.employee_hours',business_slug=business_slug) }}">View my hours</a></div>
-<div class="metric"><span>Workplace mode</span><strong>{{ agency_settings.organisation_mode|title }}</strong><p class="help">{{ 'Clock in to your eligible assigned job.' if agency_settings.organisation_mode=='agency' else 'Select your workplace when clocking in.' }}</p></div>
-</div>
 {% set next_job=(current_jobs or upcoming_jobs)|first %}
-<section class="card compact-job"><h2>{{ 'Current job' if current_jobs else 'Next upcoming job' }}</h2>
-{% if next_job %}<h3>{{ next_job.name }}</h3><p>{{ next_job.address }}</p><p>{{ time_text(next_job.starts_at) }} &ndash; {{ time_text(next_job.ends_at) }}</p>{% if next_job.client_reference %}<p>Job / client: {{ next_job.client_reference }}</p>{% endif %}<p class="help">{{ next_job.status|title }}{% if not next_job.site_active %} &middot; Site inactive; contact your manager{% endif %}</p>
-{% else %}<p class="muted">No current or upcoming assignments.</p>{% endif %}<a class="button" href="{{ url_for('staff.employee_jobs',business_slug=business_slug) }}">My jobs</a></section>
+<section class="employee-welcome" aria-labelledby="employee-welcome-title">
+<div><p class="eyebrow">Employee portal</p><h1 id="employee-welcome-title">Welcome, {{ employee.full_name }}</h1><p>Your work at a glance.</p><p class="employee-workplace-note">{{ 'Clock in to your eligible assigned job.' if agency_settings.organisation_mode=='agency' else 'Select your workplace when clocking in.' }}</p></div>
+<span class="employee-workplace">{{ agency_settings.organisation_mode|title }} workplace</span>
+</section>
+<section class="employee-dashboard-grid" aria-label="Your work at a glance">
+<article class="employee-card employee-card--clock" aria-labelledby="employee-clock-title">
+<div class="employee-card-heading"><span class="employee-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7v5l3 2"></path></svg></span><span class="employee-card-label">Clock status</span></div>
+<h2 id="employee-clock-title">{{ 'On break' if current_break else ('Clocked in' if is_clocked_in else 'Clocked out') }}</h2>
+{% if current_shift %}<p>{{ current_shift.site_name }}</p>{% else %}<p>{{ 'Your shift is ready to manage.' if current_break else 'Check your clocking options.' }}</p>{% endif %}
+<a class="employee-card-link" href="{{ url_for('staff.employee_clocking',business_slug=business_slug) }}">Open clocking <span aria-hidden="true">→</span></a>
+</article>
+<article class="employee-card employee-card--hours" aria-labelledby="employee-hours-title">
+<div class="employee-card-heading"><span class="employee-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 19.5h16M6.5 16v-4M12 16V7M17.5 16v-7"></path></svg></span><span class="employee-card-label">This week</span></div>
+<h2 id="employee-hours-title"><span class="employee-card-value">{{ '%.2f'|format(hours_this_week) }}</span> <span class="employee-card-unit">hours</span></h2>
+<p class="employee-card-note">Elapsed time before breaks and approval{% if week_start and week_end %} · {{ date_text(week_start) }} – {{ date_text(week_end) }}{% endif %}</p>
+<a class="employee-card-link" href="{{ url_for('staff.employee_hours',business_slug=business_slug) }}">View my hours <span aria-hidden="true">→</span></a>
+</article>
+<article class="employee-card employee-card--rota" aria-labelledby="employee-rota-title">
+<div class="employee-card-heading"><span class="employee-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14" rx="2"></rect><path d="M8 3.5v4M16 3.5v4M4 10h16"></path></svg></span><span class="employee-card-label">Rota &amp; assignments</span></div>
+<h2 id="employee-rota-title">{{ 'Current assignment' if current_jobs else 'Your rota' }}</h2>
+{% if next_job %}<p><strong>{{ next_job.name }}</strong><br>{{ next_job.address }}<br>{{ time_text(next_job.starts_at) }} – {{ time_text(next_job.ends_at) }}</p>{% if next_job.client_reference %}<p>Job / client: {{ next_job.client_reference }}</p>{% endif %}<p class="employee-card-note">{{ next_job.status|title }}{% if not next_job.site_active %} · Site inactive; contact your manager{% endif %}</p>{% else %}<p>See your existing weekly assignments.</p>{% endif %}
+<div class="employee-card-actions"><a class="employee-card-link" href="{{ url_for('staff.employee_rota',business_slug=business_slug) }}">View my rota <span aria-hidden="true">→</span></a><a class="employee-card-link" href="{{ url_for('staff.employee_jobs',business_slug=business_slug) }}">My jobs <span aria-hidden="true">→</span></a></div>
+</article>
+<article class="employee-card employee-card--break" aria-labelledby="employee-break-title">
+<div class="employee-card-heading"><span class="employee-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"></path></svg></span><span class="employee-card-label">Breaks</span></div>
+<h2 id="employee-break-title">{{ 'On break' if current_break else 'Not on break' }}</h2>
+{% if current_break %}<p>{{ 'Paid' if current_break.paid else 'Unpaid' }} break started {{ time_text(current_break.started_at) }}.</p>{% else %}<p>Break controls are available while clocked in.</p>{% endif %}
+<a class="employee-card-link" href="{{ url_for('staff.employee_clocking',business_slug=business_slug) }}">Manage breaks <span aria-hidden="true">→</span></a>
+</article>
+<article class="employee-card employee-card--pay" aria-labelledby="employee-pay-title">
+<div class="employee-card-heading"><span class="employee-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="13" rx="2"></rect><path d="M3.5 9h17M16 14h1"></path></svg></span><span class="employee-card-label">Pay information</span></div>
+<h2 id="employee-pay-title">Payslips</h2>
+<p>Access your available approved payslips.</p>
+<a class="employee-card-link" href="{{ url_for('staff.employee_pay',business_slug=business_slug) }}">View payslips <span aria-hidden="true">→</span></a>
+</article>
+<article class="employee-card employee-card--leave" aria-labelledby="employee-leave-title">
+<div class="employee-card-heading"><span class="employee-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M19.5 15.5A8 8 0 0 1 8.5 4.7a8.5 8.5 0 1 0 11 10.8Z"></path><path d="m16.5 4 .7 1.8L19 6.5l-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7.7-1.8Z"></path></svg></span><span class="employee-card-label">Holiday &amp; leave</span></div>
+<h2 id="employee-leave-title">Leave requests</h2>
+<p>Request leave and check approval updates.</p>
+<a class="employee-card-link" href="{{ url_for('staff.employee_leave',business_slug=business_slug) }}">Manage leave <span aria-hidden="true">→</span></a>
+</article>
+</section>
+<section class="employee-tools" aria-labelledby="employee-tools-title">
+<div class="employee-tools-heading"><p class="eyebrow">Quick access</p><h2 id="employee-tools-title">Your tools</h2></div>
 <nav class="hub-links" aria-label="Employee tools">{% for key,label,description in sections %}<a class="hub-link" href="{{ url_for('staff.employee_' ~ key,business_slug=business_slug) }}"><strong>{{ label }}</strong><span>{{ description }}</span></a>{% endfor %}</nav>
+</section>
 {% endblock %}
