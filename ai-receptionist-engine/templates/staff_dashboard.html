@@ -1,13 +1,143 @@
-{% extends "staff_base.html" %}{% block title %}Staff Manager{% endblock %}{% set hub = true %}
+{% extends "staff_base.html" %}
+{% block title %}Staff Manager{% endblock %}
+{% set hub = true %}
 {% block content %}
-<p class="eyebrow">Staff control centre</p><h1>{{ staff_business_name }}</h1><p class="muted">People, attendance and payroll at a glance.</p>
-<section class="metrics dashboard-metrics" aria-label="Workforce summary">
-{% for value,label,endpoint in [(summary.active_employees,'Employees','employees_page'),(summary.staff_clocked_in,'Working now','attendance_page'),(on_break,'On break','attendance_page'),(attendance_warnings|length,'Attendance warnings','attendance_page'),(summary.shifts_waiting_approval,'Pending shift approvals','approvals_page'),(workforce.pending,'Pending registrations','employee_onboarding')] %}<a class="metric" href="{{ url_for('staff.' ~ endpoint,business_slug=business_slug) }}"><span>{{ label }}</span><strong>{{ value or 0 }}</strong></a>{% endfor %}
-<article class="metric"><span>Weekly recorded hours</span><strong>{{ summary.hours_this_week or 0 }}</strong><small>Before breaks and approval</small></article>
-<article class="metric"><span>Approved gross estimate</span><strong>&pound;{{ '%.2f'|format(approved_estimate.estimated_gross if approved_estimate else 0) }}</strong><small>Approved hours less unpaid breaks, at current rates; before deductions</small></article></section>
-<nav class="hub-links" aria-label="Staff sections">{% for label,endpoint,description in [('Employees','employee_onboarding','People, invitations & joining requests'),('Attendance','attendance_page','Clocking, breaks & location alerts'),('Sites & Rotas','agency_dashboard','Sites, schedules & assignments'),('Leave','leave_page','Requests & manager approvals'),('Payroll','payroll_page','Reviewed runs, payslips & settings'),('Settings','settings_page','Company, onboarding & subscription')] %}<a class="hub-link" href="{{ url_for('staff.' ~ endpoint,business_slug=business_slug) }}"><strong>{{ label }}</strong><span>{{ description }}</span></a>{% endfor %}</nav>
-{% if location_alerts %}<details class="card"><summary>Location alerts · {{ location_alerts|length }}</summary><div class="body">{% for alert in location_alerts %}<p><strong>{{ alert.full_name }}</strong> · {{ alert.label }}<br>Latest sample: {{ alert.last_location_display or 'Not available' }}</p>{% endfor %}<p class="help">Location never automatically changes wages or approves/rejects shifts. Browser updates pause when the page is hidden or the phone is locked.</p><a href="{{ url_for('staff.attendance_page',business_slug=business_slug) }}">Review attendance</a></div></details>{% endif %}
-<details class="card"><summary>Employee invitations &amp; more tools</summary><div class="body"><p>Invitations awaiting acceptance: {{ workforce.awaiting }} · Rejected registrations: {{ workforce.rejected }}</p><nav class="actions"><a class="button" href="{{ url_for('staff.employees_page',business_slug=business_slug) }}">Employee directory</a><a class="button" href="{{ url_for('staff.employee_home',business_slug=business_slug) }}">Employee portal</a></nav></div></details>
-{% if staff_setup and not staff_setup.done.review %}<p class="help"><a href="{{ url_for('staff.settings_page',business_slug=business_slug) }}">Resume setup in Settings</a> · Optional employee and payroll setup can be deferred.</p>{% endif %}
-{% if wage_estimate %}<details class="card"><summary>Estimated gross wages · recorded hours &amp; payroll guidance</summary><div class="body"><p>Recorded-hours estimate: &pound;{{ '%.2f'|format(wage_estimate.estimated_gross) }} including open and pending shifts. {{ wage_estimate.hours }} recorded hours; {{ wage_estimate.unpaid_break_hours }} unpaid break hours deducted.</p><p>This is an estimated gross amount before tax, NI and pension deductions — not final net pay or completed payroll. Final payroll requires reviewed employee profiles and manager approvals.</p>{% if staff_setup and staff_setup.payroll_deferred %}<a href="{{ url_for('staff.payroll_page',business_slug=business_slug,_anchor='payroll-settings') }}">Activate Payroll Later</a>{% endif %}</div></details>{% endif %}
+<div class="staff-dashboard-page">
+    <div class="staff-dashboard-layout">
+        <aside class="staff-dashboard-sidebar" aria-label="Staff Manager navigation">
+            <a class="staff-sidebar-brand" href="{{ url_for('staff.dashboard', business_slug=business_slug) }}">
+                <span class="mark" aria-hidden="true">S</span>
+                <span><strong>Staff Manager</strong><small>Workforce overview</small></span>
+            </a>
+            <nav class="staff-sidebar-links">
+                <a href="{{ url_for('staff.dashboard', business_slug=business_slug) }}" aria-current="page"><span aria-hidden="true">⌂</span> Overview</a>
+                <a href="{{ url_for('staff.employees_page', business_slug=business_slug) }}"><span aria-hidden="true">♙</span> Employees</a>
+                <a href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}"><span aria-hidden="true">◷</span> Attendance</a>
+                <a href="{{ url_for('staff.approvals_page', business_slug=business_slug) }}"><span aria-hidden="true">✓</span> Shift approvals</a>
+                <a href="{{ url_for('staff.agency_dashboard', business_slug=business_slug, _anchor='roster') }}"><span aria-hidden="true">▦</span> Sites &amp; rotas</a>
+                <a href="{{ url_for('staff.leave_page', business_slug=business_slug) }}"><span aria-hidden="true">▣</span> Holidays &amp; leave</a>
+                <a href="{{ url_for('staff.payroll_page', business_slug=business_slug) }}"><span aria-hidden="true">£</span> Payroll</a>
+                <a href="{{ url_for('staff.settings_page', business_slug=business_slug) }}"><span aria-hidden="true">⚙</span> Settings</a>
+                <a href="{{ url_for('staff.subscription', business_slug=business_slug) }}"><span aria-hidden="true">◇</span> Subscription</a>
+            </nav>
+        </aside>
+
+        <div class="staff-dashboard-main">
+            <section class="staff-welcome" aria-labelledby="staffDashboardTitle">
+                <div>
+                    <p class="eyebrow"><span class="staff-live-dot" aria-hidden="true"></span> Staff control centre</p>
+                    <h1 id="staffDashboardTitle">{{ staff_business_name }}</h1>
+                    <p class="staff-welcome-copy">Your people, attendance and payroll at a glance.</p>
+                </div>
+                <nav class="staff-quick-actions" aria-label="Quick actions">
+                    <a class="staff-quick-action staff-quick-action-primary" href="{{ url_for('staff.employees_page', business_slug=business_slug) }}"><span aria-hidden="true">♙</span> Employees</a>
+                    <a class="staff-quick-action" href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}"><span aria-hidden="true">◷</span> Attendance</a>
+                    <a class="staff-quick-action" href="{{ url_for('staff.agency_dashboard', business_slug=business_slug, _anchor='roster') }}"><span aria-hidden="true">▦</span> Rotas</a>
+                    <a class="staff-quick-action" href="{{ url_for('staff.payroll_page', business_slug=business_slug) }}"><span aria-hidden="true">£</span> Payroll</a>
+                </nav>
+                <a class="staff-invite-action" href="{{ url_for('staff.employee_onboarding', business_slug=business_slug) }}">
+                    <span class="staff-invite-icon" aria-hidden="true">＋</span>
+                    <span><strong>Invite employees</strong><small>Manage invitations and share your joining link</small></span>
+                    <span aria-hidden="true">→</span>
+                </a>
+            </section>
+
+            <section class="staff-stat-grid" aria-label="Workforce statistics">
+                <a class="staff-stat-card staff-stat-blue" href="{{ url_for('staff.employees_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Total Employees</span><span class="staff-stat-icon" aria-hidden="true">♙</span></span>
+                    <strong>{{ summary.active_employees or 0 }}</strong><small>Active staff members</small>
+                </a>
+                <a class="staff-stat-card staff-stat-green" href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Currently Clocked In</span><span class="staff-stat-icon" aria-hidden="true">◷</span></span>
+                    <strong>{{ summary.staff_clocked_in or 0 }}</strong><small>Employees working now</small>
+                </a>
+                <a class="staff-stat-card staff-stat-amber" href="{{ url_for('staff.approvals_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Shifts Awaiting Approval</span><span class="staff-stat-icon" aria-hidden="true">✓</span></span>
+                    <strong>{{ summary.shifts_waiting_approval or 0 }}</strong><small>Completed shifts to review</small>
+                </a>
+                <a class="staff-stat-card staff-stat-coral" href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Attendance Warnings</span><span class="staff-stat-icon" aria-hidden="true">!</span></span>
+                    <strong>{{ attendance_warnings|length }}</strong><small>Items needing attention</small>
+                </a>
+                <a class="staff-stat-card staff-stat-purple" href="{{ url_for('staff.employee_onboarding', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Pending Employee Registrations</span><span class="staff-stat-icon" aria-hidden="true">＋</span></span>
+                    <strong>{{ workforce.pending or 0 }}</strong><small>Joining requests to review</small>
+                </a>
+                <a class="staff-stat-card staff-stat-orange" href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Hours Worked This Week</span><span class="staff-stat-icon" aria-hidden="true">◴</span></span>
+                    <strong>{{ summary.hours_this_week or 0 }}<small class="staff-stat-unit">hrs</small></strong><small>Recorded hours, before breaks and approval</small>
+                </a>
+                <a class="staff-stat-card staff-stat-teal" href="{{ url_for('staff.payroll_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Estimated Gross Wages</span><span class="staff-stat-icon" aria-hidden="true">£</span></span>
+                    <strong>{% if approved_estimate %}&pound;{{ '%.2f'|format(approved_estimate.estimated_gross) }}{% else %}—{% endif %}</strong>
+                    <small>Approved hours at current rates; before deductions</small>
+                </a>
+                <a class="staff-stat-card staff-stat-violet" href="{{ url_for('staff.leave_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>Employees on Holiday</span><span class="staff-stat-icon" aria-hidden="true">☀</span></span>
+                    <strong>{{ summary.on_holiday_today or 0 }}</strong><small>Approved leave today</small>
+                </a>
+                <a class="staff-stat-card staff-stat-sky" href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}">
+                    <span class="staff-stat-top"><span>On Break</span><span class="staff-stat-icon" aria-hidden="true">Ⅱ</span></span>
+                    <strong>{{ on_break or 0 }}</strong><small>Currently on a recorded break</small>
+                </a>
+            </section>
+
+            <nav class="staff-dashboard-links" aria-label="More Staff Manager tools">
+                <a href="{{ url_for('staff.agency_dashboard', business_slug=business_slug) }}"><strong>Sites &amp; rotas</strong><span>Manage worksites, assignments and schedules</span><span aria-hidden="true">→</span></a>
+                <a href="{{ url_for('staff.leave_page', business_slug=business_slug) }}"><strong>Holidays &amp; leave</strong><span>Review employee leave requests</span><span aria-hidden="true">→</span></a>
+                <a href="{{ url_for('staff.settings_page', business_slug=business_slug) }}"><strong>Settings</strong><span>Business, onboarding and workforce settings</span><span aria-hidden="true">→</span></a>
+                <a href="{{ url_for('staff.subscription', business_slug=business_slug) }}"><strong>Subscription</strong><span>View your Staff Manager plan</span><span aria-hidden="true">→</span></a>
+            </nav>
+
+            {% if location_alerts %}
+            <details class="card staff-dashboard-detail">
+                <summary>Location alerts · {{ location_alerts|length }}</summary>
+                <div class="body">
+                    {% for alert in location_alerts %}
+                    <p><strong>{{ alert.full_name }}</strong> · {{ alert.label }}<br>Latest sample: {{ alert.last_location_display or 'Not available' }}</p>
+                    {% endfor %}
+                    <p class="help">Location never automatically changes wages or approves/rejects shifts. Browser updates pause when the page is hidden or the phone is locked.</p>
+                    <a href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}">Review attendance</a>
+                </div>
+            </details>
+            {% endif %}
+
+            <details class="card staff-dashboard-detail">
+                <summary>Employee invitations &amp; more tools</summary>
+                <div class="body">
+                    <p>Invitations awaiting acceptance: {{ workforce.awaiting }} · Rejected registrations: {{ workforce.rejected }}</p>
+                    <nav class="actions">
+                        <a class="button" href="{{ url_for('staff.employee_onboarding', business_slug=business_slug) }}">Manage invitations &amp; joining link</a>
+                        <a class="button" href="{{ url_for('staff.employees_page', business_slug=business_slug) }}">Employee directory</a>
+                        <a class="button" href="{{ url_for('staff.employee_home', business_slug=business_slug) }}">Employee portal</a>
+                    </nav>
+                </div>
+            </details>
+
+            {% if staff_setup and not staff_setup.done.review %}
+            <p class="help"><a href="{{ url_for('staff.settings_page', business_slug=business_slug) }}">Resume setup in Settings</a> · Optional employee and payroll setup can be deferred.</p>
+            {% endif %}
+
+            {% if wage_estimate %}
+            <details class="card staff-dashboard-detail">
+                <summary>Estimated gross wages · recorded hours &amp; payroll guidance</summary>
+                <div class="body">
+                    <p>Recorded-hours estimate: &pound;{{ '%.2f'|format(wage_estimate.estimated_gross) }} including open and pending shifts. {{ wage_estimate.hours }} recorded hours; {{ wage_estimate.unpaid_break_hours }} unpaid break hours deducted.</p>
+                    <p>This is an estimated gross amount before tax, NI and pension deductions — not final net pay or completed payroll. Final payroll requires reviewed employee profiles and manager approvals.</p>
+                    {% if staff_setup and staff_setup.payroll_deferred %}<a href="{{ url_for('staff.payroll_page', business_slug=business_slug, _anchor='payroll-settings') }}">Activate Payroll Later</a>{% endif %}
+                </div>
+            </details>
+            {% endif %}
+        </div>
+    </div>
+
+    <nav class="staff-mobile-bottom-nav" aria-label="Dashboard quick navigation">
+        <a href="{{ url_for('staff.dashboard', business_slug=business_slug) }}" aria-current="page"><span aria-hidden="true">⌂</span><small>Home</small></a>
+        <a href="{{ url_for('staff.employees_page', business_slug=business_slug) }}"><span aria-hidden="true">♙</span><small>Team</small></a>
+        <a href="{{ url_for('staff.attendance_page', business_slug=business_slug) }}"><span aria-hidden="true">◷</span><small>Time</small></a>
+        <a href="{{ url_for('staff.agency_dashboard', business_slug=business_slug, _anchor='roster') }}"><span aria-hidden="true">▦</span><small>Rotas</small></a>
+        <a href="{{ url_for('staff.leave_page', business_slug=business_slug) }}"><span aria-hidden="true">▣</span><small>Leave</small></a>
+        <a href="{{ url_for('staff.payroll_page', business_slug=business_slug) }}"><span aria-hidden="true">£</span><small>Payroll</small></a>
+    </nav>
+</div>
 {% endblock %}
