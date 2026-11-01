@@ -322,16 +322,19 @@ class ManagePageTests(RouteBase):
 
 
 class NavigationTests(RouteBase):
-    def test_control_centre_has_dashboard_product_and_paychaser_links(self):
+    def test_control_centre_is_platform_home_without_customer_dashboard_link(self):
         self.sign_in()
         with patch.object(platform_control, 'list_onboarding_businesses', return_value=[]), \
              patch.object(platform_control, 'directory', return_value={'businesses': []}), \
              patch.object(platform_control, 'fetch_summary', return_value=NOT_CONFIGURED):
             html = self.client.get('/staff/platform/control-centre').get_data(as_text=True)
-        self.assertIn('href="/dashboard">Back to Dashboard', html)
+        self.assertNotIn('Back to Dashboard', html)
+        self.assertNotIn('Back to Control Centre', html)
+        self.assertNotIn('"/dashboard', html)
+        self.assertIn('href="/platform/businesses"', html)
+        self.assertIn('href="/staff/platform/businesses"', html)
         self.assertIn('href="https://paychaser.example.test/platform"', html)
         self.assertIn('rel="noopener noreferrer"', html)
-        self.assertNotIn('/dashboard"', html.replace('href="/dashboard"', ''))
 
     def test_paychaser_link_is_disabled_when_not_configured(self):
         self.sign_in()
