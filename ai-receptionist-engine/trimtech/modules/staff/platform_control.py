@@ -16,7 +16,7 @@ from trimtech.modules.onboarding.service import (
 from trimtech.modules.staff.paychaser_integration import fetch_summary, admin_url as paychaser_admin_url
 
 logger = logging.getLogger(__name__)
-STATUSES = {'all','active_trial','expired_trial','pending_trial','paid','inactive','legacy'}
+STATUSES = {'all','active_trial','expired_trial','pending_trial','paid','inactive','legacy','complimentary'}
 
 def authorized():
     # Dedicated credentials are mandatory: shared dashboard fallback is not Staff authority.
@@ -62,7 +62,15 @@ def directory(query='', status='all'):
             for module in (migrations, accounts_migration, onboarding_migration, billing_migration):
                 module.verify(cursor)
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            cursor.execute("""SELECT b.id,b.name,b.active,b.created_at,t.starts_at,t.ends_at,
+            # The grants table only exists after the approved migration; the list must work before it.
+            cursor.execute("SELECT to_regclass('public.sc_grants') IS NOT NULL AS present")
+            if cursor.fetchone()['present']:
+                grant_join = """LEFT JOIN LATERAL (SELECT expires_at FROM sc_grants
+                    WHERE business_id=b.id AND revoked_at IS NULL AND expires_at>NOW()
+                    ORDER BY expires_at DESC LIMIT 1) cg ON TRUE"""
+            else:
+                grant_join = 'LEFT JOIN LATERAL (SELECT NULL::timestamptz AS expires_at) cg ON TRUE'
+            cursor.execute("""SELECT b.id,b.name,b.active,b.created_at,t.starts_at,t.ends_at,cg.expires_at AS complimentary_until,
                 COALESCE(s.completed,'{}'::jsonb) AS completed,
                 COALESCE(e.employees,0) AS employee_count,COALESCE(sh.open_shifts,0) AS open_shifts,
                 COALESCE(sh.pending,0) AS pending_approvals,sh.last_activity,
@@ -72,6 +80,7 @@ def directory(query='', status='all'):
                      WHEN sub.status='active' AND sub.paid_until>NOW() THEN 'paid'
                      WHEN t.business_id IS NULL THEN 'legacy'
                      WHEN t.starts_at IS NULL THEN 'pending_trial'
+                     WHEN (t.ends_at<=NOW() OR EXISTS(SELECT 1 FROM staff_audit a WHERE a.business_id=b.id AND a.entity_type='subscription_management' AND a.action='end_trial')) AND cg.expires_at IS NOT NULL THEN 'complimentary'
                      WHEN t.ends_at<=NOW() OR EXISTS(SELECT 1 FROM staff_audit a WHERE a.business_id=b.id AND a.entity_type='subscription_management' AND a.action='end_trial') THEN 'expired_trial' ELSE 'active_trial' END AS state
                 FROM sm_businesses b LEFT JOIN so_trials t ON t.business_id=b.id
                 LEFT JOIN so_setup s ON s.business_id=b.id
@@ -84,6 +93,7 @@ def directory(query='', status='all'):
                     FROM sb_subscriptions
                     WHERE business_id=b.id ORDER BY (status='active' AND paid_until>NOW()) DESC,
                     verified_at DESC,id LIMIT 1) sub ON TRUE
+                """ + grant_join + """
                 ORDER BY lower(b.name),b.id""")
             rows = [dict(row) for row in cursor.fetchall()]
     text = str(query).strip().casefold()[:160]

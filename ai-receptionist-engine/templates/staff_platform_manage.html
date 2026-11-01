@@ -17,7 +17,8 @@ button.danger{background:#b91c1c}
 .flash{padding:10px 14px;border-radius:10px;background:#e0f2fe}.flash.error{background:#fee2e2}
 table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;vertical-align:top;overflow-wrap:anywhere}
 .table-wrap{overflow-x:auto}
-</style></head><body>
+</style></head>{% macro fmt(value) %}{{ value.strftime('%d %b %Y %H:%M UTC') if value.strftime is defined else value }}{% endmacro %}
+<body>
 {% with extra_links=[{'href': url_for('staff.platform_businesses'), 'label': 'All businesses'}, {'href': url_for('staff.platform_subscription', business_slug=business.id), 'label': 'Subscription admin'}] %}{% include '_control_centre_back.html' %}{% endwith %}
 <main>
 <h1>Manage {{ business.name }}</h1>
@@ -29,9 +30,9 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;
 <dt>Account</dt><dd><span class="badge {{ 'ok' if business.active else 'bad' }}">{{ 'Active' if business.active else 'Deactivated' }}</span></dd>
 <dt>Current access</dt><dd><span class="badge {{ 'ok' if access.state in ('paid','legacy') or (access.state=='active') else 'bad' }}">{{ access.state|title }}{% if access.complimentary %} (complimentary){% endif %}</span></dd>
 <dt>Trial</dt><dd>{{ trial.state|title }}</dd>
-<dt>Trial expiry</dt><dd>{{ trial.ends_at or 'Not applicable' }}</dd>
+<dt>Trial expiry</dt><dd>{{ fmt(trial.ends_at) if trial.ends_at else 'Not applicable' }}</dd>
 <dt>Paid</dt><dd>{{ 'Yes' if billing.paid else 'No' }}</dd>
-<dt>Subscription records</dt><dd>{% for sub in billing.subscriptions %}{{ sub.status }}{% if sub.paid_until %}, paid until {{ sub.paid_until }}{% endif %}{% if not loop.last %}<br>{% endif %}{% else %}None{% endfor %}</dd>
+<dt>Subscription records</dt><dd>{% for sub in billing.subscriptions %}{{ sub.status }}{% if sub.paid_until %}, paid until {{ fmt(sub.paid_until) }}{% endif %}{% if not loop.last %}<br>{% endif %}{% else %}None{% endfor %}</dd>
 </dl></section>
 
 <section aria-labelledby="pay-h"><h2 id="pay-h">Payment issues</h2>
@@ -40,7 +41,7 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;
 
 <section aria-labelledby="comp-h"><h2 id="comp-h">Complimentary access</h2>
 {% if grant %}
-<p><span class="badge ok">Active</span> {{ grant.days }}-day grant, ends {{ grant.expires_at }} ({{ grant.days_left }} day(s) left). Reason: {{ grant.reason }}</p>
+<p><span class="badge ok">Active</span> {{ grant.days }}-day grant, ends {{ fmt(grant.expires_at) }} ({{ grant.days_left }} day(s) left). Reason: {{ grant.reason }}</p>
 <form method="post" action="{{ url_for('staff.platform_revoke_complimentary', business_slug=business.id) }}">
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 <label for="revoke-reason">Reason for revoking</label><textarea id="revoke-reason" name="reason" required maxlength="1000" rows="2"></textarea>
@@ -57,6 +58,6 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;
 
 <section aria-labelledby="hist-h"><h2 id="hist-h">Complimentary history</h2>
 <div class="table-wrap"><table><thead><tr><th>Granted</th><th>Days</th><th>By</th><th>State</th><th>Ends</th><th>Reason</th></tr></thead><tbody>
-{% for g in grants %}<tr><td>{{ g.granted_at }}</td><td>{{ g.days }}</td><td>{{ g.granted_by }}</td><td>{{ g.state }}</td><td>{{ g.expires_at }}</td><td>{{ g.reason }}{% if g.revoke_reason %}<br>Revoked: {{ g.revoke_reason }}{% endif %}</td></tr>
+{% for g in grants %}<tr><td>{{ fmt(g.granted_at) }}</td><td>{{ g.days }}</td><td>{{ g.granted_by }}</td><td>{{ g.state }}</td><td>{{ fmt(g.expires_at) }}</td><td>{{ g.reason }}{% if g.revoke_reason %}<br>Revoked: {{ g.revoke_reason }}{% endif %}</td></tr>
 {% else %}<tr><td colspan="6">No complimentary grants.</td></tr>{% endfor %}</tbody></table></div></section>
 </main></body></html>

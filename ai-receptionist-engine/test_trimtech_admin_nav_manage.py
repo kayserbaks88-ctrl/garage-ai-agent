@@ -381,6 +381,56 @@ class NavigationTests(RouteBase):
             self.assertIn("{% include '_control_centre_back.html' %}", source)
 
 
+class ComplimentaryListTests(RouteBase):
+    ROW = {'id': 'acme', 'name': 'Acme', 'active': True, 'created_at': datetime(2026, 1, 1), 'starts_at': None, 'ends_at': datetime(2026, 10, 1),
+           'completed': {}, 'employee_count': 2, 'open_shifts': 0, 'pending_approvals': 0, 'last_activity': None,
+           'subscription_status': None, 'state': 'complimentary', 'complimentary_until': datetime(2026, 11, 8, 9, 30)}
+
+    def page(self, row):
+        self.sign_in()
+        data = dict(businesses=[row], total=1, matching=1, health='Verified', active_trials=0, paid=0)
+        with patch.object(platform_control, 'directory', return_value=data):
+            return self.client.get('/staff/platform/businesses').get_data(as_text=True)
+
+    def test_active_grant_is_shown_in_staff_business_list(self):
+        html = self.page(self.ROW)
+        self.assertIn('Complimentary', html)
+        self.assertIn('Complimentary access ends (UTC)', html)
+        self.assertIn('08 Nov 2026 09:30', html)
+        self.assertIn('value="complimentary"', html)
+
+    def test_business_without_grant_shows_no_complimentary_row(self):
+        html = self.page({**self.ROW, 'state': 'expired_trial', 'complimentary_until': None})
+        self.assertNotIn('Complimentary access ends', html)
+        self.assertIn('Expired Trial', html)
+
+    def directory_sql(self, grants_present):
+        cursor = MagicMock()
+        cursor.fetchone.return_value = {'present': grants_present}
+        cursor.fetchall.return_value = []
+        connection = MagicMock()
+        connection.cursor.return_value.__enter__.return_value = cursor
+        manager = MagicMock()
+        manager.__enter__.return_value = connection
+        with patch.object(platform_control, 'transaction', return_value=manager), \
+             patch.object(platform_control.migrations, 'verify'), patch.object(platform_control.accounts_migration, 'verify'), \
+             patch.object(platform_control.onboarding_migration, 'verify'), patch.object(platform_control.billing_migration, 'verify'):
+            platform_control.directory(status='complimentary')
+        return [call[0][0] for call in cursor.execute.call_args_list if 'FROM sm_businesses' in call[0][0]][0]
+
+    def test_directory_reads_grants_only_when_table_exists(self):
+        self.assertIn('FROM sc_grants', self.directory_sql(True))
+        before_migration = self.directory_sql(False)
+        self.assertNotIn('FROM sc_grants', before_migration)
+        self.assertIn('NULL::timestamptz', before_migration)
+
+    def test_directory_filter_excludes_revoked_and_expired_grants_in_sql(self):
+        sql = self.directory_sql(True)
+        self.assertIn('revoked_at IS NULL', sql)
+        self.assertIn('expires_at>NOW()', sql)
+        self.assertNotIn('sb_subscriptions SET', sql)
+
+
 class MigrationTests(unittest.TestCase):
     def test_migration_is_not_applied_by_the_app_at_import_or_request_time(self):
         cursor = MagicMock()
