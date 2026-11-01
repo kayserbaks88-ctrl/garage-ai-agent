@@ -29,6 +29,8 @@ class AccountTests(unittest.TestCase):
     def submit(self,client,action,**data):
         with client.session_transaction() as session:
             csrf=session.setdefault('_staff_csrf_token','test-csrf')
+            if action=='register':
+                data.setdefault('form_nonce',session.setdefault('_staff_register_nonce','test-nonce'))
         return client.post('/staff/account/'+action,data={'csrf_token':csrf,**data})
 
     def registered(self,email='owner@example.test'):

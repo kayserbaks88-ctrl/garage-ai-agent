@@ -70,7 +70,7 @@ class AccountPresentationTests(unittest.TestCase):
             html = render_template('staff_account.html', mode='register',
                 error='<script>bad</script>', message='Check your inbox.', csrf_token=lambda: 'test-csrf')
         markup = FormMarkup(html)
-        self.assertEqual(set(markup.inputs), {'csrf_token', 'business_name', 'contact_name', 'email', 'password'})
+        self.assertEqual(set(markup.inputs), {'csrf_token', 'form_nonce', 'company_website', 'business_name', 'contact_name', 'email', 'password'})
         self.assertIn('method="post" action="/staff/account/register"', html)
         self.assertEqual(markup.inputs['password']['minlength'], '12')
         self.assertEqual(markup.inputs['password']['maxlength'], '128')

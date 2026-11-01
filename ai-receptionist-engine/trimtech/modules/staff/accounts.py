@@ -38,9 +38,9 @@ def password_hash(value):
     return generate_password_hash(value)
 
 
-def limited(action, identity, address, secret, *, identity_limit=5):
+def limited(action, identity, address, secret, *, identity_limit=5, address_limit=30):
     """Shared fixed-window limits, atomically incremented across web workers."""
-    keys = [(action+':address:'+address,30), (action+':identity:'+identity,identity_limit)]
+    keys = [(action+':address:'+address,address_limit), (action+':identity:'+identity,identity_limit)]
     allowed = True
     with transaction() as connection:
         with connection.cursor() as cursor:

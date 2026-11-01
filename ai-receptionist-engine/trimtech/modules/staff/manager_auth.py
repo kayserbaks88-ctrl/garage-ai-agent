@@ -7,7 +7,7 @@ from functools import wraps
 from flask import abort, current_app, g, jsonify, redirect, render_template, request, session, url_for
 from psycopg2 import Error as PostgreSQLError
 
-from trimtech.modules.staff import accounts, onboarding
+from trimtech.modules.staff import accounts, onboarding, registration_protection
 from trimtech.modules.staff.trusted_proxy import client_address, ProxyConfigurationError
 from trimtech.modules.staff.database import StaffDatabaseError, fetch_all
 
@@ -73,7 +73,8 @@ def register_routes(staff):
 
     def allowed(action):
         key = request.form.get('email','').strip().lower()[:254] if action in ('register','login','resend','recover') else request.form.get('token','')[:128]
-        if not accounts.limited(action,key,client_address(),str(current_app.secret_key)):
+        limits = {'address_limit':5,'identity_limit':3} if action=='register' else {}
+        if not accounts.limited(action,key,client_address(),str(current_app.secret_key),**limits):
             abort(429,description='Too many attempts. Please try again in 15 minutes.')
 
     def deliver(details,purpose):
@@ -92,18 +93,30 @@ def register_routes(staff):
         # Stage 1 can be tested privately; public launch awaits trials/setup and explicit enablement.
         if os.getenv('STAFF_REGISTRATION_ENABLED','0')!='1':
             return page('closed',message='New business registration is not open yet.',code=503)
+        def form(**values):
+            return page('register',form_nonce=registration_protection.issue_nonce(session),
+                        turnstile_site_key=registration_protection.site_key(),**values)
+
         if request.method=='GET':
-            return page('register')
+            return form()
+        received='Request received. If eligible, check your inbox for a verification link. If none arrives, use resend verification. Already registered? Sign in.'
+        if registration_protection.honeypot_tripped(request.form):
+            # Bots get the normal reply but nothing is created or sent.
+            return form(message=received)
         try:
+            registration_protection.consume_nonce(session,request.form.get('form_nonce'))
             allowed('register')
+            registration_protection.verify_turnstile(request.form.get(registration_protection.TOKEN_FIELD),client_address())
             details=accounts.register(request.form.get('business_name'),request.form.get('contact_name'),
                                       request.form.get('email'),request.form.get('password'))
             deliver(details,'verify')
-            return page('register',message='Request received. If eligible, check your inbox for a verification link. If none arrives, use resend verification. Already registered? Sign in.')
+            return form(message=received)
+        except registration_protection.Rejected as rejected:
+            return form(error=rejected.message,code=rejected.status)
         except ValueError as error:
-            return page('register',error=str(error),code=400)
+            return form(error=str(error),code=400)
         except ERRORS:
-            return page('register',error='Registration is temporarily unavailable. Please try again.',code=503)
+            return form(error='Registration is temporarily unavailable. Please try again.',code=503)
 
     @bp.route('/account/login',methods=['GET','POST'])
     def account_login():
