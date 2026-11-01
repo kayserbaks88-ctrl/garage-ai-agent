@@ -1,4 +1,5 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Staff subscription administration</title></head><body>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Staff subscription administration</title></head><body>
+{% with extra_links=[{'href': url_for('staff.platform_businesses'), 'label': 'All businesses'}, {'href': url_for('staff.platform_manage_business', business_slug=business.id), 'label': 'Manage business'}] %}{% include '_control_centre_back.html' %}{% endwith %}
 <h1>{{ business.name }} ? Subscription &amp; Billing</h1><p>Business ID: {{ business.id }} ? {{ 'Active' if business.active else 'Deactivated' }}</p>
 <p>Free trial: {{ trial.state }} ? Expiry: {{ trial.ends_at or 'Not applicable' }}</p>
 {% for sub in billing.subscriptions %}<p>Subscription: {{ sub.status }} ? Cancellation scheduled: {{ sub.cancel_at_period_end }} ? Period end: {{ sub.period_end }} ? Last verified: {{ sub.verified_at }}</p>{% else %}<p>No confirmed subscription record.</p>{% endfor %}

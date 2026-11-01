@@ -47,6 +47,29 @@ def _configuration():
     return endpoint, token
 
 
+def admin_url():
+    """PayChaser's own platform-admin page, derived from the validated API URL.
+
+    The link lands on PayChaser's separate sign-in; no credential or session is shared.
+    """
+    endpoint = os.getenv('PAYCHASER_CONTROL_CENTRE_API_URL', '').strip()
+    try:
+        parsed = urlparse(endpoint)
+        parsed.port
+    except ValueError:
+        return None
+    if (
+        parsed.scheme != 'https'
+        or not parsed.hostname
+        or parsed.username
+        or parsed.password
+        or parsed.path.rstrip('/') != API_PATH
+        or parsed.query
+        or parsed.fragment
+    ):
+        return None
+    return 'https://%s/platform' % parsed.netloc
+
 def _nonnegative_integer(value):
     return isinstance(value, int) and not isinstance(value, bool) and value >= 0
 

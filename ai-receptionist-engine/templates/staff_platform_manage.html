@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Manage {{ business.name }} - TrimTech Platform</title>
+<style>
+body{margin:0;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f1f5f9;color:#0f172a}
+main{max-width:860px;margin:0 auto;padding:16px;padding-left:max(16px,env(safe-area-inset-left));padding-right:max(16px,env(safe-area-inset-right))}
+section{background:#fff;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+h1{font-size:1.5rem;margin:.4rem 0}h2{font-size:1.1rem;margin:0 0 8px}
+dl{display:grid;grid-template-columns:minmax(120px,40%) 1fr;gap:6px 12px;margin:0}dt{color:#475569}dd{margin:0;overflow-wrap:anywhere}
+.badge{display:inline-block;padding:2px 10px;border-radius:999px;font-weight:600;background:#e2e8f0}
+.ok{background:#dcfce7}.warn{background:#fef3c7}.bad{background:#fee2e2}
+label{display:block;margin:10px 0 4px;font-weight:600}
+select,input,textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid #94a3b8;border-radius:8px}
+button{min-height:44px;margin-top:12px;padding:0 18px;border:0;border-radius:10px;background:#2563eb;color:#fff;font:inherit;font-weight:600}
+button.danger{background:#b91c1c}
+.flash{padding:10px 14px;border-radius:10px;background:#e0f2fe}.flash.error{background:#fee2e2}
+table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;vertical-align:top;overflow-wrap:anywhere}
+.table-wrap{overflow-x:auto}
+</style></head><body>
+{% with extra_links=[{'href': url_for('staff.platform_businesses'), 'label': 'All businesses'}, {'href': url_for('staff.platform_subscription', business_slug=business.id), 'label': 'Subscription admin'}] %}{% include '_control_centre_back.html' %}{% endwith %}
+<main>
+<h1>Manage {{ business.name }}</h1>
+{% for category,message in get_flashed_messages(with_categories=true) %}<p class="flash {{ category }}" role="status">{{ message }}</p>{% endfor %}
+
+<section aria-labelledby="status-h"><h2 id="status-h">Account and subscription</h2>
+<dl>
+<dt>Business ID</dt><dd>{{ business.id }}</dd>
+<dt>Account</dt><dd><span class="badge {{ 'ok' if business.active else 'bad' }}">{{ 'Active' if business.active else 'Deactivated' }}</span></dd>
+<dt>Current access</dt><dd><span class="badge {{ 'ok' if access.state in ('paid','legacy') or (access.state=='active') else 'bad' }}">{{ access.state|title }}{% if access.complimentary %} (complimentary){% endif %}</span></dd>
+<dt>Trial</dt><dd>{{ trial.state|title }}</dd>
+<dt>Trial expiry</dt><dd>{{ trial.ends_at or 'Not applicable' }}</dd>
+<dt>Paid</dt><dd>{{ 'Yes' if billing.paid else 'No' }}</dd>
+<dt>Subscription records</dt><dd>{% for sub in billing.subscriptions %}{{ sub.status }}{% if sub.paid_until %}, paid until {{ sub.paid_until }}{% endif %}{% if not loop.last %}<br>{% endif %}{% else %}None{% endfor %}</dd>
+</dl></section>
+
+<section aria-labelledby="pay-h"><h2 id="pay-h">Payment issues</h2>
+{% for issue in issues %}<p><span class="badge warn">{{ issue }}</span></p>{% else %}<p>No payment issues recorded.</p>{% endfor %}
+<p>Stripe is read-only here. Subscription changes are not made on this page.</p></section>
+
+<section aria-labelledby="comp-h"><h2 id="comp-h">Complimentary access</h2>
+{% if grant %}
+<p><span class="badge ok">Active</span> {{ grant.days }}-day grant, ends {{ grant.expires_at }} ({{ grant.days_left }} day(s) left). Reason: {{ grant.reason }}</p>
+<form method="post" action="{{ url_for('staff.platform_revoke_complimentary', business_slug=business.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="revoke-reason">Reason for revoking</label><textarea id="revoke-reason" name="reason" required maxlength="1000" rows="2"></textarea>
+<button class="danger">Revoke complimentary access</button></form>
+{% else %}
+<p>Complimentary access is temporary and ends automatically. It does not change Stripe and is not available to paid businesses.</p>
+<form method="post" action="{{ url_for('staff.platform_grant_complimentary', business_slug=business.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="days">Extension</label><select id="days" name="days" required>{% for d in allowed_days %}<option value="{{ d }}">{{ d }} days</option>{% endfor %}</select>
+<label for="reason">Reason</label><textarea id="reason" name="reason" required maxlength="1000" rows="3"></textarea>
+<label for="confirmation">Type {{ business.id }} to confirm</label><input id="confirmation" name="confirmation" required autocomplete="off" autocapitalize="none">
+<button>Grant complimentary access</button></form>
+{% endif %}</section>
+
+<section aria-labelledby="hist-h"><h2 id="hist-h">Complimentary history</h2>
+<div class="table-wrap"><table><thead><tr><th>Granted</th><th>Days</th><th>By</th><th>State</th><th>Ends</th><th>Reason</th></tr></thead><tbody>
+{% for g in grants %}<tr><td>{{ g.granted_at }}</td><td>{{ g.days }}</td><td>{{ g.granted_by }}</td><td>{{ g.state }}</td><td>{{ g.expires_at }}</td><td>{{ g.reason }}{% if g.revoke_reason %}<br>Revoked: {{ g.revoke_reason }}{% endif %}</td></tr>
+{% else %}<tr><td colspan="6">No complimentary grants.</td></tr>{% endfor %}</tbody></table></div></section>
+</main></body></html>

@@ -41,7 +41,11 @@ def access(business_id):
     if subscription['paid']:
         return {**trial, 'state':'paid'}
     if trial['state'] == 'legacy' and subscription['managed']:
-        return {**trial, 'state':'expired'}
+        trial = {**trial, 'state':'expired'}
+    if trial['state'] == 'expired':
+        # Complimentary grants are time-limited and evaluated on every request, so they lapse automatically.
+        from trimtech.modules.staff import complimentary_access
+        return complimentary_access.apply_to_access(trial, complimentary_access.active_grant(business_id))
     return trial
 
 

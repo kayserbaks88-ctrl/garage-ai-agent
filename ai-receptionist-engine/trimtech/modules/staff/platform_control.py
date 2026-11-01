@@ -13,7 +13,7 @@ from trimtech.modules.onboarding.service import (
     OnboardingStorageError,
     list_onboarding_businesses,
 )
-from trimtech.modules.staff.paychaser_integration import fetch_summary
+from trimtech.modules.staff.paychaser_integration import fetch_summary, admin_url as paychaser_admin_url
 
 logger = logging.getLogger(__name__)
 STATUSES = {'all','active_trial','expired_trial','pending_trial','paid','inactive','legacy'}
@@ -125,7 +125,7 @@ def register_routes(staff):
                 str(session.get('platform_admin_username', '')).encode()
             ).hexdigest(),
         )
-        return render_template('trimtech_control_centre.html', **summary)
+        return render_template('trimtech_control_centre.html', paychaser_admin_url=paychaser_admin_url(), **summary)
 
     @staff.staff_blueprint.get('/platform/businesses')
     @platform_admin_required
@@ -171,7 +171,67 @@ def register_routes(staff):
             abort(503)
         return redirect(url_for('staff.platform_subscription',business_slug=business_slug))
 
+    @staff.staff_blueprint.get('/platform/businesses/<business_slug>/manage')
+    @control_centre_required
+    def platform_manage_business(business_slug):
+        from trimtech.modules.staff import subscription_management as management, billing, onboarding, complimentary_access as comp
+        try:
+            business = management.business(business_slug)
+            if not business:
+                abort(404)
+            billing_summary = billing.summary(business_slug)
+            access = onboarding.access(business_slug)
+            return render_template('staff_platform_manage.html', business=business, billing=billing_summary,
+                trial=onboarding.status(business_slug), access=access,
+                issues=payment_issues(billing_summary['subscriptions']),
+                grant=comp.active_grant(business_slug), grants=comp.history(business_slug),
+                allowed_days=comp.ALLOWED_DAYS, csrf_token=staff._get_csrf_token)
+        except staff._DB_ERRORS:
+            abort(503)
 
+    @staff.staff_blueprint.post('/platform/businesses/<business_slug>/complimentary')
+    @control_centre_required
+    def platform_grant_complimentary(business_slug):
+        from trimtech.modules.staff import complimentary_access as comp
+        try:
+            result = comp.grant(business_slug, comp.actor_for(session['platform_admin_username']),
+                request.form.get('days'), request.form.get('reason'), request.form.get('confirmation'))
+            flash('Complimentary access granted for %d days. It ends automatically.' % result['days'], 'success')
+        except comp.GrantRefused as error:
+            flash(str(error), 'error')
+        except staff._DB_ERRORS:
+            abort(503)
+        return redirect(url_for('staff.platform_manage_business', business_slug=business_slug))
+
+    @staff.staff_blueprint.post('/platform/businesses/<business_slug>/complimentary/revoke')
+    @control_centre_required
+    def platform_revoke_complimentary(business_slug):
+        from trimtech.modules.staff import complimentary_access as comp
+        try:
+            comp.revoke(business_slug, comp.actor_for(session['platform_admin_username']), request.form.get('reason'))
+            flash('Complimentary access revoked.', 'success')
+        except comp.GrantRefused as error:
+            flash(str(error), 'error')
+        except staff._DB_ERRORS:
+            abort(503)
+        return redirect(url_for('staff.platform_manage_business', business_slug=business_slug))
+
+
+PAYMENT_PROBLEM_STATUSES = {'past_due', 'unpaid', 'incomplete', 'incomplete_expired', 'invalid'}
+
+
+def payment_issues(subscriptions):
+    """Plain-language payment problems from verified subscription rows (read-only)."""
+    issues = []
+    for row in subscriptions or []:
+        status = row.get('status')
+        if status in PAYMENT_PROBLEM_STATUSES:
+            issues.append('Subscription status is %s.' % status.replace('_', ' '))
+        elif row.get('invoice_status') in ('open', 'uncollectible', 'void'):
+            issues.append('Latest invoice is %s.' % row['invoice_status'])
+        if row.get('cancel_at_period_end'):
+            issues.append('Cancellation is scheduled at the end of the paid period.')
+    return list(dict.fromkeys(issues))
 def build_control_centre_summary(
     garage_businesses,
     staff_data,

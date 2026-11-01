@@ -15,9 +15,11 @@
                 <span><strong>TrimTech</strong><small>CONTROL CENTRE</small></span>
             </a>
             <nav class="product-links" aria-label="Product administration">
+                <a href="/dashboard">Back to Dashboard</a>
                 <a href="{{ url_for('platform.platform_businesses') }}">Garage AI administration</a>
                 <a href="{{ url_for('staff.platform_businesses') }}">Staff Manager administration</a>
-                <span class="pending-link" aria-disabled="true">PayChaser summary</span>
+                {% if paychaser_admin_url %}<a href="{{ paychaser_admin_url }}" target="_blank" rel="noopener noreferrer">PayChaser administration</a>
+                {% else %}<span class="pending-link" aria-disabled="true">PayChaser administration (not configured)</span>{% endif %}
             </nav>
         </header>
 
