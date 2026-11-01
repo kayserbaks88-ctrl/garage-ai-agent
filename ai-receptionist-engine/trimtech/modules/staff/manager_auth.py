@@ -73,7 +73,7 @@ def register_routes(staff):
 
     def allowed(action):
         key = request.form.get('email','').strip().lower()[:254] if action in ('register','login','resend','recover') else request.form.get('token','')[:128]
-        limits = {'address_limit':5,'identity_limit':3} if action=='register' else {}
+        limits = {'identity_limit':3} if action=='register' else {}
         if not accounts.limited(action,key,client_address(),str(current_app.secret_key),**limits):
             abort(429,description='Too many attempts. Please try again in 15 minutes.')
 

@@ -121,12 +121,13 @@ class DuplicateSubmissionTests(RegistrationBase):
 
 
 class RateLimitTests(RegistrationBase):
-    def test_registration_uses_strict_limits_and_blocks_when_exceeded(self):
+    def test_registration_tightens_only_the_per_email_limit_and_blocks_when_exceeded(self):
         self.limited.return_value = False
         response = self.submit()
         self.assertEqual(response.status_code, 429)
         self.register.assert_not_called()
-        self.assertEqual(self.limited.call_args.kwargs, {'address_limit': 5, 'identity_limit': 3})
+        # Without trusted proxy CIDRs all visitors share one address bucket, so it must not be tightened.
+        self.assertEqual(self.limited.call_args.kwargs, {'identity_limit': 3})
 
     def test_other_actions_keep_their_existing_limits(self):
         self.assertEqual(ORIGINAL_LIMITED.__kwdefaults__, {'identity_limit': 5, 'address_limit': 30})
