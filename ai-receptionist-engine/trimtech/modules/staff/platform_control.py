@@ -8,7 +8,15 @@ from flask import abort, render_template, request, session, redirect, url_for, f
 from psycopg2.extras import RealDictCursor
 from trimtech.modules.auth.routes import platform_admin_required as shared_platform_required
 from trimtech.modules.staff.database import transaction
-from trimtech.modules.staff import migrations, accounts_migration, onboarding_migration, billing_migration
+from trimtech.modules.staff import (
+    migrations,
+    accounts_migration,
+    onboarding_migration,
+    billing_migration,
+    complimentary_migration,
+    registration_review,
+    registration_review_migration,
+)
 from trimtech.modules.onboarding.service import (
     OnboardingStorageError,
     list_onboarding_businesses,
@@ -17,6 +25,7 @@ from trimtech.modules.staff.paychaser_integration import fetch_summary, admin_ur
 
 logger = logging.getLogger(__name__)
 STATUSES = {'all','active_trial','expired_trial','pending_trial','paid','inactive','legacy','complimentary'}
+OWNER_FILTERS = {'all', 'verified', 'unverified'}
 
 def authorized():
     # Dedicated credentials are mandatory: shared dashboard fallback is not Staff authority.
@@ -53,8 +62,8 @@ def control_centre_required(function):
     return protected
 
 
-def directory(query='', status='all'):
-    if status not in STATUSES:
+def directory(query='', status='all', owner='all', candidates_only=False):
+    if status not in STATUSES or owner not in OWNER_FILTERS:
         raise ValueError('Choose a valid business status.')
     with transaction() as connection:
         connection.set_session(readonly=True, isolation_level='REPEATABLE READ')
@@ -63,15 +72,30 @@ def directory(query='', status='all'):
                 module.verify(cursor)
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
             # The grants table only exists after the approved migration; the list must work before it.
-            cursor.execute("SELECT to_regclass('public.sc_grants') IS NOT NULL AS present")
-            if cursor.fetchone()['present']:
+            cursor.execute("""SELECT to_regclass('sc_grants') IS NOT NULL AS present,
+                to_regclass('sr_review_items') IS NOT NULL AS review""")
+            present = cursor.fetchone()
+            grants_present, review_ready = bool(present['present']), bool(present['present'] and present['review'])
+            if grants_present:
+                complimentary_migration.verify(cursor)
                 grant_join = """LEFT JOIN LATERAL (SELECT expires_at FROM sc_grants
                     WHERE business_id=b.id AND revoked_at IS NULL AND expires_at>NOW()
                     ORDER BY expires_at DESC LIMIT 1) cg ON TRUE"""
             else:
                 grant_join = 'LEFT JOIN LATERAL (SELECT NULL::timestamptz AS expires_at) cg ON TRUE'
+            if review_ready:
+                registration_review_migration.verify(cursor)
+            reactivation_column = (
+                """EXISTS(SELECT 1 FROM sr_review_items i WHERE i.business_id=b.id AND i.id=(
+                    SELECT MAX(j.id) FROM sr_review_items j WHERE j.business_id=b.id) AND i.new_active=FALSE)
+                    AS review_reactivation,"""
+                if review_ready else 'FALSE AS review_reactivation,'
+            )
             cursor.execute("""SELECT b.id,b.name,b.active,b.created_at,t.starts_at,t.ends_at,cg.expires_at AS complimentary_until,
-                COALESCE(s.completed,'{}'::jsonb) AS completed,
+                """ + registration_review.fact_columns(grants_present) + """,
+                """ + reactivation_column + """
+                own.email AS owner_email,
+                COALESCE(su.completed,'{}'::jsonb) AS completed,
                 COALESCE(e.employees,0) AS employee_count,COALESCE(sh.open_shifts,0) AS open_shifts,
                 COALESCE(sh.pending,0) AS pending_approvals,sh.last_activity,
                 sub.status AS subscription_status,sub.paid_until,sub.invoice_status,
@@ -82,8 +106,7 @@ def directory(query='', status='all'):
                      WHEN t.starts_at IS NULL THEN 'pending_trial'
                      WHEN (t.ends_at<=NOW() OR EXISTS(SELECT 1 FROM staff_audit a WHERE a.business_id=b.id AND a.entity_type='subscription_management' AND a.action='end_trial')) AND cg.expires_at IS NOT NULL THEN 'complimentary'
                      WHEN t.ends_at<=NOW() OR EXISTS(SELECT 1 FROM staff_audit a WHERE a.business_id=b.id AND a.entity_type='subscription_management' AND a.action='end_trial') THEN 'expired_trial' ELSE 'active_trial' END AS state
-                FROM sm_businesses b LEFT JOIN so_trials t ON t.business_id=b.id
-                LEFT JOIN so_setup s ON s.business_id=b.id
+                FROM sm_businesses b """ + registration_review.FACT_JOINS + """
                 LEFT JOIN (SELECT business_id,COUNT(*) FILTER(WHERE status='active') AS employees
                     FROM staff_employees GROUP BY business_id) e ON e.business_id=b.id
                 LEFT JOIN (SELECT business_id,COUNT(*) FILTER(WHERE clock_out_at IS NULL) AS open_shifts,
@@ -97,11 +120,31 @@ def directory(query='', status='all'):
                 ORDER BY lower(b.name),b.id""")
             rows = [dict(row) for row in cursor.fetchall()]
     text = str(query).strip().casefold()[:160]
-    filtered = [row for row in rows if (not text or text in row['name'].casefold()) and
-                (status=='all' or row['state']==status)]
+    filtered = []
+    for row in rows:
+        reasons = registration_review.protection_reasons(row)
+        row['review_candidate'] = not reasons
+        row['review_reasons'] = reasons
+        row['owner_verified'] = bool(row.get('owner_verified'))
+        if (text and text not in row['name'].casefold()
+                and text not in str(row.get('owner_email') or '').casefold()):
+            continue
+        if status != 'all' and row['state'] != status:
+            continue
+        if owner == 'verified' and not row['owner_verified']:
+            continue
+        if owner == 'unverified' and row['owner_verified']:
+            continue
+        if candidates_only and (
+                not review_ready or not (row['review_candidate'] or row['review_reactivation'])):
+            continue
+        row['owner_email_masked'] = registration_review.mask_email(row.pop('owner_email', None))
+        filtered.append(row)
     return dict(businesses=filtered,total=len(rows),matching=len(filtered),health='Verified',
                 active_trials=sum(row['state']=='active_trial' for row in rows),
-                paid=sum(row['state']=='paid' for row in rows))
+                paid=sum(row['state']=='paid' for row in rows),
+                review_candidates=sum(row['review_candidate'] for row in rows),
+                review_ready=review_ready)
 
 def register_routes(staff):
     @staff.staff_blueprint.get('/platform/control-centre')
@@ -135,15 +178,20 @@ def register_routes(staff):
                 str(session.get('platform_admin_username', '')).encode()
             ).hexdigest(),
         )
-        return render_template('trimtech_control_centre.html', paychaser_admin_url=paychaser_admin_url(), **summary)
+        return render_template('trimtech_control_centre.html',
+            paychaser_admin_url=paychaser_admin_url(), can_review=True, **summary)
 
     @staff.staff_blueprint.get('/platform/businesses')
     @platform_admin_required
     def platform_businesses():
         query=request.args.get('q','')[:160]
         status=request.args.get('status','all')
+        owner=request.args.get('owner','all')
+        candidates_only=request.args.get('candidates_only') == '1'
+        can_review = authorized() and session.get('platform_admin_auth_source') == 'dedicated'
         try:
-            data=directory(query,status)
+            data=directory(query,status,owner,candidates_only)
+            review_history = registration_review.history() if data.get('review_ready') and can_review else []
         except ValueError:
             abort(400)
         except staff._DB_ERRORS:
@@ -151,7 +199,64 @@ def register_routes(staff):
         # Read-only directory: no impersonation, mutation controls or payroll data.
         actor=hashlib.sha256(str(session.get('platform_admin_username','authenticated-platform-admin')).encode()).hexdigest()
         logger.info('Staff platform directory viewed: actor_hash=%s',actor)
-        return render_template('staff_platform.html',**data,q=query,status_filter=status,csrf_token=staff._get_csrf_token)
+        return render_template('staff_platform.html',**data,q=query,status_filter=status,
+            owner_filter=owner,candidates_only=candidates_only,review_history=review_history,
+            can_review=can_review,
+            csrf_token=staff._get_csrf_token)
+
+    @staff.staff_blueprint.get('/platform/registration-review')
+    @control_centre_required
+    def platform_registration_review():
+        query = request.args.get('q', '')[:160]
+        status = request.args.get('status', 'all')
+        owner = request.args.get('owner', 'all')
+        candidates_only = request.args.get('candidates_only', '1') == '1'
+        try:
+            data = directory(query, status, owner, candidates_only)
+            review_history = registration_review.history() if data['review_ready'] else []
+        except ValueError:
+            abort(400)
+        except staff._DB_ERRORS:
+            return render_template('staff_registration_review.html', unavailable=True), 503
+        return render_template(
+            'staff_registration_review.html',
+            **data,
+            q=query,
+            status_filter=status,
+            owner_filter=owner,
+            candidates_only=candidates_only,
+            review_history=review_history,
+            csrf_token=staff._get_csrf_token,
+        )
+
+    @staff.staff_blueprint.post('/platform/registration-review/action')
+    @control_centre_required
+    def platform_registration_review_action():
+        try:
+            result = registration_review.apply(
+                request.form.get('action'),
+                request.form.getlist('business_ids'),
+                'platform:' + session['platform_admin_username'],
+                request.form.get('reason'),
+                request.form.get('confirmation'),
+            )
+            flash('%d business(es) updated; %d skipped.' % (
+                len(result['applied']), len(result['skipped'])), 'success')
+            for _, explanation in result['skipped'][:5]:
+                flash(explanation, 'info')
+            if len(result['skipped']) > 5:
+                flash('%d additional businesses were skipped.' % (len(result['skipped']) - 5), 'info')
+        except registration_review.ReviewRefused as error:
+            flash(str(error), 'error')
+        except staff._DB_ERRORS:
+            abort(503)
+        return redirect(url_for(
+            'staff.platform_registration_review',
+            q=request.form.get('q', '')[:160],
+            status=request.form.get('status', 'all'),
+            owner=request.form.get('owner', 'all'),
+            candidates_only=request.form.get('candidates_only', ''),
+        ))
 
     @staff.staff_blueprint.get('/platform/businesses/<business_slug>/subscription')
     @platform_admin_required

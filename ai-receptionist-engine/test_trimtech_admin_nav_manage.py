@@ -9,7 +9,7 @@ from flask import Flask
 from trimtech.modules.auth.routes import auth_blueprint
 from trimtech.modules.platform.routes import platform_blueprint
 from trimtech.modules.staff import complimentary_access as comp
-from trimtech.modules.staff import complimentary_migration, onboarding, paychaser_integration, platform_control
+from trimtech.modules.staff import complimentary_migration, onboarding, paychaser_integration, platform_control, registration_review
 from trimtech.modules.staff.routes import staff_blueprint
 
 API = 'https://paychaser.example.test/api/platform/control-centre/v1/summary'
@@ -409,7 +409,7 @@ class ComplimentaryListTests(RouteBase):
 
     def directory_sql(self, grants_present):
         cursor = MagicMock()
-        cursor.fetchone.return_value = {'present': grants_present}
+        cursor.fetchone.return_value = {'present': grants_present, 'review': False}
         cursor.fetchall.return_value = []
         connection = MagicMock()
         connection.cursor.return_value.__enter__.return_value = cursor
@@ -417,7 +417,8 @@ class ComplimentaryListTests(RouteBase):
         manager.__enter__.return_value = connection
         with patch.object(platform_control, 'transaction', return_value=manager), \
              patch.object(platform_control.migrations, 'verify'), patch.object(platform_control.accounts_migration, 'verify'), \
-             patch.object(platform_control.onboarding_migration, 'verify'), patch.object(platform_control.billing_migration, 'verify'):
+             patch.object(platform_control.onboarding_migration, 'verify'), patch.object(platform_control.billing_migration, 'verify'), \
+             patch.object(platform_control.complimentary_migration, 'verify'):
             platform_control.directory(status='complimentary')
         return [call[0][0] for call in cursor.execute.call_args_list if 'FROM sm_businesses' in call[0][0]][0]
 
@@ -441,6 +442,81 @@ class MigrationTests(unittest.TestCase):
         self.assertTrue(callable(complimentary_migration.migrate))
         cursor.execute.assert_not_called()
         self.assertEqual(complimentary_migration.VERSION, '20261101_staff_complimentary_v1')
+
+
+class RegistrationReviewTests(RouteBase):
+    PAGE = '/staff/platform/registration-review'
+    ACTION = '/staff/platform/registration-review/action'
+
+    def data(self):
+        return {
+            'businesses': [{
+                'id': 'spam-1',
+                'name': 'New business',
+                'active': True,
+                'created_at': datetime(2026, 11, 1, tzinfo=timezone.utc),
+                'state': 'pending_trial',
+                'owner_verified': False,
+                'owner_email_masked': 'o***@example.test',
+                'review_candidate': True,
+                'review_reactivation': False,
+                'review_reasons': [],
+                'complimentary_until': None,
+            }],
+            'total': 1,
+            'matching': 1,
+            'health': 'Verified',
+            'active_trials': 0,
+            'paid': 0,
+            'review_candidates': 1,
+            'review_ready': True,
+        }
+
+    def test_registration_review_requires_dedicated_admin_session(self):
+        legacy = self.app.test_client()
+        self.sign_in(legacy, source='legacy_dashboard')
+        self.assertEqual(self.client.get(self.PAGE).status_code, 302)
+        self.assertEqual(legacy.get(self.PAGE).status_code, 403)
+
+    def test_page_lists_candidates_with_masked_owner_and_history(self):
+        self.sign_in()
+        with patch.object(platform_control, 'directory', return_value=self.data()) as directory, \
+             patch.object(registration_review, 'history', return_value=[]):
+            response = self.client.get(self.PAGE + '?q=New&owner=unverified')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b'Potential review candidate', response.data)
+        self.assertIn(b'o***@example.test', response.data)
+        self.assertNotIn(b'owner@example.test', response.data)
+        self.assertIn(b'DEACTIVATE 2', response.data)
+        directory.assert_called_once_with('New', 'all', 'unverified', True)
+
+    def test_bulk_review_requires_csrf_and_records_platform_actor(self):
+        self.sign_in()
+        form = {'action': 'deactivate', 'business_ids': ['spam-1'], 'reason': 'Automated signup',
+                'confirmation': 'DEACTIVATE 1', 'status': 'pending_trial', 'owner': 'unverified',
+                'candidates_only': '1'}
+        with patch.object(registration_review, 'apply', return_value={
+            'applied': ['spam-1'], 'skipped': [], 'batch_id': 9,
+        }) as apply:
+            response = self.client.post(self.ACTION, data=form)
+            self.assertEqual(response.status_code, 400)
+            apply.assert_not_called()
+            response = self.client.post(self.ACTION, data={**form, 'csrf_token': 'csrf-ok'})
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/staff/platform/registration-review', response.headers['Location'])
+        self.assertIn('status=pending_trial', response.headers['Location'])
+        self.assertEqual(apply.call_args.args, (
+            'deactivate', ['spam-1'], 'platform:test-platform-admin', 'Automated signup', 'DEACTIVATE 1',
+        ))
+
+    def test_bulk_review_rejects_non_platform_sessions(self):
+        for client in (
+            self.as_session(),
+            self.as_session(business_user_authenticated=True, business_id='acme'),
+            self.as_session(auth_role='platform_admin'),
+        ):
+            response = client.post(self.ACTION, data={'csrf_token': 'csrf-ok'})
+            self.assertIn(response.status_code, (302, 403))
 
 
 if __name__ == '__main__':

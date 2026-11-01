@@ -236,6 +236,7 @@ class ControlCentreAuthorizationTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'Setup pending', response.data)
         self.assertIn(b'Integration pending', response.data)
+        self.assertIn(b'Registration review', response.data)
         self.assertIn(b'1', response.data)
         self.assertNotIn(b'owner@example.test', response.data)
         self.assertNotIn(b'customer invoice', response.data.lower())

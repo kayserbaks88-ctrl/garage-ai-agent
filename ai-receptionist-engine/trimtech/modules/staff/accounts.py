@@ -87,6 +87,8 @@ def register(name, contact, email, password):
                            (administrator_id,business_id))
             onboarding.begin(cursor,business_id,administrator_id)
             token = _token(cursor,administrator_id,'verify')
+    from trimtech.modules.staff import registration_review
+    registration_review.notify(email, 'registered')
     return email, token
 
 
@@ -105,10 +107,11 @@ def consume(raw, purpose, password=None):
     if not isinstance(raw,str) or not re.fullmatch(r'[A-Za-z0-9_-]{43}',raw):
         return False
     hashed = password_hash(password)
+    verification_email = None
     with transaction() as connection:
         with connection.cursor() as cursor:
             # Serialize on the administrator before testing tokens, including different tokens for one identity.
-            cursor.execute("""SELECT a.id FROM sm_administrators a JOIN sm_tokens t ON t.administrator_id=a.id
+            cursor.execute("""SELECT a.id,a.email FROM sm_administrators a JOIN sm_tokens t ON t.administrator_id=a.id
                 WHERE t.token_hash=%s AND t.purpose=%s AND a.active FOR UPDATE OF a""",(digest(raw),purpose))
             row = cursor.fetchone()
             if not row:
@@ -121,12 +124,16 @@ def consume(raw, purpose, password=None):
             if purpose=='verify':
                 cursor.execute('UPDATE sm_administrators SET verified_at=COALESCE(verified_at,NOW()),password_hash=%s WHERE id=%s', (hashed,administrator_id))
                 onboarding.activate(cursor,administrator_id)
+                verification_email = row[1]
             else:
                 cursor.execute('UPDATE sm_administrators SET password_hash=%s WHERE id=%s AND verified_at IS NOT NULL',
                                (hashed,administrator_id))
                 cursor.execute('DELETE FROM sm_sessions WHERE administrator_id=%s',(administrator_id,))
             cursor.execute('UPDATE sm_tokens SET consumed_at=NOW() WHERE administrator_id=%s AND purpose=%s AND consumed_at IS NULL',
                            (administrator_id,purpose))
+    if verification_email:
+        from trimtech.modules.staff import registration_review
+        registration_review.notify(verification_email, 'verified')
     return True
 
 

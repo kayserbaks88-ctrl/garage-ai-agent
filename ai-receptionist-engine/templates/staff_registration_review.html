@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Registration review | TrimTech Control Centre</title>
+    <style>
+        :root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#07111f;color:#edf4fb}
+        body{margin:0}main{max-width:1180px;margin:auto;padding:24px}a{color:#8aeeb0}
+        .top,.filters,.actions{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+        .top{justify-content:space-between;margin-bottom:24px}.filters,.actions,.business,.history{background:#102235;border:1px solid #2a3b4e;border-radius:14px;padding:16px;margin:16px 0}
+        .businesses{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+        .business h2{margin:0 0 8px;overflow-wrap:anywhere}.business dl{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0}
+        dt,.muted{color:#adbdcf;font-size:14px}dd{margin:0;overflow-wrap:anywhere}
+        label{display:grid;gap:5px}input,select,button{box-sizing:border-box;max-width:100%;min-height:44px;padding:8px;border-radius:8px;font:inherit}
+        .candidate{color:#a7f3c1}.protected{color:#ffcf80}.alert{padding:10px;border-radius:8px;background:#23384d;margin:8px 0}
+        .history table{width:100%;border-collapse:collapse}.history th,.history td{text-align:left;padding:8px;border-bottom:1px solid #2a3b4e;vertical-align:top}
+        @media(max-width:680px){main{padding:14px}.businesses{grid-template-columns:1fr}.business dl{grid-template-columns:1fr 1fr}.filters>*{width:100%}.history{overflow-x:auto}}
+    </style>
+</head>
+<body>
+<main>
+    <header class="top">
+        <div>
+            <p class="muted">TrimTech Control Centre · Staff Manager</p>
+            <h1>Registration review</h1>
+        </div>
+        <nav aria-label="Control Centre navigation">
+            <a href="{{ url_for('staff.platform_control_centre') }}">Control Centre</a> ·
+            <a href="{{ url_for('staff.platform_businesses') }}">Business directory</a>
+        </nav>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+            <p class="alert" role="status">{{ message }}</p>
+        {% endfor %}
+    {% endwith %}
+
+    {% if unavailable %}
+        <p class="alert" role="alert">Registration review is temporarily unavailable. No business data has been changed.</p>
+    {% elif not review_ready %}
+        <p class="alert" role="status">Bulk review is unavailable until the approved registration-review migration is applied.</p>
+    {% else %}
+        <p class="muted">Potentially abusive, unverified signups are listed as candidates. Businesses with billing, checkout, complimentary access, employees, shifts or setup progress are protected again in the server-side transaction. Nothing is deleted; every applied change is audited and reversible.</p>
+
+        <form class="filters" method="get">
+            <label>Business or owner search
+                <input name="q" value="{{ q }}" maxlength="160" type="search">
+            </label>
+            <label>Business status
+                <select name="status">
+                    {% for key,label in [('all','All statuses'),('active_trial','Active trial'),('expired_trial','Expired trial'),('pending_trial','Pending activation'),('paid','Verified paid'),('complimentary','Complimentary access'),('legacy','Existing business'),('inactive','Inactive')] %}
+                        <option value="{{ key }}" {{ 'selected' if key==status_filter else '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label>Owner email
+                <select name="owner">
+                    {% for key,label in [('all','All owners'),('verified','Verified'),('unverified','Unverified')] %}
+                        <option value="{{ key }}" {{ 'selected' if key==owner_filter else '' }}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+            <label><span>Review list</span>
+                <select name="candidates_only">
+                    <option value="1" {{ 'selected' if candidates_only else '' }}>Candidates only</option>
+                    <option value="0" {{ 'selected' if not candidates_only else '' }}>All matching businesses</option>
+                </select>
+            </label>
+            <button type="submit">Filter</button>
+        </form>
+
+        <p>{{ matching }} of {{ total }} businesses match · {{ review_candidates }} potential candidates</p>
+        <form method="post" action="{{ url_for('staff.platform_registration_review_action') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="q" value="{{ q }}">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <input type="hidden" name="owner" value="{{ owner_filter }}">
+            <input type="hidden" name="candidates_only" value="{{ '1' if candidates_only else '0' }}">
+            <section class="actions" aria-label="Bulk account action">
+                <label>Action
+                    <select name="action" required>
+                        <option value="deactivate">Deactivate selected candidates</option>
+                        <option value="reactivate">Reactivate previously reviewed businesses</option>
+                    </select>
+                </label>
+                <label>Reason
+                    <input name="reason" maxlength="500" required>
+                </label>
+                <label>Confirmation phrase
+                    <input name="confirmation" placeholder="DEACTIVATE 2" required>
+                </label>
+                <button type="submit">Apply review action</button>
+                <span class="muted">Select no more than 100 businesses. Type DEACTIVATE or REACTIVATE followed by the number selected.</span>
+            </section>
+            <section class="businesses" aria-label="Businesses for registration review">
+                {% for b in businesses %}
+                    <article class="business">
+                        {% if b.review_candidate or b.review_reactivation %}
+                            <label><span><input type="checkbox" name="business_ids" value="{{ b.id }}"> Select business</span></label>
+                        {% endif %}
+                        <h2>{{ b.name }}</h2>
+                        <p class="{{ 'candidate' if b.review_candidate else 'protected' }}">
+                            {{ 'Potential review candidate' if b.review_candidate else 'Protected business' }}
+                        </p>
+                        <dl>
+                            <div><dt>Business ID</dt><dd>{{ b.id }}</dd></div>
+                            <div><dt>Owner email</dt><dd>{{ b.owner_email_masked }}</dd></div>
+                            <div><dt>Email verified</dt><dd>{{ 'Yes' if b.owner_verified else 'No' }}</dd></div>
+                            <div><dt>Account status</dt><dd>{{ b.state|replace('_',' ')|title }} · {{ 'Active' if b.active else 'Inactive' }}</dd></div>
+                            <div><dt>Registered</dt><dd>{{ b.created_at.strftime('%d %b %Y %H:%M UTC') }}</dd></div>
+                            <div><dt>Complimentary access</dt><dd>{{ b.complimentary_until.strftime('%d %b %Y %H:%M UTC') if b.complimentary_until else 'None active' }}</dd></div>
+                        </dl>
+                        {% if b.review_reasons %}
+                            <p class="muted">Protected because: {{ b.review_reasons|join('; ') }}</p>
+                        {% endif %}
+                        {% if b.review_reactivation %}
+                            <p class="candidate">Previously deactivated by registration review; eligible for reactivation.</p>
+                        {% endif %}
+                    </article>
+                {% else %}
+                    <p>No businesses match these filters.</p>
+                {% endfor %}
+            </section>
+        </form>
+
+        <section class="history">
+            <h2>Recent review actions</h2>
+            {% if review_history %}
+                <table>
+                    <thead><tr><th>When</th><th>Action</th><th>Count</th><th>Reason</th></tr></thead>
+                    <tbody>{% for item in review_history %}
+                        <tr>
+                            <td>{{ item.created_at.strftime('%d %b %Y %H:%M UTC') }}</td>
+                            <td>{{ item.action|title }}</td>
+                            <td>{{ item.business_count }}</td>
+                            <td>{{ item.reason }}</td>
+                        </tr>
+                    {% endfor %}</tbody>
+                </table>
+            {% else %}
+                <p class="muted">No review actions have been recorded.</p>
+            {% endif %}
+        </section>
+    {% endif %}
+</main>
+</body>
+</html>

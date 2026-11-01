@@ -8,7 +8,7 @@ from psycopg2.errors import UndefinedTable
 from urllib.parse import urlsplit
 
 import test_staff_agency as fixtures
-from trimtech.modules.staff import accounts, accounts_migration, database, migrations
+from trimtech.modules.staff import accounts, accounts_migration, database, migrations, registration_review
 from trimtech.modules.staff.manager_auth import COOKIE
 
 PASSWORD='a long unique test passphrase'
@@ -40,6 +40,15 @@ class AccountTests(unittest.TestCase):
         client=self.client()
         self.assertEqual(self.submit(client,'login',email=email,password=PASSWORD).status_code,302)
         return client,business
+
+    def test_registration_and_verification_emit_platform_notices(self):
+        email = 'notice-owner@example.test'
+        with patch.object(registration_review, 'notify') as notify:
+            details = accounts.register('Notice business', 'Owner', email, PASSWORD)
+            notify.assert_called_once_with(email, 'registered')
+            notify.reset_mock()
+            self.assertTrue(accounts.consume(details[1], 'verify', PASSWORD))
+            notify.assert_called_once_with(email, 'verified')
 
     def test_registration_verification_login_cookie_and_duplicate(self):
         client=self.client()
