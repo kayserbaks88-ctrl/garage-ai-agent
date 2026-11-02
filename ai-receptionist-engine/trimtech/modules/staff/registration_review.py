@@ -110,9 +110,10 @@ def apply(action, ids, actor, reason, confirmation):
     ids, reason = validate(action, ids, reason, confirmation)
     applied, skipped, batch_id = [], [], None
     with transaction() as connection:
+        with connection.cursor() as plain:
+            complimentary_migration.verify(plain)
+            migration.verify(plain)
         with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-            complimentary_migration.verify(cursor)
-            migration.verify(cursor)
             cursor.execute("SELECT b.id,b.active," + fact_columns() + " FROM sm_businesses b " + FACT_JOINS +
                            " WHERE b.id=ANY(%s) ORDER BY b.id FOR UPDATE OF b", (ids,))
             rows = {row['id']: row for row in cursor.fetchall()}
