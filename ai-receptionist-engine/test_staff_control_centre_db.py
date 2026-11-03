@@ -276,9 +276,8 @@ class ControlCentreDatabaseTests(unittest.TestCase):
     def test_notification_never_blocks_signup_when_mailer_raises_or_unmigrated(self):
         email = self.business("notify-raise", trial="pending")
         with patch.object(review, "send_staff_email", side_effect=RuntimeError("mock outage")):
-            with self.assertRaises(RuntimeError):
-                review.notify(email)
-        # Callers wrap notify(); the claim row is kept so an outage cannot cause repeat notices.
+            self.assertEqual(review.notify(email), "error")
+        # The claim row is kept so an outage cannot cause repeat notices.
         self.assertEqual(database.fetch_one("SELECT status FROM sr_registration_notices WHERE business_id='notify-raise'")["status"], "claimed")
         database.execute("DROP TABLE sr_registration_notices")
         self.assertEqual(review.notify(email, "verified"), "not_migrated")

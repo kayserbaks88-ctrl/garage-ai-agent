@@ -204,6 +204,14 @@ def build_message(business, event, base):
 
 def notify(email, event='registered'):
     """Best effort and de-duplicated per (business, event). Never raises: signup must not depend on it."""
+    try:
+        return _notify(email, event)
+    except Exception:
+        logger.warning('Registration notification failed unexpectedly.', exc_info=True)
+        return 'error'
+
+
+def _notify(email, event):
     if event not in ('registered', 'verified'):
         return 'invalid_event'
     if event == 'verified' and os.getenv('PLATFORM_ADMIN_NOTIFY_VERIFIED', '0') != '1':

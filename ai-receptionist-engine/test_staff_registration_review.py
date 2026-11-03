@@ -119,6 +119,10 @@ class RegistrationNotificationTests(unittest.TestCase):
         self.assertEqual(cursor.execute.call_args_list[1].args[1][0], 'failed')
         send.assert_called_once()
 
+    def test_unexpected_failure_never_propagates_to_signup(self):
+        with patch.object(review, 'fetch_one', side_effect=RuntimeError('unexpected')):
+            self.assertEqual(review.notify('owner@example.test'), 'error')
+
     def test_verified_notifications_are_opt_in(self):
         with patch.dict(os.environ, {'PLATFORM_ADMIN_NOTIFY_VERIFIED': '0'}), \
              patch.object(review, 'fetch_one') as fetch:
