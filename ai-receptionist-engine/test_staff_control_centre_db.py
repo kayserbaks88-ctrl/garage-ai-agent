@@ -258,6 +258,67 @@ class ControlCentreDatabaseTests(unittest.TestCase):
         summary = platform_control.build_control_centre_summary([], data, garage_available=False)
         self.assertEqual(summary["products"]["staff"]["businesses"], data["total"])
 
+    def platform_client(self):
+        from flask import Flask
+        from trimtech.modules.auth.routes import auth_blueprint
+        from trimtech.modules.platform.routes import platform_blueprint
+        from trimtech.modules.staff.routes import staff_blueprint
+        app = Flask(__name__)
+        app.config.update(SECRET_KEY="test-only-secret", TESTING=True)
+        for blueprint in (auth_blueprint, platform_blueprint, staff_blueprint):
+            app.register_blueprint(blueprint)
+        environment = patch.dict(os.environ, PLATFORM_ADMIN_USERNAME="test-admin", PLATFORM_ADMIN_PASSWORD="test-only-password")
+        environment.start()
+        self.addCleanup(environment.stop)
+        client = app.test_client()
+        with client.session_transaction() as session:
+            session.update(platform_admin_authenticated=True, auth_role="platform_admin",
+                           platform_admin_username="test-admin", platform_admin_auth_source="dedicated",
+                           _staff_csrf_token="csrf-ok")
+        return client
+
+    def test_manage_business_pages_and_edits_work_end_to_end(self):
+        self.business("e2e-biz")
+        client = self.platform_client()
+        base = "/staff/platform/businesses/e2e-biz"
+        listing = client.get("/staff/platform/businesses")
+        self.assertEqual(listing.status_code, 200)
+        self.assertIn(base + "/manage", listing.get_data(as_text=True))
+        for path in ("/manage", "/subscription"):
+            self.assertEqual(client.get(base + path).status_code, 200, path)
+
+        grant = client.post(base + "/complimentary", data={"csrf_token": "csrf-ok", "days": "7",
+                            "reason": "Support", "confirmation": "e2e-biz"})
+        self.assertEqual(grant.status_code, 302)
+        self.assertIn("Complimentary access granted", client.get(base + "/manage").get_data(as_text=True))
+        self.assertEqual(onboarding.access("e2e-biz")["state"], "active")
+        revoke = client.post(base + "/complimentary/revoke", data={"csrf_token": "csrf-ok", "reason": "Mistake"})
+        self.assertEqual(revoke.status_code, 302)
+        self.assertEqual(onboarding.access("e2e-biz")["state"], "expired")
+
+        def act(action, **extra):
+            return client.post(base + "/subscription", data={"csrf_token": "csrf-ok", "action": action,
+                               "reason": "Customer request", "confirmation": "e2e-biz", **extra})
+        self.assertEqual(act("deactivate").status_code, 302)
+        self.assertFalse(self.active("e2e-biz"))
+        self.assertEqual(act("reactivate").status_code, 302)
+        self.assertTrue(self.active("e2e-biz"))
+        self.assertEqual(self.audit_actions("e2e-biz"), ["grant", "revoke", "deactivate", "reactivate"])
+
+    def test_manage_pages_render_for_every_business_state(self):
+        self.business("st-paid", trial="expired")
+        self.paid("st-paid")
+        self.business("st-legacy", trial="none")
+        self.business("st-pending", trial="pending")
+        self.business("st-off", trial="active", active=False)
+        self.business("st-active", trial="active")
+        client = self.platform_client()
+        for bid in ("st-paid", "st-legacy", "st-pending", "st-off", "st-active"):
+            for path in ("/manage", "/subscription"):
+                response = client.get("/staff/platform/businesses/%s%s" % (bid, path))
+                self.assertEqual(response.status_code, 200, (bid, path))
+        self.assertEqual(client.get("/staff/platform/businesses/missing/manage").status_code, 404)
+
     def test_registration_notice_is_sent_once_and_failures_are_recorded(self):
         email = self.business("notify-ok", trial="pending")
         with patch.object(review, "send_staff_email", return_value=(True, None, "mock-id")) as send:
