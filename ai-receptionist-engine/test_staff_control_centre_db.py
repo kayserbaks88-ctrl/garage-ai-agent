@@ -249,6 +249,15 @@ class ControlCentreDatabaseTests(unittest.TestCase):
         self.assertFalse(self.active("manual"))
 
     # ---- notifications (mock mailer) -----------------------------------
+    def test_staff_directory_reads_after_both_migrations(self):
+        from trimtech.modules.staff import platform_control
+        self.make_population()
+        data = platform_control.directory()
+        self.assertEqual(data["total"], len(self.genuine) + len(self.suspicious))
+        self.assertTrue(data["review_ready"])
+        summary = platform_control.build_control_centre_summary([], data, garage_available=False)
+        self.assertEqual(summary["products"]["staff"]["businesses"], data["total"])
+
     def test_registration_notice_is_sent_once_and_failures_are_recorded(self):
         email = self.business("notify-ok", trial="pending")
         with patch.object(review, "send_staff_email", return_value=(True, None, "mock-id")) as send:

@@ -76,15 +76,18 @@ def directory(query='', status='all', owner='all', candidates_only=False):
                 to_regclass('sr_review_items') IS NOT NULL AS review""")
             present = cursor.fetchone()
             grants_present, review_ready = bool(present['present']), bool(present['present'] and present['review'])
+            # The migration verifiers compare tuple rows, so they need a plain cursor.
+            with connection.cursor() as plain:
+                if grants_present:
+                    complimentary_migration.verify(plain)
+                if review_ready:
+                    registration_review_migration.verify(plain)
             if grants_present:
-                complimentary_migration.verify(cursor)
                 grant_join = """LEFT JOIN LATERAL (SELECT expires_at FROM sc_grants
                     WHERE business_id=b.id AND revoked_at IS NULL AND expires_at>NOW()
                     ORDER BY expires_at DESC LIMIT 1) cg ON TRUE"""
             else:
                 grant_join = 'LEFT JOIN LATERAL (SELECT NULL::timestamptz AS expires_at) cg ON TRUE'
-            if review_ready:
-                registration_review_migration.verify(cursor)
             reactivation_column = (
                 """EXISTS(SELECT 1 FROM sr_review_items i WHERE i.business_id=b.id AND i.id=(
                     SELECT MAX(j.id) FROM sr_review_items j WHERE j.business_id=b.id) AND i.new_active=FALSE)
