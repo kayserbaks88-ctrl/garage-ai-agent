@@ -13,7 +13,7 @@ from unittest.mock import patch
 import psycopg2
 from psycopg2 import sql
 
-from trimtech.modules.staff import (accounts_migration, billing_migration, complimentary_access,
+from trimtech.modules.staff import (accounts_migration, billing_migration, business_contact_migration as contact_migration, complimentary_access,
                                     complimentary_migration, database, onboarding,
                                     onboarding_migration, registration_review as review,
                                     registration_review_migration as review_migration)
@@ -318,6 +318,81 @@ class ControlCentreDatabaseTests(unittest.TestCase):
                 response = client.get("/staff/platform/businesses/%s%s" % (bid, path))
                 self.assertEqual(response.status_code, 200, (bid, path))
         self.assertEqual(client.get("/staff/platform/businesses/missing/manage").status_code, 404)
+
+    def apply_contact_migration(self):
+        with database.transaction() as connection:
+            with connection.cursor() as cursor:
+                contact_migration.migrate(cursor)
+                contact_migration.migrate(cursor)
+
+    def details_snapshot(self, bid):
+        return database.fetch_one("SELECT name,active FROM sm_businesses WHERE id=%s", (bid,))
+
+    def test_business_details_edit_success_validation_and_isolation(self):
+        self.business("det-a")
+        self.business("det-b")
+        self.apply_contact_migration()
+        before_b = self.details_snapshot("det-b")
+        billing_before = self.billing_snapshot()
+        client = self.platform_client()
+        url = "/staff/platform/businesses/det-a/details"
+        page = client.get("/staff/platform/businesses/det-a/manage").get_data(as_text=True)
+        self.assertIn("Save business details", page)
+        self.assertIn("/staff/platform/businesses/det-a/subscription", page)
+
+        def post(**data):
+            return client.post(url, data={"csrf_token": "csrf-ok", "name": "Renamed Ltd",
+                               "contact_email": "Owner@Example.com", "reason": "Customer asked", **data})
+        self.assertEqual(post().status_code, 302)
+        self.assertEqual(self.details_snapshot("det-a")["name"], "Renamed Ltd")
+        self.assertEqual(database.fetch_one("SELECT contact_email FROM sd_contacts WHERE business_id='det-a'")["contact_email"],
+                         "owner@example.com")
+        audit = database.fetch_one("SELECT actor,reason,old_values,new_values FROM staff_audit WHERE business_id='det-a' AND action='business_details_updated'")
+        self.assertEqual(audit["actor"], "platform:test-admin")
+        self.assertEqual(audit["new_values"]["contact_email"], "owner@example.com")
+        self.assertIn("Renamed Ltd", client.get("/staff/platform/businesses/det-a/manage").get_data(as_text=True))
+
+        before_invalid = self.details_snapshot("det-a")
+        audits = len(self.audit_actions("det-a"))
+        for bad in ({"name": "   "}, {"name": "x" * 161}, {"name": "Bad\nName"}, {"contact_email": "not-an-email"},
+                    {"contact_email": "a" * 250 + "@x.com"}, {"reason": ""}, {"reason": "r" * 1001}):
+            self.assertEqual(post(**bad).status_code, 302)
+        self.assertEqual(post().status_code, 302)  # unchanged values are refused, not re-audited
+        self.assertEqual(self.details_snapshot("det-a"), before_invalid)
+        self.assertEqual(len(self.audit_actions("det-a")), audits)
+        self.assertEqual(client.post(url, data={"name": "No csrf", "reason": "x"}).status_code, 400)
+        self.assertEqual(client.post("/staff/platform/businesses/missing/details",
+                         data={"csrf_token": "csrf-ok", "name": "N", "reason": "r"}).status_code, 302)
+
+        self.assertEqual(post(contact_email="").status_code, 302)
+        self.assertIsNone(database.fetch_one("SELECT 1 AS x FROM sd_contacts WHERE business_id='det-a'"))
+        self.assertEqual(self.details_snapshot("det-b"), before_b)
+        self.assertIsNone(database.fetch_one("SELECT 1 AS x FROM sd_contacts WHERE business_id='det-b'"))
+        self.assertEqual(self.billing_snapshot(), billing_before)
+
+    def test_business_details_require_dedicated_platform_owner(self):
+        self.business("det-auth")
+        self.apply_contact_migration()
+        client = self.platform_client()
+        with client.session_transaction() as session:
+            session["platform_admin_auth_source"] = "shared"
+        url = "/staff/platform/businesses/det-auth/details"
+        data = {"csrf_token": "csrf-ok", "name": "Hacked", "reason": "x"}
+        self.assertEqual(client.post(url, data=data).status_code, 403)
+        with client.session_transaction() as session:
+            session.clear()
+        self.assertIn(client.post(url, data=data).status_code, (302, 400, 401, 403))
+        self.assertNotEqual(self.details_snapshot("det-auth")["name"], "Hacked")
+
+    def test_business_details_name_works_before_contact_migration(self):
+        self.business("det-pre")
+        client = self.platform_client()
+        url = "/staff/platform/businesses/det-pre/details"
+        self.assertEqual(client.get("/staff/platform/businesses/det-pre/manage").status_code, 200)
+        client.post(url, data={"csrf_token": "csrf-ok", "name": "Pre Rename", "contact_email": "", "reason": "ok"})
+        self.assertEqual(self.details_snapshot("det-pre")["name"], "Pre Rename")
+        client.post(url, data={"csrf_token": "csrf-ok", "name": "Pre Rename", "contact_email": "a@b.co", "reason": "ok"})
+        self.assertEqual(self.audit_actions("det-pre"), ["business_details_updated"])
 
     def test_registration_notice_is_sent_once_and_failures_are_recorded(self):
         email = self.business("notify-ok", trial="pending")

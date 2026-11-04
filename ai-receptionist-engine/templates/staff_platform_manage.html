@@ -24,6 +24,25 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;
 <h1>Manage {{ business.name }}</h1>
 {% for category,message in get_flashed_messages(with_categories=true) %}<p class="flash {{ category }}" role="status">{{ message }}</p>{% endfor %}
 
+<section aria-labelledby="actions-h"><h2 id="actions-h">Subscription and access actions</h2>
+<p>Account: <span class="badge {{ 'ok' if business.active else 'bad' }}">{{ 'Active' if business.active else 'Deactivated' }}</span></p>
+<p><a href="{{ url_for('staff.platform_subscription', business_slug=business.id) }}#actions">Deactivate or reactivate account, end trial, review cancellation requests</a><br>
+<a href="#comp-h">Grant or revoke complimentary access</a></p></section>
+
+<section aria-labelledby="details-h"><h2 id="details-h">Business details</h2>
+{% if details %}
+<form method="post" action="{{ url_for('staff.platform_update_business_details', business_slug=business.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="d-name">Business name</label><input id="d-name" name="name" required maxlength="160" value="{{ details.name }}">
+<label for="d-email">Contact email (optional)</label><input id="d-email" name="contact_email" type="email" maxlength="254" autocomplete="off" value="{{ details.contact_email or '' }}"{% if not details.contact_ready %} disabled{% endif %}>
+{% if not details.contact_ready %}<p>Contact email storage is not installed yet.</p>{% else %}<p>Does not change the owner's login email.</p>{% endif %}
+<label for="d-reason">Reason for change</label><textarea id="d-reason" name="reason" required maxlength="1000" rows="2"></textarea>
+<button>Save business details</button></form>
+<div class="table-wrap"><table><thead><tr><th>When</th><th>By</th><th>Change</th><th>Reason</th></tr></thead><tbody>
+{% for h in details_history %}<tr><td>{{ fmt(h.created_at) }}</td><td>{{ h.actor }}</td><td>{{ h.old_values.name }} &rarr; {{ h.new_values.name }}<br>{{ h.old_values.contact_email or 'none' }} &rarr; {{ h.new_values.contact_email or 'none' }}</td><td>{{ h.reason }}</td></tr>
+{% else %}<tr><td colspan="4">No detail changes recorded.</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}</section>
+
 <section aria-labelledby="status-h"><h2 id="status-h">Account and subscription</h2>
 <dl>
 <dt>Business ID</dt><dd>{{ business.id }}</dd>

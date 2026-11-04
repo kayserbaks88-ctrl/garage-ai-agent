@@ -12,6 +12,10 @@ def history(business_id):
     return fetch_all("SELECT id,action,actor,reason,created_at,new_values FROM staff_audit WHERE business_id=%s AND entity_type='subscription_management' ORDER BY id DESC LIMIT 50", (business_id,))
 
 
+def details_history(business_id):
+    return fetch_all("SELECT id,actor,reason,created_at,old_values,new_values FROM staff_audit WHERE business_id=%s AND entity_type='business_details' ORDER BY id DESC LIMIT 20", (business_id,))
+
+
 def change(business_id, actor, action, values, platform=False):
     reason = str(values.get('reason', '')).strip()
     if not reason or len(reason)>1000:

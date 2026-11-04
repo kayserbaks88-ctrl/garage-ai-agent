@@ -292,7 +292,7 @@ def register_routes(staff):
     @staff.staff_blueprint.get('/platform/businesses/<business_slug>/manage')
     @control_centre_required
     def platform_manage_business(business_slug):
-        from trimtech.modules.staff import subscription_management as management, billing, onboarding, complimentary_access as comp
+        from trimtech.modules.staff import subscription_management as management, billing, onboarding, complimentary_access as comp, business_details
         try:
             business = management.business(business_slug)
             if not business:
@@ -300,6 +300,7 @@ def register_routes(staff):
             billing_summary = billing.summary(business_slug)
             access = onboarding.access(business_slug)
             return render_template('staff_platform_manage.html', business=business, billing=billing_summary,
+                details=business_details.current(business_slug), details_history=management.details_history(business_slug),
                 trial=onboarding.status(business_slug), access=access,
                 issues=payment_issues(billing_summary['subscriptions']),
                 grant=comp.active_grant(business_slug), grants=comp.history(business_slug),
@@ -329,6 +330,19 @@ def register_routes(staff):
             comp.revoke(business_slug, comp.actor_for(session['platform_admin_username']), request.form.get('reason'))
             flash('Complimentary access revoked.', 'success')
         except comp.GrantRefused as error:
+            flash(str(error), 'error')
+        except staff._DB_ERRORS:
+            abort(503)
+        return redirect(url_for('staff.platform_manage_business', business_slug=business_slug))
+
+    @staff.staff_blueprint.post('/platform/businesses/<business_slug>/details')
+    @control_centre_required
+    def platform_update_business_details(business_slug):
+        from trimtech.modules.staff import business_details
+        try:
+            business_details.update(business_slug, 'platform:' + session['platform_admin_username'], request.form)
+            flash('Business details saved and recorded in the audit history.', 'success')
+        except ValueError as error:
             flash(str(error), 'error')
         except staff._DB_ERRORS:
             abort(503)
