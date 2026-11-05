@@ -208,3 +208,127 @@ def fetch_summary():
         'message': '',
         'data': data,
     }
+
+
+# ---------------------------------------------------------------------------
+# Business administration (list, detail, profile edit) over the same private
+# service token. Only whitelisted, type-checked fields are ever returned to a
+# page; the token stays server-side.
+# ---------------------------------------------------------------------------
+PROFILE_FIELDS = (
+    'name', 'email', 'phone', 'address_line_1', 'address_line_2',
+    'town_or_city', 'postcode', 'country_code', 'company_number',
+)
+FIELD_LABELS = {
+    'name': 'Business name', 'email': 'Business email', 'phone': 'Phone',
+    'address_line_1': 'Address line 1', 'address_line_2': 'Address line 2',
+    'town_or_city': 'Town or city', 'postcode': 'Postcode',
+    'country_code': 'Country code', 'company_number': 'Company number',
+}
+BUSINESSES_PATH = '/api/platform/control-centre/v1/businesses'
+
+
+class PayChaserAdminError(Exception):
+    """A safe, displayable failure; never contains credentials or response bodies."""
+
+    def __init__(self, message, status='error', fields=None):
+        super().__init__(message)
+        self.status = status
+        self.fields = fields or {}
+
+
+def _businesses_endpoint(business_id=None):
+    config = _configuration()
+    if config is None:
+        raise PayChaserAdminError('PayChaser service integration is not configured.', 'not_configured')
+    summary_url, token = config
+    parsed = urlparse(summary_url)
+    url = 'https://%s%s' % (parsed.netloc, BUSINESSES_PATH)
+    if business_id is not None:
+        url += '/%d' % int(business_id)
+    return url, token
+
+
+def _request(method, business_id=None, body=None):
+    url, token = _businesses_endpoint(business_id)
+    try:
+        response = requests.request(
+            method, url,
+            headers={'Authorization': 'Bearer ' + token, 'Accept': 'application/json'},
+            json=body, timeout=TIMEOUT, allow_redirects=False,
+        )
+    except requests.Timeout:
+        raise PayChaserAdminError('PayChaser did not respond in time.', 'timeout')
+    except requests.RequestException:
+        raise PayChaserAdminError('PayChaser is temporarily unavailable.', 'unavailable')
+    if response.status_code == 401:
+        logger.error('PayChaser business API rejected service authentication')
+        raise PayChaserAdminError('PayChaser service authentication failed.', 'authentication_error')
+    if response.status_code == 404:
+        raise PayChaserAdminError('PayChaser business not found.', 'not_found')
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = None
+    if response.status_code == 422:
+        fields = payload.get('fields') if isinstance(payload, dict) else None
+        fields = {
+            str(key): str(value)[:200] for key, value in fields.items()
+        } if isinstance(fields, dict) else {}
+        raise PayChaserAdminError('PayChaser rejected the details.', 'validation', fields)
+    if response.status_code >= 500:
+        raise PayChaserAdminError('PayChaser is temporarily unavailable.', 'unavailable')
+    if not response.ok or not isinstance(payload, dict) or payload.get('schema_version') != 1:
+        raise PayChaserAdminError('PayChaser returned an unexpected response.', 'api_error')
+    return payload
+
+
+def _text(value, limit=500):
+    if not isinstance(value, str):
+        raise PayChaserAdminError('PayChaser returned an invalid business record.', 'invalid_response')
+    return value[:limit]
+
+
+def _clean_business(item):
+    if (not isinstance(item, dict) or not isinstance(item.get('id'), int)
+            or isinstance(item.get('id'), bool)):
+        raise PayChaserAdminError('PayChaser returned an invalid business record.', 'invalid_response')
+    business = {'id': item['id'], 'slug': _text(item.get('slug'), 120)}
+    for field in PROFILE_FIELDS:
+        business[field] = _text(item.get(field))
+    for key in ('created_at', 'updated_at', 'trial_started_at'):
+        value = item.get(key)
+        business[key] = value[:40] if isinstance(value, str) else None
+    subscription = item.get('subscription')
+    if isinstance(subscription, dict):
+        status = subscription.get('status')
+        period_end = subscription.get('current_period_end')
+        business['subscription_status'] = status[:30] if isinstance(status, str) else None
+        business['current_period_end'] = period_end[:40] if isinstance(period_end, str) else None
+        business['cancel_at_period_end'] = subscription.get('cancel_at_period_end') is True
+    else:
+        business.update(subscription_status=None, current_period_end=None, cancel_at_period_end=False)
+    members = item.get('member_count')
+    business['member_count'] = members if isinstance(members, int) and not isinstance(members, bool) else None
+    return business
+
+
+def list_businesses():
+    payload = _request('GET')
+    items = payload.get('businesses')
+    if not isinstance(items, list):
+        raise PayChaserAdminError('PayChaser returned an invalid business list.', 'invalid_response')
+    return [_clean_business(item) for item in items]
+
+
+def get_business(business_id):
+    payload = _request('GET', business_id)
+    return _clean_business(payload.get('business'))
+
+
+def update_business(business_id, actor, reason, values):
+    changes = {field: str(values.get(field, '')) for field in PROFILE_FIELDS}
+    payload = _request('PATCH', business_id, {
+        'actor': str(actor)[:100], 'reason': str(reason or '').strip(), 'changes': changes,
+    })
+    return _clean_business(payload.get('business'))

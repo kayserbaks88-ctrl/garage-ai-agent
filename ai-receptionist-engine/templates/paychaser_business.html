@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{{ business.name if business else 'PayChaser business' }} - TrimTech Control Centre</title>
+<style>
+body{margin:0;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f1f5f9;color:#0f172a}
+main{max-width:760px;margin:0 auto;padding:16px}
+section{background:#fff;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+h1{font-size:1.5rem;margin:.4rem 0}h2{font-size:1.1rem;margin:0 0 8px}
+label{display:block;margin:10px 0 4px;font-weight:600}
+input,textarea{width:100%;box-sizing:border-box;font:inherit;font-size:16px;padding:10px;border:1px solid #94a3b8;border-radius:8px}
+button{min-height:44px;margin-top:12px;padding:0 18px;border:0;border-radius:10px;background:#2563eb;color:#fff;font:inherit;font-weight:600}
+dl{display:grid;grid-template-columns:minmax(120px,40%) 1fr;gap:6px 12px;margin:0}dt{color:#475569}dd{margin:0;overflow-wrap:anywhere}
+.flash{padding:10px 14px;border-radius:10px;background:#e0f2fe}.flash.error{background:#fee2e2}
+</style></head><body>
+{% with extra_links=[{'href': url_for('staff.platform_paychaser_businesses'), 'label': 'PayChaser businesses'}] %}{% include '_control_centre_back.html' %}{% endwith %}
+<main>
+{% for category,message in get_flashed_messages(with_categories=true) %}<p class="flash {{ category }}" role="status">{{ message }}</p>{% endfor %}
+{% if error %}<p class="flash error" role="alert">{{ error }} Try again shortly.</p>{% else %}
+<h1>{{ business.name }}</h1>
+<section aria-labelledby="ov-h"><h2 id="ov-h">Overview (read-only)</h2>
+<dl><dt>PayChaser ID</dt><dd>{{ business.id }}</dd>
+<dt>Subscription</dt><dd>{{ business.subscription_status or 'none' }}{% if business.cancel_at_period_end %} (cancels at period end){% endif %}</dd>
+<dt>Members</dt><dd>{{ business.member_count if business.member_count is not none else 'Unknown' }}</dd>
+<dt>Last updated</dt><dd>{{ business.updated_at or 'Unknown' }}</dd></dl>
+<p>Billing, invoices and customers are managed only inside PayChaser and are not changed here.</p></section>
+<section aria-labelledby="ed-h"><h2 id="ed-h">Business details</h2>
+<form method="post" action="{{ url_for('staff.platform_paychaser_update_business', business_id=business.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+{% for f in fields %}<label for="f-{{ f }}">{{ labels[f] }}</label><input id="f-{{ f }}" name="{{ f }}" value="{{ business[f] }}" {% if f in ('name','email','country_code') %}required {% endif %}maxlength="{{ 160 if f=='name' else 320 if f=='email' else 2 if f=='country_code' else 200 }}"{% if f=='email' %} type="email"{% endif %}>{% endfor %}
+<label for="f-reason">Reason for change</label><textarea id="f-reason" name="reason" required maxlength="1000" rows="2"></textarea>
+<button>Save PayChaser business details</button></form></section>
+{% endif %}
+</main></body></html>

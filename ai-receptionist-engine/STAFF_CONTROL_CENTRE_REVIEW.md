@@ -43,6 +43,27 @@ platform administrator credentials remain required for review actions.
 PayChaser reporting remains an aggregate read-only service integration. No customer,
 invoice or payment details are exposed in the Control Centre.
 
+## Business details and PayChaser administration (follow-up)
+
+- Staff Manage business now has a platform-owner-only form for the business name and
+  an optional contact email. The contact email is stored in a new additive table
+  `sd_contacts` and never changes owner login emails. Apply the migration (optional;
+  name edits work without it) after the other two:
+
+  ```powershell
+  python -m trimtech.modules.staff.business_contact_migration
+  ```
+
+- PayChaser businesses (`/staff/platform/paychaser/businesses`) use new service-token
+  endpoints in PayChaser (`GET .../v1/businesses`, `GET .../v1/businesses/<id>`,
+  `PATCH .../v1/businesses/<id>`) with the existing
+  `PAYCHASER_CONTROL_CENTRE_API_URL` and `PAYCHASER_CONTROL_CENTRE_API_TOKEN`. No new
+  environment variables. Deploy PayChaser first; the Control Centre pages show an
+  "unavailable" notice until then. Editable fields are limited to name, email, phone,
+  address and company number; invoices, customers, VAT, currency, invoice numbering
+  and billing are neither returned nor writable. Edits are audited in PayChaser's new
+  `platform_business_audit` table, created automatically at PayChaser start-up.
+
 ## Focused validation
 
 From `ai-receptionist-engine`, run:

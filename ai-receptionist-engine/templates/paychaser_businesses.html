@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>PayChaser businesses - TrimTech Control Centre</title>
+<style>
+body{margin:0;font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f1f5f9;color:#0f172a}
+main{max-width:980px;margin:0 auto;padding:16px}
+section{background:#fff;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+h1{font-size:1.5rem;margin:.4rem 0}input{font:inherit;font-size:16px;padding:10px;border:1px solid #94a3b8;border-radius:8px}
+button,.btn{min-height:44px;padding:0 18px;border:0;border-radius:10px;background:#2563eb;color:#fff;font:inherit;font-weight:600}
+.flash{padding:10px 14px;border-radius:10px;background:#fee2e2}
+table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;padding:6px;border-bottom:1px solid #e2e8f0;overflow-wrap:anywhere}
+.table-wrap{overflow-x:auto}
+</style></head><body>
+{% with extra_links=[{'href': url_for('staff.platform_businesses'), 'label': 'Staff businesses'}] %}{% include '_control_centre_back.html' %}{% endwith %}
+<main>
+<h1>PayChaser businesses</h1>
+<p>Profile details only. Invoices, customers and billing are not shown or editable here.</p>
+{% if error %}<p class="flash" role="alert">{{ error }} Try again shortly.</p>{% else %}
+<form method="get"><label for="q">Search name or email</label> <input id="q" name="q" value="{{ q }}" maxlength="160"> <button>Search</button></form>
+<section><div class="table-wrap"><table><thead><tr><th>Business</th><th>Email</th><th>Subscription</th><th>Members</th><th></th></tr></thead><tbody>
+{% for b in businesses %}<tr><td>{{ b.name }}</td><td>{{ b.email }}</td><td>{{ b.subscription_status or 'none' }}{% if b.cancel_at_period_end %} (cancelling){% endif %}</td><td>{{ b.member_count if b.member_count is not none else '' }}</td>
+<td><a href="{{ url_for('staff.platform_paychaser_business', business_id=b.id) }}">Manage</a></td></tr>
+{% else %}<tr><td colspan="5">No PayChaser businesses found.</td></tr>{% endfor %}</tbody></table></div></section>
+{% endif %}
+{% if paychaser_admin_url %}<p><a href="{{ paychaser_admin_url }}" target="_blank" rel="noopener noreferrer">Open PayChaser's own administration (separate sign-in)</a></p>{% endif %}
+</main></body></html>

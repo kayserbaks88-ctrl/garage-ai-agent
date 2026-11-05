@@ -279,7 +279,10 @@ class ManagePageTests(RouteBase):
              patch.object(onboarding, 'status', return_value=ctx['trial']), \
              patch.object(onboarding, 'access', return_value=ctx['access']), \
              patch.object(comp, 'active_grant', return_value=ctx['grant']), \
-             patch.object(comp, 'history', return_value=ctx['grants']):
+             patch.object(comp, 'history', return_value=ctx['grants']), \
+             patch('trimtech.modules.staff.business_details.current', return_value={
+                 'id': 'acme', 'name': 'Acme Ltd', 'contact_email': None, 'contact_ready': True}), \
+             patch('trimtech.modules.staff.subscription_management.details_history', return_value=[]):
             return self.client.get(MANAGE)
 
     def test_page_shows_status_trial_payment_issue_and_all_durations(self):

@@ -18,7 +18,8 @@
                 <a href="{{ url_for('platform.platform_businesses') }}">Garage AI administration</a>
                 <a href="{{ url_for('staff.platform_businesses') }}">Staff Manager administration</a>
                 {% if can_review %}<a href="{{ url_for('staff.platform_registration_review') }}">Registration review</a>{% endif %}
-                {% if paychaser_admin_url %}<a href="{{ paychaser_admin_url }}" target="_blank" rel="noopener noreferrer">PayChaser administration</a>
+                {% if paychaser_admin_url %}<a href="{{ url_for('staff.platform_paychaser_businesses') }}">PayChaser businesses</a>
+                <a href="{{ paychaser_admin_url }}" target="_blank" rel="noopener noreferrer">PayChaser administration</a>
                 {% else %}<span class="pending-link" aria-disabled="true">PayChaser administration (not configured)</span>{% endif %}
             </nav>
         </header>

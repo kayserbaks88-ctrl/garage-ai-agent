@@ -261,6 +261,57 @@ def register_routes(staff):
             candidates_only=request.form.get('candidates_only', ''),
         ))
 
+    @staff.staff_blueprint.get('/platform/paychaser/businesses')
+    @control_centre_required
+    def platform_paychaser_businesses():
+        from trimtech.modules.staff import paychaser_integration as paychaser
+        businesses, error = [], None
+        try:
+            businesses = paychaser.list_businesses()
+        except paychaser.PayChaserAdminError as failure:
+            error = str(failure)
+        query = request.args.get('q', '').strip().casefold()[:160]
+        if query:
+            businesses = [b for b in businesses
+                          if query in b['name'].casefold() or query in b['email'].casefold()]
+        return render_template('paychaser_businesses.html', businesses=businesses, error=error,
+            q=request.args.get('q', '')[:160], paychaser_admin_url=paychaser_admin_url()), (503 if error else 200)
+
+    @staff.staff_blueprint.get('/platform/paychaser/businesses/<int:business_id>')
+    @control_centre_required
+    def platform_paychaser_business(business_id):
+        from trimtech.modules.staff import paychaser_integration as paychaser
+        try:
+            business = paychaser.get_business(business_id)
+        except paychaser.PayChaserAdminError as failure:
+            if failure.status == 'not_found':
+                abort(404)
+            return render_template('paychaser_business.html', business=None, error=str(failure),
+                labels=paychaser.FIELD_LABELS, fields=paychaser.PROFILE_FIELDS,
+                csrf_token=staff._get_csrf_token), 503
+        return render_template('paychaser_business.html', business=business, error=None,
+            labels=paychaser.FIELD_LABELS, fields=paychaser.PROFILE_FIELDS,
+            csrf_token=staff._get_csrf_token)
+
+    @staff.staff_blueprint.post('/platform/paychaser/businesses/<int:business_id>')
+    @control_centre_required
+    def platform_paychaser_update_business(business_id):
+        from trimtech.modules.staff import paychaser_integration as paychaser
+        try:
+            paychaser.update_business(business_id, 'platform:' + session['platform_admin_username'],
+                request.form.get('reason'), request.form)
+            flash('PayChaser business details saved and audited. Billing and invoices were not changed.', 'success')
+        except paychaser.PayChaserAdminError as failure:
+            if failure.status == 'not_found':
+                abort(404)
+            detail = ' '.join(
+                '%s: %s' % (paychaser.FIELD_LABELS.get(key, key), message)
+                for key, message in failure.fields.items())
+            flash((str(failure) + ' ' + detail).strip(), 'error')
+        logger.info('PayChaser business edit attempted: actor_hash=%s business=%s', hashlib.sha256(
+            str(session.get('platform_admin_username', '')).encode()).hexdigest(), business_id)
+        return redirect(url_for('staff.platform_paychaser_business', business_id=business_id))
+
     @staff.staff_blueprint.get('/platform/businesses/<business_slug>/subscription')
     @platform_admin_required
     def platform_subscription(business_slug):
