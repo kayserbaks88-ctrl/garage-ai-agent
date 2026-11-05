@@ -370,6 +370,32 @@ class ControlCentreDatabaseTests(unittest.TestCase):
         self.assertIsNone(database.fetch_one("SELECT 1 AS x FROM sd_contacts WHERE business_id='det-b'"))
         self.assertEqual(self.billing_snapshot(), billing_before)
 
+    def test_contact_migration_on_existing_data_is_additive_repeatable_and_rollback_safe(self):
+        self.business("mig-a", trial="active")
+        self.paid("mig-a")
+        tracked = ("sm_businesses", "sm_administrators", "sm_memberships", "so_trials", "sb_subscriptions", "staff_audit")
+        snapshot = lambda: {t: database.fetch_all(f"SELECT * FROM {t} ORDER BY 1") for t in tracked}
+        before = snapshot()
+        columns = lambda: database.fetch_all(
+            "SELECT table_name,column_name FROM information_schema.columns WHERE table_schema=current_schema() "
+            "AND table_name NOT LIKE 'sd\\_%' ORDER BY 1,2")
+        columns_before = columns()
+        for _ in range(3):
+            self.apply_contact_migration()
+        with database.transaction() as connection:
+            with connection.cursor() as cursor:
+                contact_migration.verify(cursor)
+                complimentary_migration.verify(cursor)
+                review_migration.verify(cursor)
+        self.assertEqual(snapshot(), before)
+        self.assertEqual(columns(), columns_before)
+        self.assertEqual(database.fetch_one("SELECT COUNT(*) AS n FROM sd_schema_migrations")["n"], 1)
+        database.execute("DROP TABLE sd_contacts")
+        database.execute("DROP TABLE sd_schema_migrations")
+        self.assertEqual(snapshot(), before)
+        self.assertEqual(self.platform_client().get("/staff/platform/businesses/mig-a/manage").status_code, 200)
+        self.apply_contact_migration()
+
     def test_business_details_require_dedicated_platform_owner(self):
         self.business("det-auth")
         self.apply_contact_migration()
