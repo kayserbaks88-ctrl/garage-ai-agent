@@ -9,7 +9,7 @@ from unittest.mock import patch
 from marketing_site import app as marketing
 
 BASE = Path(__file__).resolve().parent
-TRIAL = 'https://garage-voice.onrender.com/staff/account/register'
+TRIAL = '/staff-manager/start-trial'
 PRESERVED = {
     'garage-ai': 'd1c12d4ebe8e5a3fe8cdb2052434ba57c2e85b62beb974d770cd56550c133326',
     'paychaser': '8e301ce84bce81331027bee4f3b693e59b64dd975ae3f25f573d08b3dc5925e0',
@@ -35,7 +35,7 @@ class StaffMarketingTests(unittest.TestCase):
             self.html = response.get_data(as_text=True)
         self.tags = Tags(self.html).tags
 
-    def test_trial_links_use_exact_registration_url(self):
+    def test_trial_links_use_counted_redirect(self):
         trial = re.findall(r'<a\b[^>]*href="([^"]+)"[^>]*>Start your 14-day free trial</a>', self.html)
         self.assertEqual(len(trial), 4)
         self.assertEqual(set(trial), {TRIAL})
@@ -102,7 +102,7 @@ class StaffMarketingTests(unittest.TestCase):
 
     def test_marketing_route_inventory_contains_only_expected_pages(self):
         self.assertEqual({rule.rule for rule in marketing.app.url_map.iter_rules()},
-                         {'/', '/staff-manager', '/demo', '/health', '/static/<path:filename>'})
+                         {'/', '/staff-manager', '/staff-manager/start-trial', '/internal/staff-acquisition', '/demo', '/health', '/static/<path:filename>'})
 
     def test_staff_manager_opens_directly_with_its_own_metadata(self):
         with self.client.get('/staff-manager') as response:
@@ -125,7 +125,7 @@ class StaffMarketingTests(unittest.TestCase):
         dedicated = re.search(pattern, html).group().replace('<h1 ', '<h2 ').replace('</h1>', '</h2>')
         self.assertEqual(dedicated, re.search(pattern, self.html).group())
 
-    def test_all_dedicated_page_trial_buttons_use_the_registration_url(self):
+    def test_all_dedicated_page_trial_buttons_use_the_counted_redirect(self):
         with self.client.get('/staff-manager') as response:
             html = response.get_data(as_text=True)
         trial = re.findall(r'<a\b[^>]*href="([^"]+)"[^>]*>Start your 14-day free trial</a>', html)

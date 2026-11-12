@@ -14,9 +14,10 @@ from urllib.request import Request, urlopen
 from flask import Flask, request, send_from_directory, render_template_string, render_template
 
 if __package__:
-    from . import demo_security
+    from . import demo_security, acquisition
 else:
     import demo_security
+    import acquisition
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -26,6 +27,7 @@ TWILIO_MESSAGES_URL = "https://api.twilio.com/2010-04-01/Accounts/{account_sid}/
 
 
 app = Flask(__name__, template_folder=str(BASE_DIR))
+acquisition.register_routes(app)
 # Consistent responsive photo MIME type on Windows and Linux.
 mimetypes.add_type("image/webp", ".webp")
 

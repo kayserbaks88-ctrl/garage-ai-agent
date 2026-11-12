@@ -241,7 +241,7 @@ class DemoSecurityTests(unittest.TestCase):
             self.assertEqual(sender.call_count, 1)
 
     def test_route_inventory_includes_staff_marketing_page(self):
-        self.assertEqual({rule.rule for rule in marketing.app.url_map.iter_rules()}, {'/', '/staff-manager', '/demo', '/health', '/static/<path:filename>'})
+        self.assertEqual({rule.rule for rule in marketing.app.url_map.iter_rules()}, {'/', '/staff-manager', '/staff-manager/start-trial', '/internal/staff-acquisition', '/demo', '/health', '/static/<path:filename>'})
 
 
 if __name__ == '__main__':
