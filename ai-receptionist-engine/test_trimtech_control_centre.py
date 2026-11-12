@@ -62,7 +62,7 @@ class ControlCentreSummaryTests(unittest.TestCase):
         self.assertEqual(summary['products']['garage']['businesses'], 2)
         self.assertEqual(summary['products']['garage']['completed_registrations'], 1)
         self.assertIsNone(summary['products']['garage']['subscriptions'])
-        self.assertEqual(summary['products']['staff']['businesses'], 3)
+        self.assertEqual(summary['products']['staff']['businesses'], 2)
         self.assertEqual(summary['products']['staff']['employees'], 5)
         self.assertEqual(summary['products']['staff']['trials'], 1)
         self.assertEqual(summary['products']['staff']['subscriptions'], 1)

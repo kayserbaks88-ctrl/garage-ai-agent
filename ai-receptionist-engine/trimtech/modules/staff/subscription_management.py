@@ -5,7 +5,13 @@ from trimtech.modules.staff.database import transaction, fetch_one, fetch_all
 
 
 def business(business_id):
-    return fetch_one('SELECT id,name,active FROM sm_businesses WHERE id=%s', (business_id,))
+    return fetch_one("""SELECT b.id,b.name,b.active,
+        COALESCE((SELECT a.action='archive' FROM staff_audit a WHERE a.business_id=b.id
+            AND a.entity_type='subscription_management' AND a.action IN ('archive','restore')
+            ORDER BY a.id DESC LIMIT 1),FALSE) AS archived,
+        COALESCE((SELECT a.action='mark_test' FROM staff_audit a WHERE a.business_id=b.id
+            AND a.entity_type='acquisition_classification' ORDER BY a.id DESC LIMIT 1),FALSE) AS is_test
+        FROM sm_businesses b WHERE b.id=%s""", (business_id,))
 
 
 def history(business_id):
@@ -24,7 +30,7 @@ def change(business_id, actor, action, values, platform=False):
         raise ValueError('Type the business ID to confirm this action.')
     allowed = {'request_cancellation','end_trial'}
     if platform:
-        allowed |= {'review_request','deactivate','reactivate'}
+        allowed |= {'review_request','deactivate','reactivate','archive','restore'}
     if action not in allowed:
         raise ValueError('Choose an available action.')
     with transaction() as connection:
@@ -55,7 +61,7 @@ def change(business_id, actor, action, values, platform=False):
                 if not cursor.fetchone():
                     raise ValueError('Cancellation request not found for this business.')
                 result.update(request_id=int(request_id),status='reviewed_pending_provider_confirmation')
-            elif action in ('end_trial','deactivate'):
+            elif action in ('end_trial','deactivate','archive'):
                 if subscriptions or pending:
                     raise ValueError('Resolve ongoing subscriptions and unconfirmed checkouts with the billing provider first. This action cannot stop charges.')
                 if action == 'end_trial':
@@ -69,8 +75,22 @@ def change(business_id, actor, action, values, platform=False):
                     if cursor.fetchone():
                         raise ValueError('Close open shifts before deactivating the business.')
                     cursor.execute('UPDATE sm_businesses SET active=FALSE WHERE id=%s',(business_id,))
-                    result.update(status='business_deactivated', previous_active=business['active'])
-            elif action == 'reactivate':
+                    result.update(status='business_archived' if action=='archive' else 'business_deactivated', previous_active=business['active'])
+            elif action in ('restore','reactivate'):
+                cursor.execute("""SELECT action FROM staff_audit WHERE business_id=%s
+                    AND entity_type='subscription_management' AND action IN ('archive','restore')
+                    ORDER BY id DESC LIMIT 1""",(business_id,))
+                latest=cursor.fetchone()
+                archived=bool(latest and latest['action']=='archive')
+                if action=='restore':
+                    if not archived:
+                        raise ValueError('Business is not archived.')
+                    result.update(status='business_restored_inactive', previous_active=business['active'])
+                    agency.audit(cursor,business_id,actor,action,'subscription_management',None,
+                        {'active':business['active'],'archived':True},result,reason)
+                    return
+                if archived:
+                    raise ValueError('Restore the archived business before reactivating it.')
                 cursor.execute('UPDATE sm_businesses SET active=TRUE WHERE id=%s',(business_id,))
                 result.update(status='business_reactivated', previous_active=business['active'])
             agency.audit(cursor,business_id,actor,action,'subscription_management',None,None,result,reason)

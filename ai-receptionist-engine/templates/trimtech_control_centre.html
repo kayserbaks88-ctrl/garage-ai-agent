@@ -17,6 +17,7 @@
             <nav class="product-links" aria-label="Product administration">
                 <a href="{{ url_for('platform.platform_businesses') }}">Garage AI administration</a>
                 <a href="{{ url_for('staff.platform_businesses') }}">Staff Manager administration</a>
+                <a href="{{ url_for('staff.platform_acquisition') }}">Staff acquisition</a>
                 {% if can_review %}<a href="{{ url_for('staff.platform_registration_review') }}">Registration review</a>{% endif %}
                 {% if paychaser_admin_url %}<a href="{{ url_for('staff.platform_paychaser_businesses') }}">PayChaser businesses</a>
                 <a href="{{ paychaser_admin_url }}" target="_blank" rel="noopener noreferrer">PayChaser administration</a>
@@ -35,9 +36,9 @@
 
         <section class="metrics" aria-label="Staff Manager billing overview">
             <article class="metric metric-blue">
-                <span class="metric-label">Staff businesses</span>
+                <span class="metric-label">Active businesses</span>
                 <strong>{{ products.staff.businesses if products.staff.businesses is not none else 'Unavailable' }}</strong>
-                <span class="metric-note">Recorded workspaces</span>
+                <span class="metric-note">Staff Manager</span>
             </article>
             <article class="metric metric-purple">
                 <span class="metric-label">Active trials</span>

@@ -1769,3 +1769,6 @@ register_employee_recovery_routes(sys.modules[__name__])
 
 from trimtech.modules.staff.employee_pwa import register_routes as register_employee_pwa_routes
 register_employee_pwa_routes(sys.modules[__name__])
+
+from trimtech.modules.staff.acquisition import register_routes as register_acquisition_routes
+register_acquisition_routes(sys.modules[__name__])

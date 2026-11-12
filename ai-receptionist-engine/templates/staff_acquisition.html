@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en-GB"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Staff acquisition | TrimTech</title>
+<style>body{font:16px/1.5 system-ui;margin:0;background:#f1f5f9;color:#142235}main{max-width:1100px;margin:auto;padding:24px}form{display:flex;gap:16px;flex-wrap:wrap;align-items:end}label{display:grid;gap:4px}input,button{font:inherit;padding:10px;min-height:44px;box-sizing:border-box}table{border-collapse:collapse;width:100%;background:white;margin:24px 0}th,td{text-align:left;padding:12px;border-bottom:1px solid #ccd4df}.table-wrap{overflow-x:auto}dt{font-weight:bold;margin-top:12px}dd{margin-left:0}a{color:#0755b5}</style></head>
+<body><main><p><a href="{{ url_for('staff.platform_control_centre') }}">Control Centre</a></p><h1>Staff acquisition</h1>
+{% if error %}<p role="alert">{{ error }}</p>{% else %}
+<form method="get"><label>From (UTC)<input type="date" name="start" value="{{ start }}" required></label><label>Through (UTC)<input type="date" name="end" value="{{ end }}" required></label><button>Apply dates</button></form>
+<p>Dates include both selected days in UTC. Each account event is counted on its own event date.</p>
+<p>Marketing collection started {{ marketing.started_at or 'Unavailable' }}. {% if not complete %}The selected range has incomplete or unavailable request history. Request totals below cover recorded data only.{% endif %}</p>
+<div class="table-wrap"><table><caption>Totals for {{ start }} through {{ end }}</caption><thead><tr><th>Landing requests</th><th>Trial-click requests</th><th>Registrations</th><th>Email verifications</th><th>Trial activations</th></tr></thead><tbody><tr>{% for metric in ['landing_requests','trial_clicks','registrations','verifications','activations'] %}<td>{{ totals[metric] if totals[metric] is not none else 'Unavailable' }}</td>{% endfor %}</tr></tbody></table></div>
+<div class="table-wrap"><table><caption>Daily events</caption><thead><tr><th>UTC date</th><th>Landing requests</th><th>Trial-click requests</th><th>Registrations</th><th>Email verifications</th><th>Trial activations</th><th>Request coverage</th></tr></thead><tbody>{% for row in days %}<tr><th scope="row">{{ row.day }}</th>{% for metric in ['landing_requests','trial_clicks','registrations','verifications','activations'] %}<td>{{ row[metric] if row[metric] is not none else 'Unavailable' }}</td>{% endfor %}<td>{{ row.coverage|title }}</td></tr>{% endfor %}</tbody></table></div>
+<h2>Metric definitions</h2><dl>
+<dt>Landing requests</dt><dd>Recorded successful GET requests served by the marketing application at /staff-manager.</dd>
+<dt>Trial-click requests</dt><dd>Recorded GET requests to the marketing Start free trial redirect. Repeated requests, bots and link previews can increase both request metrics. Requests and clicks measure HTTP activity.</dd>
+<dt>Registrations</dt><dd>Self-service workspaces with an existing trial record, counted by the business creation timestamp. Provisioned legacy workspaces are excluded.</dd>
+<dt>Email verifications</dt><dd>Administrators with an eligible self-service workspace, counted once on their first stored verified_at timestamp.</dd>
+<dt>Trial activations</dt><dd>Eligible trials counted on their stored starts_at timestamp. Expired trials remain eligible.</dd>
+<dt>Account exclusions</dt><dd>Currently archived workspaces, accounts explicitly marked as tests, and inactive accounts discarded through registration review are excluded from all three account metrics. Restore or reclassification can change historical summaries. Test status is assigned manually through Manage business.</dd>
+<dt>History and attribution</dt><dd>Existing account timestamps supply historical account totals. Request collection begins when persistent counters first record successfully. Earlier dates show Unavailable, and the first collection day is partial. Stored totals can undercount during tracking outages. Request counters retain no account identity, so known test requests cannot be removed retrospectively. Account events have no ad attribution in this report.</dd>
+</dl>{% endif %}</main></body></html>

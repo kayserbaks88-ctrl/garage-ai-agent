@@ -126,6 +126,13 @@ def apply(action, ids, actor, reason, confirmation):
                 elif row['active'] == target:
                     skipped.append((business_id, 'Already active' if target else 'Already inactive'))
                 elif target:
+                    cursor.execute("""SELECT action FROM staff_audit WHERE business_id=%s
+                        AND entity_type='subscription_management' AND action IN ('archive','restore')
+                        ORDER BY id DESC LIMIT 1""", (business_id,))
+                    archive = cursor.fetchone()
+                    if archive and archive['action'] == 'archive':
+                        skipped.append((business_id, 'Restore the archived business before reactivating it'))
+                        continue
                     cursor.execute("SELECT new_active FROM sr_review_items WHERE business_id=%s ORDER BY id DESC LIMIT 1", (business_id,))
                     last = cursor.fetchone()
                     if last and last['new_active'] is False:

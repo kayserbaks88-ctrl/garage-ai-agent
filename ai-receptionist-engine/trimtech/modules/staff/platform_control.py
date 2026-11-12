@@ -24,7 +24,7 @@ from trimtech.modules.onboarding.service import (
 from trimtech.modules.staff.paychaser_integration import fetch_summary, admin_url as paychaser_admin_url
 
 logger = logging.getLogger(__name__)
-STATUSES = {'all','active_trial','expired_trial','pending_trial','paid','inactive','legacy','complimentary'}
+STATUSES = {'active','inactive_archived','archived','all','active_trial','expired_trial','pending_trial','paid','inactive','legacy','complimentary'}
 OWNER_FILTERS = {'all', 'verified', 'unverified'}
 
 def authorized():
@@ -62,7 +62,11 @@ def control_centre_required(function):
     return protected
 
 
-def directory(query='', status='all', owner='all', candidates_only=False):
+def active_business(row):
+    return row.get('active', row.get('state') not in ('inactive','archived')) and row.get('state') != 'archived'
+
+
+def directory(query='', status='active', owner='all', candidates_only=False):
     if status not in STATUSES or owner not in OWNER_FILTERS:
         raise ValueError('Choose a valid business status.')
     with transaction() as connection:
@@ -103,7 +107,10 @@ def directory(query='', status='all', owner='all', candidates_only=False):
                 COALESCE(sh.pending,0) AS pending_approvals,sh.last_activity,
                 sub.status AS subscription_status,sub.paid_until,sub.invoice_status,
                 sub.cancel_at_period_end,
-                CASE WHEN NOT b.active THEN 'inactive'
+                CASE WHEN COALESCE((SELECT a.action='archive' FROM staff_audit a
+                    WHERE a.business_id=b.id AND a.entity_type='subscription_management'
+                    AND a.action IN ('archive','restore') ORDER BY a.id DESC LIMIT 1),FALSE) THEN 'archived'
+                     WHEN NOT b.active THEN 'inactive'
                      WHEN sub.status='active' AND sub.paid_until>NOW() THEN 'paid'
                      WHEN t.business_id IS NULL THEN 'legacy'
                      WHEN t.starts_at IS NULL THEN 'pending_trial'
@@ -132,7 +139,11 @@ def directory(query='', status='all', owner='all', candidates_only=False):
         if (text and text not in row['name'].casefold()
                 and text not in str(row.get('owner_email') or '').casefold()):
             continue
-        if status != 'all' and row['state'] != status:
+        if status == 'active' and not active_business(row):
+            continue
+        if status == 'inactive_archived' and row['state'] not in ('inactive','archived'):
+            continue
+        if status not in ('all','active','inactive_archived') and row['state'] != status:
             continue
         if owner == 'verified' and not row['owner_verified']:
             continue
@@ -143,7 +154,7 @@ def directory(query='', status='all', owner='all', candidates_only=False):
             continue
         row['owner_email_masked'] = registration_review.mask_email(row.pop('owner_email', None))
         filtered.append(row)
-    return dict(businesses=filtered,total=len(rows),matching=len(filtered),health='Verified',
+    return dict(businesses=filtered,total=sum(active_business(row) for row in rows),matching=len(filtered),health='Verified',
                 active_trials=sum(row['state']=='active_trial' for row in rows),
                 paid=sum(row['state']=='paid' for row in rows),
                 review_candidates=sum(row['review_candidate'] for row in rows),
@@ -162,7 +173,7 @@ def register_routes(staff):
             garage_businesses = None
             garage_available = False
         try:
-            staff_data = directory()
+            staff_data = directory(status='all')
         except staff._DB_ERRORS:
             logger.exception('Control Centre could not read Staff Manager summaries')
             staff_data = None
@@ -188,7 +199,7 @@ def register_routes(staff):
     @platform_admin_required
     def platform_businesses():
         query=request.args.get('q','')[:160]
-        status=request.args.get('status','all')
+        status=request.args.get('status','active')
         owner=request.args.get('owner','all')
         candidates_only=request.args.get('candidates_only') == '1'
         can_review = authorized() and session.get('platform_admin_auth_source') == 'dedicated'
@@ -340,6 +351,19 @@ def register_routes(staff):
             abort(503)
         return redirect(url_for('staff.platform_subscription',business_slug=business_slug))
 
+    @staff.staff_blueprint.post('/platform/businesses/<business_slug>/classification')
+    @control_centre_required
+    def platform_classify_business(business_slug):
+        from trimtech.modules.staff import acquisition_classification
+        try:
+            acquisition_classification.change(business_slug, 'platform:'+session['platform_admin_username'], request.form)
+            flash('Acquisition classification saved and audited.', 'success')
+        except ValueError as error:
+            flash(str(error), 'error')
+        except staff._DB_ERRORS:
+            abort(503)
+        return redirect(url_for('staff.platform_manage_business', business_slug=business_slug))
+
     @staff.staff_blueprint.get('/platform/businesses/<business_slug>/manage')
     @control_centre_required
     def platform_manage_business(business_slug):
@@ -430,7 +454,7 @@ def build_control_centre_summary(
         else None
     )
     garage_count = len(garage_rows) if garage_rows is not None else None
-    staff_count = len(staff_rows) if staff_rows is not None else None
+    staff_count = sum(active_business(row) for row in staff_rows) if staff_rows is not None else None
 
     active_trials = (
         sum(row.get('state') == 'active_trial' for row in staff_rows)

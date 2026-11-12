@@ -25,9 +25,23 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;
 {% for category,message in get_flashed_messages(with_categories=true) %}<p class="flash {{ category }}" role="status">{{ message }}</p>{% endfor %}
 
 <section aria-labelledby="actions-h"><h2 id="actions-h">Subscription and access actions</h2>
-<p>Account: <span class="badge {{ 'ok' if business.active else 'bad' }}">{{ 'Active' if business.active else 'Deactivated' }}</span></p>
-<p><a href="{{ url_for('staff.platform_subscription', business_slug=business.id) }}#actions">Deactivate or reactivate account, end trial, review cancellation requests</a><br>
+<p>Account: <span class="badge {{ 'ok' if business.active else 'bad' }}">{{ 'Archived' if business.archived else 'Active' if business.active else 'Inactive' }}</span></p>
+<p><a href="{{ url_for('staff.platform_subscription', business_slug=business.id) }}#actions">Archive, restore or reactivate account, end trial, review cancellation requests</a><br>
 <a href="#comp-h">Grant or revoke complimentary access</a></p></section>
+
+<section aria-labelledby="lifecycle-h"><h2 id="lifecycle-h">Business access</h2>
+<form method="post" action="{{ url_for('staff.platform_subscription_action', business_slug=business.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<label for="lifecycle-action">Action</label><select id="lifecycle-action" name="action">{% for action in (['restore'] if business.archived else ['archive'] if business.active else ['reactivate','archive']) %}<option value="{{ action }}">{{ action|title }}</option>{% endfor %}</select>
+<label for="lifecycle-reason">Reason</label><textarea id="lifecycle-reason" name="reason" required maxlength="1000"></textarea>
+<label for="lifecycle-confirmation">Type {{ business.id }} to confirm</label><input id="lifecycle-confirmation" name="confirmation" required><button>Apply business action</button></form>
+<p>Archive retains business history and billing records. Billing safeguards and open shifts can prevent archiving. Restore leaves the account inactive until reactivated. Reactivation keeps the original trial dates.</p></section>
+<section aria-labelledby="classification-h"><h2 id="classification-h">Acquisition classification</h2>
+<p>{{ 'Marked as a test account' if business.is_test else 'Included unless archived or discarded through registration review' }}</p>
+<form method="post" action="{{ url_for('staff.platform_classify_business', business_slug=business.id) }}">
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="{{ 'clear_test' if business.is_test else 'mark_test' }}">
+<label for="test-reason">Reason</label><textarea id="test-reason" name="reason" required maxlength="1000"></textarea>
+<label for="test-confirmation">Type {{ business.id }} to confirm</label><input id="test-confirmation" name="confirmation" required><button>{{ 'Clear test classification' if business.is_test else 'Mark as test account' }}</button></form></section>
 
 <section aria-labelledby="details-h"><h2 id="details-h">Business details</h2>
 {% if details %}
@@ -46,7 +60,7 @@ table{width:100%;border-collapse:collapse;font-size:.9rem}th,td{text-align:left;
 <section aria-labelledby="status-h"><h2 id="status-h">Account and subscription</h2>
 <dl>
 <dt>Business ID</dt><dd>{{ business.id }}</dd>
-<dt>Account</dt><dd><span class="badge {{ 'ok' if business.active else 'bad' }}">{{ 'Active' if business.active else 'Deactivated' }}</span></dd>
+<dt>Account</dt><dd><span class="badge {{ 'ok' if business.active else 'bad' }}">{{ 'Archived' if business.archived else 'Active' if business.active else 'Inactive' }}</span></dd>
 <dt>Current access</dt><dd><span class="badge {{ 'ok' if access.state in ('paid','legacy') or (access.state=='active') else 'bad' }}">{{ access.state|title }}{% if access.complimentary %} (complimentary){% endif %}</span></dd>
 <dt>Trial</dt><dd>{{ trial.state|title }}</dd>
 <dt>Trial expiry</dt><dd>{{ fmt(trial.ends_at) if trial.ends_at else 'Not applicable' }}</dd>
