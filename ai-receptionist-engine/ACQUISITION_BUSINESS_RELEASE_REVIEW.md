@@ -1,6 +1,39 @@
 # Staff business management and acquisition release review
 
-Updated 12 November 2026. Both implementation candidates are committed locally on dedicated release branches. The original checkout and unrelated worktrees were preserved. Production configuration and records were untouched.
+Both implementation candidates remain committed locally on dedicated release branches. Following separate operator authorization, marketing storage setup and a redeployment of the reviewed marketing baseline have been verified. The Staff contact schema has also passed the documented read-only check. Storage and the existing 98 passing tests are reused. This preparation update changes only release documentation.
+
+## Verified marketing storage setup
+
+The operator approved the additional $0.25/month for a 1 GB persistent disk and the necessary marketing baseline redeployment. The operator then clicked Add Disk manually. On resuming, the authenticated Render Disk page already showed a matching disk, so that disk was reused.
+
+| Item | Verified result |
+| --- | --- |
+| Marketing service | `trimtech-ai` |
+| Render service ID | `srv-da6egh142hec73cq2uag` |
+| Persistent disk size | 1 GB |
+| Mount path | `/var/data` |
+| Approved incremental cost | $0.25/month at the displayed $0.25/GB/month rate |
+| Saved and runtime-verified variable | `MARKETING_ACQUISITION_DB=/var/data/staff-acquisition.sqlite3` |
+| Explicit deployment | `dep-dbr4b4rtqb8s73df7850` |
+| Deployed full SHA | `d428f8114fd65a287e25c5e68526b042b88f88ab` |
+| Deployment outcome | Render displayed Deploy succeeded and Live |
+| Runtime instance checked | `srv-da6egh142hec73cq2uag-56d747985c-65qsp` |
+| Compute and scaling | Starter, one instance |
+| Auto-Deploy | Off, verified in Settings after the explicit deployment |
+
+The environment variable was added with Save only. Manual Deploy > Deploy a specific commit then selected the approved full baseline SHA. The deployment completed successfully. Its log displayed the service-live message on 12 November 2026 at 23:03:35. The marketing feature candidate `754b6269f146613bdd28ebd617377991340e96e8` was not deployed.
+
+In the authenticated marketing Linux web shell, the runtime values of `RENDER_SERVICE_NAME`, `RENDER_GIT_COMMIT` and `MARKETING_ACQUISITION_DB` matched the service, full SHA and filename above. `mountpoint /var/data` returned `/var/data is a mountpoint`.
+
+The following bounded test created a generated temporary file under the mount, wrote and read `ok`, removed that same file, and checked its absence. It returned `WRITE_READ_REMOVE_OK` and the shell prompt.
+
+```sh
+f=$(mktemp /var/data/.trimtech-check.XXXXXX) && printf ok > $f && test $(cat $f) = ok && rm -- $f && test ! -e $f && echo WRITE_READ_REMOVE_OK
+```
+
+Public HTTPS checks returned 200 for `https://trimtechai.com/`, `https://trimtechai.com/health` and `https://trimtechai.com/staff-manager`. The health response was `{"service":"trimtech-ai-marketing","status":"ok"}`. Both HTML pages contained the expected Staff Manager content.
+
+All four requested storage checks are verified. Application code and the existing 98-test evidence remain applicable. This update changes only the local release review. The feature branches retain their existing commits, Staff production was untouched, and no production migration ran.
 
 ## Production evidence and verified local revisions
 
@@ -71,24 +104,28 @@ This release adds no PostgreSQL migration or dependency. Archive and test classi
 
 Only marketing service `trimtech-ai` needs persistent SQLite storage. Staff service `garage-voice-agent` uses its existing PostgreSQL database and the HTTPS aggregate endpoint. Staff requires no SQLite file or shared filesystem mount.
 
-An existing persistent disk, mount path and service instance count have not been confirmed. No disk was provisioned and no production settings were changed. The operator must first identify a persistent mount already attached to `trimtech-ai`, confirm the actual mount path and confirm that one service instance owns this SQLite database. Gunicorn workers on that instance can use the same file. Independent replicas with separate files produce separate counters, so instance/storage topology must be confirmed before treating their totals as complete.
+A 1 GB persistent disk at `/var/data`, one marketing instance and marketing-process write/read/remove access have now been verified as recorded above. Gunicorn workers on that instance use the same file. The storage prerequisite is complete.
 
 | Variable | Configure on | Required value or path rule |
 | --- | --- | --- |
-| `MARKETING_ACQUISITION_DB` | `trimtech-ai` | Absolute SQLite filename beneath the confirmed persistent mount. Its parent directory must already exist and be writable by the marketing process. If the mount is confirmed as `/var/data`, use `/var/data/staff-acquisition.sqlite3`. `/var/data` is a conditional example, not an observed mount. |
+| `MARKETING_ACQUISITION_DB` | `trimtech-ai` | Configured and runtime-verified as `/var/data/staff-acquisition.sqlite3` beneath the attached persistent mount. |
 | `MARKETING_DEMO_STATE_DB` | `trimtech-ai`, existing optional fallback | Used only when `MARKETING_ACQUISITION_DB` is empty/absent. Reuse only after checking that its actual absolute path is on a persistent mount and writable. Its current production value and persistence are unconfirmed. |
-| `MARKETING_ACQUISITION_REPORT_TOKEN` | Both services | The same private value of at least 32 characters. Set through the existing service secret/environment mechanism. No secret value belongs in Git, this report, screenshots, request URLs or logs. |
+| `MARKETING_ACQUISITION_REPORT_TOKEN` | Both services | `<SHARED_SECRET_AT_LEAST_32_CHARACTERS>`, using the same private value on each service through its secret/environment settings. This is a placeholder. |
 | `STAFF_MARKETING_REPORT_URL` | `garage-voice-agent` | `https://trimtechai.com/internal/staff-acquisition`, with no query string or embedded credential. It must reach marketing directly over HTTPS because redirects are rejected. |
 
 The SQLite parent directory needs write permission for the database and SQLite journal files. The application creates `acquisition_daily` and `acquisition_collection` transactionally on its first successful counter write. The file itself need not exist in advance. No directories or disks are created by the code. Preserve the database file through redeployments and rollback. A relative path, missing parent or unwritable file makes counter data unavailable while the page and trial redirect continue to work. Collection starts at the first successful write, with no historical request backfill.
 
-If no existing persistent mount is available, the operator must decide whether to approve storage provision or another durable storage approach separately. No paid-storage action is part of this local preparation. Persistent mounts and the shared token are configuration prerequisites for reliable request reporting. Existing database and dedicated platform-owner credentials remain in place.
+The approved storage setup is complete. Shared reporting credentials and the Staff report URL remain prerequisites of the separately authorized feature rollout. The reviewed baseline remains live, so acquisition counter tables will be initialized only after that feature code is separately released and records its first successful request.
 
 ### Existing business-contact schema check
 
 The deployed baseline already contains `business_contact_migration`, version `20261104_staff_business_contact_v1`. Name edits work without `sd_contacts`. Contact-email editing requires that table and a valid `sd_schema_migrations` record/fingerprint. This release does not add or change that migration.
 
-Production schema status remains unverified. The current environment exposes no authenticated production database connection. The browser access host was also unavailable on the read-only access check. The precise remaining operator check is to run the following read-only code in the existing Staff service environment, using its existing connection settings and tenant schema/search path. It prints only schema availability/verification status and executes no migration.
+The production contact-schema check is complete. It ran in the authenticated Render web shell for `garage-voice-agent`, service ID `srv-d97u07ok1i2s73eq9hcg`, on instance `srv-d97u07ok1i2s73eq9hcg-55bd4ff965-jw5j6`. The runtime commit matched `0ee3cf5b8286a5417469f4775d0abffc22a754c0`. The runtime's service-name variable reports `garage-voice`; the Render dashboard and service ID identify the requested `garage-voice-agent` service.
+
+The check used `transaction()`, called `connection.set_session(readonly=True)` before the schema queries, then called `business_contact_migration.present(cursor)` and `business_contact_migration.verify(cursor)` with a plain cursor. The shell printed `True`, followed by `20261104_staff_business_contact_v1` after verification returned successfully, and returned to its prompt. Thus `sd_contacts` is present and its stored migration checksum and current schema fingerprint match. Contact-email editing needs no migration. The check executed no migration or production record update.
+
+The equivalent documented read-only recipe is retained for reference.
 
 ```python
 from trimtech.modules.staff.database import transaction
@@ -104,7 +141,25 @@ with transaction() as connection:
             print("Contact migration checksum and schema fingerprint verified")
 ```
 
-If the table is absent, report that contact-email editing requires the existing migration `python -m trimtech.modules.staff.business_contact_migration` in a separately authorized migration step. If it is present but verification fails, inspect that inconsistency before any migration decision. No production migration is authorized by this preparation. Existing complimentary/registration-review migration SQL is unchanged.
+The verified contact schema satisfies the business-editor prerequisite. This release introduces no PostgreSQL migration. Existing complimentary/registration-review migration SQL is unchanged.
+
+### Remaining feature-rollout environment settings
+
+The exact required settings below are preparation instructions. Their production values were not changed in this step. The shared secret placeholder denotes one identical private value of at least 32 characters on both services.
+
+```dotenv
+# trimtech-ai: already configured and verified
+MARKETING_ACQUISITION_DB=/var/data/staff-acquisition.sqlite3
+
+# trimtech-ai: configure/confirm for the feature rollout
+MARKETING_ACQUISITION_REPORT_TOKEN=<SHARED_SECRET_AT_LEAST_32_CHARACTERS>
+
+# garage-voice-agent: configure/confirm for the feature rollout
+MARKETING_ACQUISITION_REPORT_TOKEN=<SHARED_SECRET_AT_LEAST_32_CHARACTERS>
+STAFF_MARKETING_REPORT_URL=https://trimtechai.com/internal/staff-acquisition
+```
+
+The feature-rollout secret and URL still require authorized configuration/confirmation. Existing production values were not inspected during the schema check. No additional storage configuration is required, and the dedicated acquisition database path takes precedence over the optional demo-state fallback.
 
 ## Validation
 
@@ -125,10 +180,10 @@ A live authenticated production UI check and real-browser layout validation rema
 
 ## Deployment order for a future authorized release
 
-All steps below describe a future release. No push, merge, deployment, production migration or environment update was performed during this preparation.
+All steps below describe the future feature release. The separately approved marketing storage setup and baseline redeployment are recorded above. Feature commits remain local.
 
-1. Use the full candidate SHAs recorded above and inspect their scoped diffs against the full baselines. The operator supplied Auto-Deploy Off on both services. Preserve the supplied roots and `gunicorn app` start commands. Preserve existing build settings. Before a future deployment, check whether either live baseline has advanced since the operator's 12 November evidence and reconcile only if it has.
-2. Resolve the outstanding marketing mount/path and instance-count checks, shared-token configuration, Staff report URL and read-only contact-schema check. Contact-table absence gates contact-email editing. It does not gate name editing, archive controls or acquisition reporting. Any storage purchase, production setting update or migration remains a separately authorized operator action.
+1. Use the full candidate SHAs recorded above and inspect their scoped diffs against the full baselines. Auto-Deploy Off was supplied by the operator for both services and independently verified for marketing after the storage deployment. Preserve the existing roots and commands. Marketing Settings displayed `gunicorn app:app`, which was not edited. Preserve existing build settings. Before a future feature deployment, check whether either live baseline has advanced and reconcile only if it has.
+2. Reuse the verified marketing mount, configured SQLite path and successful Staff contact-schema check. Complete authorized shared-token configuration/confirmation on both services and the exact Staff report URL recorded above. No contact migration is required. Any further production setting update remains a separate release action.
 3. After separate push/deploy authorization, release marketing candidate `754b6269f146613bdd28ebd617377991340e96e8` first. This installs the fixed redirect, SQLite counters and authenticated aggregate endpoint. Confirm the selected persistent path survives service restarts through the normal storage controls. A successful collection request creates its first collection timestamp. Use isolated staging for write-based validation before production release.
 4. Release Staff implementation candidate `c107c390c24d9548a2853d227aa1e78a8851cda6` second. The owner report reads the newly available marketing aggregate endpoint. Either service can be deployed independently without blocking signup, and Staff displays unavailable request metrics while marketing is unconfigured or absent. Marketing-first is the chosen order so the report can have a functioning source at Staff rollout.
 5. Record each successful deployed full SHA. Verify ordinary public pages, fixed redirect destination, owner-only report access, date filters and unavailable-history labels. Confirm unauthorized sessions are denied and check Garage AI, Staff Manager and PayChaser entry points after the shared Staff service restarts. Exercise business edits, archiving/restoration and signup mutations on isolated staging data. A production smoke test must follow the operator's separately authorized scope.
@@ -143,13 +198,13 @@ All steps below describe a future release. No push, merge, deployment, productio
 
 ## Release readiness and remaining operator checks
 
-Local implementation, scoped commits, baseline reconciliation and test reuse are complete. Production revisions are established on operator-provided Render evidence and independently mapped to full local Git SHAs. They are not being described as a fresh authenticated Render API inspection.
+Local implementation, scoped commits, baseline reconciliation, storage verification, read-only contact-schema verification and test reuse are complete. Marketing storage was verified through the authenticated Render UI, runtime shell and public HTTP checks. The Staff runtime commit and contact schema were independently read through the authenticated Staff web shell. No Render API inspection is claimed.
 
 The remaining operator inputs are specific.
 
-- Confirm a persistent mount already available to `trimtech-ai`, its actual path, marketing process write permission and service instance count. If none exists, decide separately whether durable storage provision is approved.
-- Confirm/configure the marketing SQLite filename, the shared secret on both services and the Staff-only aggregate report URL. Existing production values were not read or changed. Secret values should be entered through service settings without posting them in the conversation.
-- Provide the read-only contact-schema check result. If absent, contact-email editing needs a separately authorized application of the existing migration. Name edits and the other release features do not require that table.
+- Storage verification has no unresolved checks. The matching 1 GB disk is attached at `/var/data`, the SQLite filename is configured, the temporary file was removed and the approved baseline is healthy.
+- Configure the shared secret on both services and the Staff-only aggregate report URL when the feature rollout is authorized. Secret values should be entered through service settings without posting them in the conversation. These settings were outside the storage-only authorization.
+- The Staff contact schema is present and verified. It introduces no remaining migration blocker.
 - Authorize any later push, merge, configuration action or deployment separately. This preparation stops with local commits.
 
 No current-baseline rebase is required on the supplied evidence. The implementation candidates match their respective deployed baselines and contain only this task's scoped changes. Browser layout/device validation remains unperformed. Normal-entry local Flask route rendering, authorization and the existing 98 checks passed.
